@@ -1,7 +1,7 @@
-import { ASSETS, IMAGE_FALLBACKS, FACTIONS, AVATAR_OPTIONS, RADIO_TRACKS, RADIO_STATIONS, ITEMS, LOCATIONS, NPCS, BLIND_DOG_IMAGES, MAX_CARRY_KG, START_BUDGET } from '../data/catalog.js';
+import { ASSETS, IMAGE_FALLBACKS, FACTIONS, AVATAR_OPTIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS, ITEMS, LOCATIONS, NPCS, BLIND_DOG_IMAGES, MAX_CARRY_KG, START_BUDGET } from '../data/catalog.js';
 import { getWeight, countItem, getItem } from '../systems/inventory.js';
 import { getGameDateTime, formatElapsed } from '../systems/game-clock.js';
-import { getLocation } from '../systems/world.js';
+import { getLocation, getAvailableTraders, getSidorovichJobState } from '../systems/world.js';
 
 export const esc = (value='') => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const money = (value) => `${Number(value || 0).toLocaleString('ru-RU')} RU`;
@@ -16,6 +16,7 @@ const avatarMarkup = (src, name, emoji='☢') => src
   ? `<div class="avatar-wrap"><img src="${esc(src)}" alt="${esc(name)}" loading="lazy" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${esc(avatarFallbackFor(src,name))}'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><span class="avatar-fallback" hidden>${emoji}</span></div>`
   : `<div class="avatar-wrap"><span class="avatar-fallback">${emoji}</span></div>`;
 const itemFallbackFor = (item) => {
+  if (item.id==='flesh-eye') return IMAGE_FALLBACKS.fleshEye;
   if (item.cat==='Еда') return IMAGE_FALLBACKS.food;
   if (item.cat==='Медицина') return IMAGE_FALLBACKS.medical;
   if (item.cat==='Добыча') return IMAGE_FALLBACKS.dog;
@@ -130,22 +131,25 @@ export function renderLoadout(state) {
 }
 
 function gameNav(active) {
-  const tabs = [ ['location','◈','Местность'],['map','⌖','Карта'],['inventory','▦','Инвентарь'],['stats','▤','Статистика'],['radio','♫','Радио'],['messages','✉','Связь'],['quests','☷','Задания'],['contacts','♟','Контакты'] ];
+  const tabs = [ ['location','◈','Местность'],['map','⌖','Карта'],['inventory','▦','Рюкзак'],['trade','₽','Торговля'],['stats','▤','Статистика'],['radio','♫','Радио'],['player','▶','Плеер'],['messages','✉','Связь'],['quests','☷','Задания'],['contacts','♟','Контакты'] ];
   return tabs.map(([id,ico,label])=>`<button class="nav-tab ${active===id?'active':''}" data-action="tab" data-tab="${id}"><span>${ico}</span><b>${label}</b></button>`).join('');
 }
 
 function renderLocation(game, character) {
   const location = getLocation(game.locationId);
   const npcs = NPCS.filter(npc=>npc.location===game.locationId);
+  const traders = getAvailableTraders(game,game.locationId);
   const squads = game.squads.filter(squad=>squad.location===game.locationId);
   const description = game.currentDescription || location?.desc || '';
-  const hazard = location?.hazards?.length ? `<div class="hazard-row">${location.hazards.map(h=>`<span class="hazard-chip ${h}">${h==='radiation'?'☢ Радиационный очаг':'◉ Гравитационная аномалия'}</span>`).join('')}</div>` : '';
+  const hazard = location?.hazards?.length ? `<div class="hazard-row">${location.hazards.map(h=>`<span class="hazard-chip ${h}">${h==='radiation'?'☢ Радиационный очаг':`◉ Гравитационная аномалия${location.anomalyName?`: ${esc(location.anomalyName)}`:''}`}</span>`).join('')}</div>` : '';
   const baseStation = RADIO_STATIONS.find(station=>station.locationId===game.locationId);
   const baseRadio = baseStation ? `<div class="side-panel base-radio-panel"><div class="panel-title"><h3>Базовая радиостанция</h3><span>${esc(baseStation.frequency)}</span></div><p class="environment-copy">${esc(baseStation.name)} · эфир группировки: ${esc(baseStation.faction)}</p>${btn('♫ Включить местное радио','radio-base-open','button primary wide',`data-id="${baseStation.id}"`)}</div>` : '';
+  const npcRows = npcs.map(npc=>`<div class="npc-row-wrap"><button class="npc-row" data-action="talk" data-id="${npc.id}">${avatarMarkup(npc.icon,npc.name,'♟')}<span><b>${esc(npc.name)}</b><small>${esc(npc.role)} · ${esc(npc.group)}</small></span><i>→</i></button>${npc.trader?btn('Открыть торговлю','trade-open','button tiny ghost',`data-id="${npc.id}"`):''}</div>`).join('');
+  const traderRows = traders.filter(trader=>trader.random).map(trader=>`<div class="npc-row-wrap"><button class="npc-row" data-action="trade-open" data-id="${trader.id}">${avatarMarkup(trader.icon,trader.name,'♟')}<span><b>${esc(trader.name)}</b><small>Бродячий торговец · Путник</small></span><i>₽</i></button></div>`).join('');
   return `<div class="location-view">
     <div class="location-hero" style="--location-bg:url('${location?.image||IMAGE_FALLBACKS.general}'),url('${IMAGE_FALLBACKS.general}')"><img class="location-hero-source" src="${esc(location?.image||IMAGE_FALLBACKS.general)}" alt="" loading="lazy" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${IMAGE_FALLBACKS.general}'}else{this.hidden=true}"><div class="location-overlay"></div><div class="location-title"><div class="eyebrow">КОРДОН · ТЕКУЩАЯ ЛОКАЦИЯ</div><h2>${esc(location?.name||'Неизвестно')}</h2><p>${esc(location?.desc||'')}</p></div><div class="location-weather">${esc(game.weather||'Пасмурно')}</div></div>
     <div class="location-body"><div class="location-actions"><div class="section-caption"><b>ДЕЙСТВИЯ</b><small>Опиши действие в строке снизу или выбери команду</small></div><div class="action-grid">${btn('⌕ Осмотреться','inspect','action-tile')}${btn('▤ Обыскать местность','search','action-tile')}${btn('◉ Искать артефакт','artifact-start','action-tile')}${btn('⌖ Перейти на карте','tab-map','action-tile')}${btn('☾ Отдохнуть','sleep-open','action-tile')}${btn('⚑ Проверить аномалию','anomaly','action-tile')}</div>${hazard}</div>
-      <div class="location-side"><div class="side-panel"><div class="panel-title"><h3>Люди рядом</h3><span>${npcs.length+squads.length}</span></div>${npcs.length ? npcs.map(npc=>`<button class="npc-row" data-action="talk" data-id="${npc.id}">${avatarMarkup(npc.icon,npc.name,'♟')}<span><b>${esc(npc.name)}</b><small>${esc(npc.role)} · ${esc(npc.group)}</small></span><i>→</i></button>`).join('') : '<p class="muted small-copy">Знакомых персонажей рядом нет.</p>'}${squads.map(s=>`<div class="squad-row"><span class="squad-mark">⚑</span><span><b>${esc(s.name)}</b><small>${s.members} человек · ${esc(s.faction==='loner'?'Одиночки':s.faction==='bandit'?'Бандиты':'Военные')}</small></span></div>`).join('')}</div>
+      <div class="location-side"><div class="side-panel"><div class="panel-title"><h3>Люди рядом</h3><span>${npcs.length+traders.filter(t=>t.random).length+squads.length}</span></div>${npcRows || '<p class="muted small-copy">Знакомых персонажей рядом нет.</p>'}${traderRows}${squads.map(s=>`<div class="squad-row"><span class="squad-mark">⚑</span><span><b>${esc(s.name)}</b><small>${s.members} человек · ${esc(s.faction==='loner'?'Одиночки':s.faction==='bandit'?'Бандиты':'Военные')}</small></span></div>`).join('')}</div>
       <div class="side-panel"><div class="panel-title"><h3>Окружение</h3></div><p class="environment-copy">${esc(description)}</p><div class="mini-readout"><span>Соседние локации</span><b>${location?.neighbors?.length||0}</b></div><button class="text-action" data-action="tab-map">Открыть карту Кордона →</button></div>${baseRadio}</div></div>
     </div>
   </div>`;
@@ -153,8 +157,9 @@ function renderLocation(game, character) {
 
 function renderMap(game) {
   const location = getLocation(game.locationId);
-  return `<div class="tab-page map-page"><div class="tab-heading"><div><div class="eyebrow">КПК · НАВИГАЦИЯ</div><h2>Карта Кордона</h2><p>Метка с жёлтой рамкой показывает твоё местоположение. Выбирай только соседние локации.</p></div><span class="legend"><i></i> Ты сейчас здесь</span></div>
-    <div class="map-frame"><img src="${ASSETS.map}" alt="Карта Кордона" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='https://www.mrdictionary.net/users/mecha-neko/saigimages/STALKER/STALKER_Shadow_of_Chernobyl_PC_s_074.jpg'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><div class="map-fallback" hidden>КАРТА КОРДОНА<br><small>Внешнее изображение недоступно</small></div><div class="map-pins">${LOCATIONS.map(loc=>`<button class="map-pin ${loc.id===game.locationId?'current':''} ${(location?.neighbors||[]).includes(loc.id)?'reachable':''}" style="left:${loc.x}%;top:${loc.y}%" data-action="travel" data-id="${loc.id}" title="${esc(loc.name)}"><i></i><span>${esc(loc.name)}</span></button>`).join('')}</div></div>
+  const mapLocations=LOCATIONS.filter(loc=>loc.mapVisible!==false);
+  return `<div class="tab-page map-page"><div class="tab-heading"><div><div class="eyebrow">КПК · НАВИГАЦИЯ</div><h2>Карта Кордона</h2><p>Нажми на серую точку, чтобы открыть карточку подлокации. Жёлтая точка показывает твоё местоположение.</p></div><span class="legend"><i></i> Ты сейчас здесь</span></div>
+    <div class="map-frame"><img src="${ASSETS.map}" alt="Чистая карта Кордона" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${IMAGE_FALLBACKS.general}'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><div class="map-fallback" hidden>КАРТА КОРДОНА<br><small>Изображение карты недоступно</small></div><div class="map-pins">${mapLocations.map(loc=>`<button class="map-pin ${loc.id===game.locationId?'current':''} ${(location?.neighbors||[]).includes(loc.id)?'reachable':''}" style="left:${loc.x}%;top:${loc.y}%" data-action="location-open" data-id="${loc.id}" aria-label="${esc(loc.name)}" title="${esc(loc.name)}"></button>`).join('')}</div></div>
     <div class="map-location-list"><h3>Ближайшие переходы</h3><div class="neighbor-grid">${(location?.neighbors||[]).map(id=>{const loc=getLocation(id);return `<article class="neighbor-card"><button class="neighbor-main" data-action="travel" data-id="${id}"><span>⌖</span><b>${esc(loc?.name||id)}</b><small>Перейти · 30–50 мин</small></button><button class="neighbor-scout" data-action="scout" data-id="${id}">Осмотреть биноклем</button></article>`}).join('')}</div></div>
     <div class="map-legend-row"><span>☢ Радиационные очаги отмечаются в описании локации</span><span>◉ Гравитационные поля требуют проверки болтом</span><span>▧ Тайники и находки появляются после исследования</span></div>
   </div>`;
@@ -188,48 +193,75 @@ function renderMessages(game) {
 
 function renderQuests(game) {
   const quests = game.quests || [];
+  const repeat=game.sidorovichJobs?.active;
   return `<div class="tab-page"><div class="tab-heading"><div><div class="eyebrow">КПК · ЖУРНАЛ ЗАДАНИЙ</div><h2>Задания</h2><p>Поручения местных жителей и найденные зацепки.</p></div><span class="quest-count">${quests.filter(q=>q.status==='completed').length}/${quests.length} выполнено</span></div>
-    <div class="quest-list">${quests.map(q=>{const npc=NPCS.find(n=>n.id===q.giver);return `<article class="quest-card ${q.status}"><div class="quest-symbol">${q.status==='completed'?'✓':'!'}</div><div class="quest-main"><div class="quest-title-row"><h3>${esc(q.title)}</h3><span>${q.status==='completed'?'ВЫПОЛНЕНО':'АКТИВНО / ДОСТУПНО'}</span></div><p>${esc(q.text)}</p><small>Заказчик: ${esc(npc?.name||'Неизвестно')} · Награда: ${money(q.reward)}</small></div>${npc?avatarMarkup(npc.icon,npc.name,'♟'):''}</article>`}).join('')}</div>
+    ${repeat?`<article class="quest-card active"><div class="quest-symbol">↻</div><div class="quest-main"><div class="quest-title-row"><h3>${esc(repeat.title)}</h3><span>ЦИКЛИЧЕСКОЕ</span></div><p>${esc(repeat.description)}</p><small>Заказчик: Сидорович · Награда: ${money(repeat.reward)}${repeat.type==='tails'?` · ${countItem(game.inventory,'tail')}/5 хвостов`:repeat.type==='medusa'?` · ${countItem(game.inventory,'medusa')}/1 Медуза`:repeat.contacted?' · Должник найден':' · Нужно поговорить с должником'}</small></div></article>`:''}<div class="quest-list">${quests.map(q=>{const npc=NPCS.find(n=>n.id===q.giver);return `<article class="quest-card ${q.status}"><div class="quest-symbol">${q.status==='completed'?'✓':'!'}</div><div class="quest-main"><div class="quest-title-row"><h3>${esc(q.title)}</h3><span>${q.status==='completed'?'ВЫПОЛНЕНО':'АКТИВНО / ДОСТУПНО'}</span></div><p>${esc(q.text)}</p><small>Заказчик: ${esc(npc?.name||'Неизвестно')} · Награда: ${money(q.reward)}</small></div>${npc?avatarMarkup(npc.icon,npc.name,'♟'):''}</article>`}).join('')}</div>
   </div>`;
 }
 
 
 function renderRadio(state) {
-  const station = RADIO_STATIONS.find(item=>item.id===state.settings.radioStationId)
+  const music=state.ui.music||{};
+  const station = RADIO_STATIONS.find(item=>item.id===(music.mode==='radio'?music.stationId:state.settings.radioStationId))
     || RADIO_STATIONS.find(item=>item.locationId===state.game?.locationId)
     || RADIO_STATIONS[0];
-  const stationTracks = RADIO_TRACKS.filter(item=>station.trackIds.includes(item.id));
-  const selectedId = station.trackIds.includes(state.settings.radioTrackId) ? state.settings.radioTrackId : stationTracks[0].id;
-  const track = stationTracks.find(item=>item.id===selectedId) || stationTracks[0];
-  const playing = !!state.ui.radioPlaying;
-  const player = playing
-    ? `<iframe class="radio-iframe" title="${esc(track.artist)} — ${esc(track.title)}" src="https://www.youtube-nocookie.com/embed/${esc(track.videoId)}?autoplay=1&rel=0&playsinline=1&modestbranding=1&start=${track.startSeconds||0}" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`
-    : `<div class="radio-idle"><span class="radio-frequency">${esc(station.frequency)}</span><b>${esc(station.name.toUpperCase())}</b><small>ЭФИР ОЖИДАЕТ НАСТРОЙКИ</small><span class="radio-wave">▂▅▃▇▅▂▆▃▅</span></div>`;
-  const stationButtons = RADIO_STATIONS.map(item=>`<button class="radio-station-choice ${item.id===station.id?'active':''}" data-action="radio-select-station" data-id="${item.id}"><b>${esc(item.name)}</b><small>${esc(item.frequency)} · ${item.trackIds.length} треков</small></button>`).join('');
+  const stationTracks=RADIO_TRACKS.filter(item=>station.trackIds.includes(item.id));
+  const track=RADIO_TRACKS.find(item=>item.id===music.trackId) || stationTracks[0];
+  const playing=music.playing && music.mode==='radio' && music.stationId===station.id;
+  const queueTracks=(music.mode==='radio' && music.stationId===station.id ? (music.queue||[]) : []).map(id=>RADIO_TRACKS.find(item=>item.id===id)).filter(Boolean);
+  const stationButtons=RADIO_STATIONS.map(item=>`<button class="radio-station-choice ${item.id===station.id?'active':''}" data-action="radio-start" data-id="${item.id}"><b>${esc(item.name)}</b><small>${esc(item.frequency)} · ${item.trackIds.length} композиций · случайный порядок</small></button>`).join('');
   return `<div class="tab-page radio-page">
-    <div class="tab-heading"><div><div class="eyebrow">КПК · ПРИЁМНИК</div><h2>Радио Кордон</h2><p>${esc(station.name)} · ${esc(station.frequency)} · тематический эфир каждой базы.</p></div><span class="radio-status ${playing?'live':''}"><i></i>${playing?'В ЭФИРЕ':'ОЖИДАНИЕ'}</span></div>
+    <div class="tab-heading"><div><div class="eyebrow">КПК · ПРИЁМНИК</div><h2>Радио Кордон</h2><p>Эфир базовых станций. Порядок композиций случайный; выбрать отдельную песню или переключить её нельзя.</p></div><span class="radio-status ${playing?'live':''}"><i></i>${playing?'В ЭФИРЕ':'ОЖИДАНИЕ'}</span></div>
     <div class="radio-stations">${stationButtons}</div>
-    <div class="radio-layout">
-      <section class="radio-console panel">
-        <div class="radio-console-top"><span>ZONE RADIO / R-100</span><span>FM · STEREO</span></div>
-        <div class="radio-screen">${player}</div>
-        <div class="radio-now-playing"><div class="eyebrow">${playing?'СЕЙЧАС ИГРАЕТ':'ВЫБРАННАЯ КОМПОЗИЦИЯ'} · ${esc(track.era)}</div><h3>${esc(track.title)}</h3><p>${esc(track.artist)} <span>·</span> ${esc(track.label)}</p></div>
-        <div class="radio-controls">${btn('◂ Предыдущая','radio-prev','button ghost')}${btn(playing?'▶ Перезапустить':'▶ Включить радио','radio-play-current','button primary')}${btn('Следующая ▸','radio-next','button ghost')}${btn('Ⅱ Выключить','radio-stop','button ghost',playing?'':'disabled')}</div>
-        <div class="radio-hint">Часть саундтреков размещена как длинный сборник: радио начинает воспроизведение с таймкода выбранной композиции.</div>
-      </section>
-      <section class="radio-playlist panel">
-        <div class="panel-title"><h3>Плейлист базы</h3><span>${stationTracks.length} из ${RADIO_TRACKS.length}</span></div>
-        <div class="radio-track-list">${stationTracks.map((item,index)=>`<article class="radio-track ${item.id===track.id?'selected':''}"><span class="radio-track-number">${String(index+1).padStart(2,'0')}</span><div class="radio-track-meta"><b>${esc(item.title)}</b><small>${esc(item.artist)} · ${esc(item.era)}</small></div><button class="radio-track-play" data-action="radio-play-track" data-id="${esc(item.id)}" title="Включить ${esc(item.title)}">${item.id===track.id&&playing?'Ⅱ':'▶'}</button><a class="radio-track-link" href="https://www.youtube.com/watch?v=${esc(item.videoId)}${item.startSeconds?`&t=${item.startSeconds}s`:''}" target="_blank" rel="noopener noreferrer" aria-label="Открыть ${esc(item.title)} на YouTube">↗</a></article>`).join('')}</div>
-      </section>
-    </div>
-    <p class="radio-disclaimer">В проекте хранятся только ссылки и таймкоды. Для прослушивания нужен интернет; YouTube может ограничивать отдельные видео по региону или настройкам правообладателя.</p>
+    <div class="radio-layout"><section class="radio-console panel"><div class="radio-console-top"><span>ZONE RADIO / R-100</span><span>FM · STEREO</span></div>
+      <div class="radio-screen"><div class="radio-idle"><span class="radio-frequency">${esc(station.frequency)}</span><b>${esc(station.name.toUpperCase())}</b><small>${playing?'СЕЙЧАС В ЭФИРЕ':'ПРИЁМНИК ГОТОВ'}</small><span class="radio-wave">▂▅▃▇▅▂▆▃▅</span></div></div>
+      <div class="radio-now-playing"><div class="eyebrow">${playing?'СЕЙЧАС ИГРАЕТ':'ПОСЛЕДНЯЯ / СЛЕДУЮЩАЯ КОМПОЗИЦИЯ'}</div><h3>${esc(track?.title||'Эфир выключен')}</h3><p>${esc(track?.artist||'Выбери радиостанцию')} ${track?`<span>·</span> ${esc(track.label)}`:''}</p></div>
+      <div class="radio-controls">${btn(playing?'Ⅱ Выключить эфир':'▶ Включить случайный эфир',playing?'radio-stop':'radio-start','button primary',`data-id="${station.id}"`)}</div>
+      <div class="radio-hint">Радио само перемешивает список, проигрывает все композиции по одной и только после конца очереди создаёт новый случайный порядок. Для выбора песни открой отдельный «Плеер».</div>
+    </section>
+    <section class="radio-playlist panel"><div class="panel-title"><h3>Очередь станции</h3><span>${queueTracks.length?`${queueTracks.length} в случайной очереди`:`${stationTracks.length} композиций`}</span></div>
+      <div class="radio-track-list">${(queueTracks.length?queueTracks:stationTracks).map((item,index)=>`<article class="radio-track ${item.id===track?.id&&playing?'selected':''}"><span class="radio-track-number">${String(index+1).padStart(2,'0')}</span><div class="radio-track-meta"><b>${esc(item.title)}</b><small>${esc(item.artist)} · ${esc(item.era)}</small></div><span class="radio-queue-state">${item.id===track?.id&&playing?'В эфире':'В очереди'}</span></article>`).join('')}</div>
+    </section></div>
+    <p class="radio-disclaimer">Музыка запускается через YouTube IFrame API и остаётся фоновой при переключении вкладок КПК. Нужен интернет и первоначальное нажатие «Включить эфир».</p>
+  </div>`;
+}
+
+function renderPlayer(state) {
+  const music=state.ui.music||{};
+  const activePlayer=music.mode==='player';
+  const current=activePlayer ? PLAYER_TRACKS.find(track=>track.id===music.trackId) : null;
+  const queue=activePlayer ? (music.queue||[]) : [];
+  const disabled=activePlayer?'':'disabled';
+  const modeHint=music.mode==='radio'?'Сейчас играет радиостанция. Выбери песню из библиотеки, чтобы переключиться на личный плеер.':'Выбери песню — далее библиотека играет по порядку.';
+  return `<div class="tab-page player-page"><div class="tab-heading"><div><div class="eyebrow">КПК · МЕДИАПЛЕЕР</div><h2>Плеер</h2><p>Личная музыкальная коллекция. Музыка продолжает играть при переключении вкладок КПК.</p></div><span class="radio-status ${activePlayer&&music.playing?'live':''}"><i></i>${activePlayer&&music.playing?'ВОСПРОИЗВЕДЕНИЕ':activePlayer?'ПАУЗА':'ОЖИДАНИЕ'}</span></div>
+    <section class="player-now panel"><div class="eyebrow">СЕЙЧАС ИГРАЕТ</div><h3>${esc(current?.title||'Ничего не выбрано')}</h3><p>${esc(current?.artist||modeHint)}</p><div class="radio-controls">${btn('◂ Предыдущая','player-prev','button ghost',disabled)}${btn(activePlayer?(music.playing?'Ⅱ Пауза':'▶ Играть / продолжить'):'▶ Выбери композицию','player-toggle','button primary',disabled)}${btn('Следующая ▸','player-next','button ghost',disabled)}${btn('■ Стоп','player-stop','button ghost',disabled)}</div><small>${queue.length?`Очередь: ${music.index+1} из ${queue.length}`:modeHint}</small></section>
+    <section class="player-library panel"><div class="panel-title"><h3>Музыкальная библиотека</h3><span>${PLAYER_TRACKS.length} композиций</span></div><div class="player-track-list">${PLAYER_TRACKS.map((track,index)=>`<article class="player-track ${track.id===music.trackId&&activePlayer?'selected':''}"><span class="radio-track-number">${String(index+1).padStart(2,'0')}</span><div class="radio-track-meta"><b>${esc(track.title)}</b><small>${esc(track.artist)} · ${esc(track.label)}${track.year?` · ${track.year}`:''}</small></div>${btn(activePlayer&&track.id===music.trackId&&music.playing?'Ⅱ':'▶','player-play-track','button tiny '+(activePlayer&&track.id===music.trackId?'primary':'ghost'),`data-id="${track.id}"`)}</article>`).join('')}</div></section>
+    <p class="radio-disclaimer">Плеер использует внешние ссылки на YouTube. Музыка продолжает звучать при переходе между разделами КПК; браузер может приостанавливать воспроизведение в энергосберегающем режиме.</p>
+  </div>`;
+}
+
+function renderTrade(game,state) {
+  const traders=getAvailableTraders(game,game.locationId);
+  const trader=traders.find(entry=>entry.id===state.ui.tradeNpcId);
+  if (!trader) {
+    return `<div class="tab-page trade-page"><div class="tab-heading"><div><div class="eyebrow">КПК · ЭКОНОМИКА</div><h2>Торговля</h2><p>Торговцы, находящиеся в текущей локации. Бродячие сталкеры меняют место вместе с течением игрового времени.</p></div><div class="money-readout">▣ ${money(game.money)}</div></div>
+      ${traders.length?`<div class="trade-merchant-grid">${traders.map(entry=>`<button class="trade-merchant panel" data-action="trade-open" data-id="${entry.id}">${avatarMarkup(entry.icon,entry.name,'♟')}<span><b>${esc(entry.name)}</b><small>${esc(entry.role||'Бродячий торговец')} · ${esc(entry.group||'Путники')}</small><em>${entry.random?'Путник, может уйти с Кордона':'Постоянный торговец'}</em></span><i>Открыть →</i></button>`).join('')}</div>`:'<div class="empty-state large">В этой локации торговцев нет. Проверь КПК позже: бродячие торговцы перемещаются между подлокациями.</div>'}
+    </div>`;
+  }
+  const stock=(trader.stock||[]).filter(entry=>entry.qty>0);
+  const inv=game.inventory||[];
+  return `<div class="tab-page trade-page"><div class="tab-heading"><div><div class="eyebrow">КПК · ТОРГОВЛЯ</div><h2>${esc(trader.name)}</h2><p>${esc(trader.role||'Торговец')} · ${esc(getLocation(trader.location)?.name||'Кордон')}</p></div><div class="money-readout">▣ ${money(game.money)}</div></div>
+    <div class="trade-topline">${avatarMarkup(trader.icon,trader.name,'♟')}<div><b>${esc(trader.name)}</b><small>${trader.random?'Бродячий торговец':'Постоянная торговая точка'}</small></div><span>Рюкзак: ${getWeight(inv).toFixed(1)} / ${MAX_CARRY_KG} кг</span>${btn('← К торговцам','trade-back','button ghost small')}</div>
+    <div class="trade-columns"><section class="panel trade-stock"><div class="panel-title"><h3>Товар торговца</h3><span>${stock.length} позиций</span></div>${stock.length?stock.map(entry=>{const item=getItem(entry.id);if(!item)return '';return `<article class="trade-row"><div class="trade-image">${itemImage(item)}</div><div class="trade-info"><b>${esc(item.name)}</b><small>${item.weight} кг · в наличии: ${entry.qty}</small><strong>${money(entry.price)}</strong></div>${btn('Купить','trade-buy','button small primary',`data-trader-id="${trader.id}" data-item-id="${item.id}"`)}</article>`}).join(''):'<div class="empty-state">Товар закончился. Запасы пополняются не сразу.</div>'}</section>
+    <section class="panel trade-sell"><div class="panel-title"><h3>Продать торговцу</h3><span>${inv.length} видов</span></div>${inv.length?inv.map(stack=>{const item=getItem(stack.id);if(!item)return '';const sellPrice=Math.max(1,Math.floor(item.price*(trader.buyMultiplier||.4)));return `<article class="trade-row"><div class="trade-image">${itemImage(item)}</div><div class="trade-info"><b>${esc(item.name)} ×${stack.qty}</b><small>${item.weight} кг за штуку · цена выкупа</small><strong>${money(sellPrice)}</strong></div>${btn('Продать 1','trade-sell','button small ghost',`data-trader-id="${trader.id}" data-item-id="${item.id}"`)}</article>`}).join(''):'<div class="empty-state">В рюкзаке пока нечего продавать.</div>'}</section></div>
   </div>`;
 }
 
 function renderContacts(game) {
   const groups = ['Одиночки','Бандиты','Военные'];
   return `<div class="tab-page"><div class="tab-heading"><div><div class="eyebrow">КПК · КОНТАКТЫ</div><h2>Персонажи и группировки</h2><p>Найди персонажа в его текущей локации, чтобы начать диалог.</p></div></div>
-    ${groups.map(group=>`<section class="contact-group"><h3>${group}</h3><div class="contact-grid">${NPCS.filter(n=>n.group===group).map(n=>{const here=n.location===game.locationId;return `<article class="contact-card">${avatarMarkup(n.icon,n.name,'♟')}<div><b>${esc(n.name)}</b><small>${esc(n.role)}</small><span>${esc(getLocation(n.location)?.name||'')}</span></div>${btn(here?'Поговорить':'Не здесь','talk','button small '+(here?'primary':'ghost'),`data-id="${n.id}" ${here?'':'disabled'}`)}</article>`}).join('')}</div></section>`).join('')}
+    ${groups.map(group=>`<section class="contact-group"><h3>${group}</h3><div class="contact-grid">${NPCS.filter(n=>n.group===group).map(n=>{const here=n.location===game.locationId;return `<article class="contact-card">${avatarMarkup(n.icon,n.name,'♟')}<div><b>${esc(n.name)}</b><small>${esc(n.role)}</small><span>${esc(getLocation(n.location)?.name||'')}</span></div><div class="contact-actions">${btn(here?'Поговорить':'Не здесь','talk','button small '+(here?'primary':'ghost'),`data-id="${n.id}" ${here?'':'disabled'}`)}${n.trader?btn('Торговля','trade-open','button small ghost',`data-id="${n.id}" ${here?'':'disabled'}`):''}</div></article>`}).join('')}</div></section>`).join('')}
+    <section class="contact-group"><h3>Бродячие торговцы и сталкеры</h3><div class="contact-grid">${(game.randomTraders||[]).map(n=>{const here=n.location===game.locationId;return `<article class="contact-card">${avatarMarkup(n.icon,n.name,'♟')}<div><b>${esc(n.name)}</b><small>${esc(n.role||'Путник / торговец')}</small><span>${esc(getLocation(n.location)?.name||'')}</span></div><div class="contact-actions">${btn(here?'Поговорить':'В пути','talk','button small ghost',`data-id="${n.id}" ${here?'':'disabled'}`)}${n.trader?btn(here?'Торговать':'В пути','trade-open','button small '+(here?'primary':'ghost'),`data-id="${n.id}" ${here?'':'disabled'}`):''}</div></article>`}).join('')}</div></section>
     <section class="contact-group"><h3>Отряды в движении</h3><div class="squad-list">${game.squads.map(s=>`<div class="squad-row"><span class="squad-mark">⚑</span><span><b>${esc(s.name)}</b><small>${s.members} человек · ${esc(getLocation(s.location)?.name||'')}</small></span></div>`).join('')}</div></section>
   </div>`;
 }
@@ -237,9 +269,9 @@ function renderContacts(game) {
 function renderCombat(game) {
   const enemy=game.activeEncounter;
   if (!enemy) return '';
-  const image = enemy.type==='blind-dog' ? BLIND_DOG_IMAGES[enemy.imageIndex||0] : '';
-  const enemyFallback = enemy.type==='blind-dog' ? '🐕' : enemy.type==='military' ? '🪖' : '♟';
-  return `<div class="combat-overlay"><div class="combat-card"><div class="eyebrow danger-text">ОПАСНОСТЬ · БОЕВОЙ КОНТАКТ</div><h2>${esc(enemy.name)}${enemy.count>1?` ×${enemy.count}`:''}</h2><div class="combat-visual">${image?`<img src="${image}" alt="Слепой пёс" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${IMAGE_FALLBACKS.dog}'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><span hidden>🐕</span>`:`<span>${enemyFallback}</span>`}</div><div class="combat-health"><span>Состояние противника</span><b>${enemy.hp}/${enemy.maxHp}</b></div><div class="bar-track"><i class="danger" style="width:${enemy.hp/enemy.maxHp*100}%"></i></div><p>Противник находится рядом. Выбери действие; каждый ход занимает немного игрового времени.</p><div class="combat-actions">${btn('⚔ Атаковать','combat-attack','button danger')}${btn('▣ Защищаться','combat-defend','button')}${btn('↗ Отступить','combat-flee','button ghost')}</div></div></div>`;
+  const image = enemy.type==='blind-dog' ? BLIND_DOG_IMAGES[enemy.imageIndex||0] : enemy.type==='flesh' ? (enemy.image||IMAGE_FALLBACKS.flesh) : '';
+  const enemyFallback = enemy.type==='blind-dog' ? '🐕' : enemy.type==='flesh' ? '🐗' : enemy.type==='military' ? '🪖' : '♟';
+  return `<div class="combat-overlay"><div class="combat-card"><div class="eyebrow danger-text">ОПАСНОСТЬ · БОЕВОЙ КОНТАКТ</div><h2>${esc(enemy.name)}${enemy.count>1?` ×${enemy.count}`:''}</h2><div class="combat-visual">${image?`<img src="${image}" alt="${esc(enemy.name)}" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${enemy.type==='flesh'?IMAGE_FALLBACKS.flesh:IMAGE_FALLBACKS.dog}'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><span hidden>${enemyFallback}</span>`:`<span>${enemyFallback}</span>`}</div><div class="combat-health"><span>Состояние противника</span><b>${enemy.hp}/${enemy.maxHp}</b></div><div class="bar-track"><i class="danger" style="width:${enemy.hp/enemy.maxHp*100}%"></i></div><p>Противник находится рядом. Выбери действие; каждый ход занимает немного игрового времени.</p><div class="combat-actions">${btn('⚔ Атаковать','combat-attack','button danger')}${btn('▣ Защищаться','combat-defend','button')}${btn('↗ Отступить','combat-flee','button ghost')}</div></div></div>`;
 }
 
 function renderArtifact(game) {
@@ -249,9 +281,12 @@ function renderArtifact(game) {
 }
 
 function renderDialogue(game) {
-  const npc=NPCS.find(n=>n.id===game.dialogueNpcId);
+  const npc=NPCS.find(n=>n.id===game.dialogueNpcId) || (game.randomTraders||[]).find(n=>n.id===game.dialogueNpcId);
   if (!npc) return '';
-  return `<div class="modal-shade"><div class="modal-card dialogue-modal"><button class="modal-close" data-action="close-dialogue">×</button><div class="dialogue-head">${avatarMarkup(npc.icon,npc.name,'♟')}<div><div class="eyebrow">${esc(npc.group)} · ${esc(npc.role)}</div><h2>${esc(npc.name)}</h2><small>${esc(getLocation(npc.location)?.name||'')}</small></div></div><blockquote>«${esc(npc.greeting)}»</blockquote><div class="dialogue-topics"><b>О чём поговорить?</b>${npc.topics.map(topic=>btn(topic[0].toUpperCase()+topic.slice(1),'dialogue-topic','button topic-button',`data-topic="${esc(topic)}" data-id="${npc.id}"`)).join('')}</div><div class="dialogue-reply" id="dialogue-reply">Выбери тему для разговора.</div></div></div>`;
+  const jobs=game.sidorovichJobs||{};
+  const active=jobs.active;
+  const sidorovichActions=npc.id==='sidorovich' && ['работа','задания','квесты','поручения'].includes(game.dialogueTopic) ? `<div class="dialogue-quest-actions">${active?`<div class="quest-mini"><b>Текущее поручение: ${esc(active.title)}</b><small>${esc(active.description)}</small></div>${btn('Сдать поручение','quest-turnin','button primary')}`:btn('Взять случайное поручение','quest-accept','button primary')}</div>` : '';
+  return `<div class="modal-shade"><div class="modal-card dialogue-modal"><button class="modal-close" data-action="close-dialogue">×</button><div class="dialogue-head">${avatarMarkup(npc.icon,npc.name,'♟')}<div><div class="eyebrow">${esc(npc.group||npc.faction||'Путники')} · ${esc(npc.role||'Сталкер')}</div><h2>${esc(npc.name)}</h2><small>${esc(getLocation(npc.location)?.name||'')}</small></div></div><blockquote>«${esc(npc.greeting||'Чего хотел, сталкер?')}»</blockquote><div class="dialogue-topics"><b>О чём поговорить?</b>${(npc.topics||['разговор','слухи']).map(topic=>btn(topic[0].toUpperCase()+topic.slice(1),'dialogue-topic','button topic-button',`data-topic="${esc(topic)}" data-id="${npc.id}"`)).join('')}</div><div class="dialogue-reply" id="dialogue-reply">Выбери тему для разговора.</div>${sidorovichActions}</div></div>`;
 }
 
 function renderSleep(game) {
@@ -260,7 +295,7 @@ function renderSleep(game) {
 
 export function renderGameSettings(state) {
   return `<section class="screen-wrap settings-screen"><header class="screen-heading"><div><div class="eyebrow">СИСТЕМНЫЕ ПАРАМЕТРЫ</div><h2>Настройки</h2><p>Параметры интерфейса и локального сохранения.</p></div>${btn('← Назад','settings-back','button ghost')}</header>
-    <div class="settings-layout"><div class="panel"><h3>Музыкальное радио</h3><p class="muted">В проект не вшиты MP3/WAV. Настоящие композиции открываются через встроенный YouTube-плеер во вкладке «Радио». Выбери трек и включи его вручную — браузер не запускает музыку без действия пользователя.</p>${btn('♫ Открыть радио','settings-open-radio','button primary')}</div>
+    <div class="settings-layout"><div class="panel"><h3>Музыка и радио</h3><p class="muted">Радио баз играет композиции в случайной очереди без ручного выбора. Во вкладке «Плеер» можно выбрать отдельную песню, поставить паузу или переключить композицию. Музыка работает через внешний YouTube-плеер и продолжает играть при смене вкладок.</p>${btn('♫ Открыть радио','settings-open-radio','button primary')}</div>
     <div class="panel"><h3>Интерфейс</h3><label class="setting-row"><span><b>Уменьшить анимацию</b><small>Для слабых устройств</small></span><input type="checkbox" data-setting="reducedMotion" ${state.settings.reducedMotion?'checked':''}></label><div class="setting-row"><span><b>Ориентация</b><small>Лучше всего горизонтально, но портретный режим тоже поддерживается.</small></span><span class="setting-value">LANDSCAPE</span></div></div>
     <div class="panel"><h3>Сохранения</h3><p class="muted">Данные хранятся в браузере этого устройства. Экспортируй файл, чтобы перенести прогресс на другой телефон или ноутбук.</p><div class="setting-actions">${btn('↓ Скачать сохранение','export-save','button primary')}<label class="button ghost upload-button">Загрузить сохранение<input type="file" id="save-upload" accept="application/json" hidden></label></div><small>Перенос между устройствами: экспорт на первом устройстве → импорт на втором.</small></div></div>
     ${btn('Сбросить весь прогресс','reset-all','button danger-ghost')}
@@ -268,6 +303,14 @@ export function renderGameSettings(state) {
 }
 
 export function renderModal(state) {
+  if (state.ui.modal === 'map-location') {
+    const loc=getLocation(state.ui.mapLocationId);
+    if (!loc) return '';
+    const current=state.game?.locationId===loc.id;
+    const reachable=(getLocation(state.game?.locationId)?.neighbors||[]).includes(loc.id);
+    const hazard=loc.hazards?.length?loc.hazards.map(h=>h==='radiation'?'☢ Радиационный фон':`◉ ${loc.anomalyName||'Гравитационная аномалия'}`).join(' · '):'Явных аномалий не отмечено';
+    return `<div class="modal-shade"><div class="modal-card map-location-modal"><button class="modal-close" data-action="close-modal">×</button><div class="eyebrow">КОРДОН · КАРТОЧКА ПОДЛОКАЦИИ</div><h2>${esc(loc.name)}</h2><div class="map-location-image-placeholder"><span>▧</span><b>ФОТОГРАФИЯ ПОДЛОКАЦИИ</b><small>Изображение будет добавлено позже</small></div><p>${esc(loc.desc)}</p><div class="map-location-meta"><span>${hazard}</span><span>Соседних переходов: ${loc.neighbors?.length||0}</span></div><div class="modal-actions">${btn(current?'Ты находишься здесь':reachable?'Перейти сюда':'Нет прямого перехода','map-modal-travel','button primary',`data-id="${loc.id}" ${current||!reachable?'disabled':''}`)}${btn('Закрыть','close-modal','button ghost')}</div></div></div>`;
+  }
   if (state.ui.modal === 'avatars') {
     const groups = [
       { id:'loner', title:'Одиночки', note:'6 портретов' },
@@ -282,6 +325,13 @@ export function renderModal(state) {
   return '';
 }
 
+function renderMusicDock(state) {
+  const music=state.ui.music||{};
+  const track=RADIO_TRACKS.find(item=>item.id===music.trackId);
+  if (!track) return '';
+  return `<div class="music-dock"><span class="music-dock-icon">♫</span><div class="music-dock-text"><b>${esc(track.title)}</b><small>${esc(track.artist)} · ${music.playing?'воспроизводится':'на паузе'}</small></div>${btn(music.playing?'Ⅱ':'▶','music-dock-toggle','button tiny ghost')}${btn('⏭','music-dock-next','button tiny ghost',music.mode==='radio'?'disabled':'')}<button class="music-dock-open" data-action="tab" data-tab="player">Плеер</button></div>`;
+}
+
 export function renderGame(state) {
   const game=state.game;
   const character=state.characters.find(c=>c.id===state.activeCharacterId) || state.pendingCharacter || {name:'Сталкер',avatar:''};
@@ -289,12 +339,13 @@ export function renderGame(state) {
   const clock=getGameDateTime(game.clock);
   const tabs={
     location:renderLocation(game,character), map:renderMap(game), inventory:renderInventory(game),
-    stats:renderStats(game,character), radio:renderRadio(state), messages:renderMessages(game), quests:renderQuests(game), contacts:renderContacts(game)
+    stats:renderStats(game,character), radio:renderRadio(state), player:renderPlayer(state), trade:renderTrade(game,state), messages:renderMessages(game), quests:renderQuests(game), contacts:renderContacts(game)
   };
   return `<section class="game-shell">
     <aside class="game-sidebar"><div class="game-brand"><span>☢</span><b>КОРДОН</b><small>КПК / ZONE LINK</small></div><nav class="game-nav">${gameNav(state.ui.tab||'location')}</nav><div class="sidebar-footer"><div class="signal"><i></i><span>СИГНАЛ КПК</span></div><small>ЛОКАЛЬНОЕ СОХРАНЕНИЕ</small>${btn('⟵ Меню','back-menu','sidebar-exit')}</div></aside>
     <div class="game-main"><header class="game-topbar"><div class="topbar-player">${avatarMarkup(character.avatar,character.name,'☢')}<div><b>${esc(character.name)}</b><small>${esc(FACTIONS.find(f=>f.id===game.player.faction)?.name||'')}</small></div></div><div class="topbar-status"><span class="money-readout">▣ ${money(game.money)}</span><span>♥ ${game.player.hp}/${game.player.maxHp}</span><span class="clock-readout" data-game-clock>◷ ${clock.date} · ${clock.time}</span></div><div class="topbar-buttons">${btn('⚙','settings','icon-button',`title="Настройки"`)}${btn('⇩','export-save','icon-button',`title="Экспорт сохранения"`)}</div></header>
       <div class="game-content">${tabs[state.ui.tab]||tabs.location}</div>
+      ${renderMusicDock(state)}
       <form class="action-composer" id="action-form"><span class="composer-symbol">⌁</span><input id="player-action" type="text" maxlength="220" placeholder="Опиши действие… например: осмотреться, поговорить с Волком, обыскать местность" autocomplete="off"><button class="send-action" type="submit">Отправить ↗</button></form>
     </div>
     ${renderCombat(game)}${renderArtifact(game)}${renderDialogue(game)}${state.ui.modal==='sleep'?renderSleep(game):''}

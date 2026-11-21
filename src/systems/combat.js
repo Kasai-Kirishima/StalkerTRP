@@ -1,4 +1,5 @@
-import { getItem, countItem, removeItem } from './inventory.js';
+import { getItem, countItem, removeItem, addItem } from './inventory.js';
+import { LOCATIONS } from '../data/catalog.js';
 import { addLog } from './world.js';
 import { advanceGame } from './world.js';
 
@@ -13,11 +14,11 @@ export function getBestWeapon(inventory, game=null) {
 
 export function beginEncounter(game, type='blind-dog') {
   if (game.activeEncounter) return false;
-  const human = type === 'bandit' || type === 'military';
-  const name = type === 'military' ? 'Военнослужащий' : type === 'bandit' ? 'Бандит' : 'Слепой пёс';
-  const hp = type === 'military' ? 82 : type === 'bandit' ? 70 : 55;
-  const damage = type === 'military' ? 12 : type === 'bandit' ? 10 : 9;
-  game.activeEncounter = { type, name, hp, maxHp:hp, damage, count:1, imageIndex:0 };
+  const name = type === 'military' ? 'Военнослужащий' : type === 'bandit' ? 'Бандит' : type === 'flesh' ? 'Плоть' : 'Слепой пёс';
+  const hp = type === 'military' ? 82 : type === 'bandit' ? 70 : type === 'flesh' ? 76 : 55;
+  const damage = type === 'military' ? 12 : type === 'bandit' ? 10 : type === 'flesh' ? 13 : 9;
+  const image = type === 'flesh' ? 'https://media.moddb.com/images/downloads/1/244/243669/flesh.jpg' : '';
+  game.activeEncounter = { type, name, hp, maxHp:hp, damage, count:1, imageIndex:0, image };
   return true;
 }
 
@@ -49,6 +50,14 @@ export function playerAttack(game) {
     game.player.reputation += 2;
     game.activeEncounter = null;
     message += ` Угроза устранена. Найдено ${reward} RU.`;
+    if (enemy.type==='blind-dog' && Math.random()<.72) {
+      const trophy=addItem(game.inventory,'tail',1);
+      message += trophy.ok ? ' Среди останков найден хвост слепого пса.' : ' Среди останков найден хвост слепого пса, но рюкзак перегружен.';
+    }
+    if (enemy.type==='flesh' && Math.random()<.48) {
+      const trophy=addItem(game.inventory,'flesh-eye',1);
+      message += trophy.ok ? ' Среди останков найден «Глаз плоти».' : ' Среди останков найден «Глаз плоти», но рюкзак перегружен.';
+    }
     addLog(game, message);
     return { ok:true, finished:true, message };
   }
@@ -102,11 +111,5 @@ export function flee(game) {
 }
 
 function awaitlessNeighbors(locationId) {
-  // Static local lookup keeps the combat module independent from rendering.
-  const links = {
-    'rookie-village':['farmstead','stop','trailer'], 'atp':['stop','bridge-checkpoint','anomaly-dump'],
-    'south-checkpoint':['bridge-checkpoint','trailer','anomaly-dump'], 'farmstead':['rookie-village','forest-camp','elevator'],
-    'forest-camp':['farmstead','ravine-tunnel','anomaly-dump'], 'anomaly-dump':['forest-camp','atp','south-checkpoint']
-  };
-  return links[locationId] || [];
+  return LOCATIONS.find(location=>location.id===locationId)?.neighbors || [];
 }

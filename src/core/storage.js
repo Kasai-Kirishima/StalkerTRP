@@ -1,7 +1,6 @@
 const STORAGE_KEY = 'cordon-pda-save-v1';
 
 export const DEFAULT_SETTINGS = {
-  radioTrackId: 'firelake-dirge',
   radioStationId: 'loner-village-radio',
   reducedMotion: false
 };
@@ -16,7 +15,7 @@ export function createInitialState() {
     account: { sessions: 0, enemiesDefeated: 0, questsCompleted: 0, artifactsFound: 0, distanceTravelled: 0 },
     draft: { name:'', birthDate:'', height:'', weight:'', personality:'', biography:'', notes:'', faction:'loner', avatar:'' },
     loadout: { selected: {} },
-    ui: { tab:'location', modal:null, notification:'', radioPlaying:false },
+    ui: { tab:'location', modal:null, notification:'', radioPlaying:false, music:{ mode:null, stationId:null, trackId:null, queue:[], index:0, playing:false }, tradeNpcId:null, mapLocationId:null },
     game: null
   };
 }
@@ -34,7 +33,7 @@ export function loadState() {
       account: { ...fallback.account, ...(saved.account || {}) },
       draft: { ...fallback.draft, ...(saved.draft || {}) },
       loadout: { selected:{}, ...(saved.loadout || {}) },
-      ui: { ...fallback.ui, ...(saved.ui || {}) }
+      ui: { ...fallback.ui, ...(saved.ui || {}), music:{ ...fallback.ui.music, ...(saved.ui?.music||{}), playing:false } }
     };
   } catch (error) {
     console.warn('Не удалось прочитать сохранение:', error);

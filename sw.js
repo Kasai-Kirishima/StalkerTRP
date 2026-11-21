@@ -1,9 +1,9 @@
-const CACHE_NAME = 'cordon-pda-v3-radio-40';
+const CACHE_NAME = 'cordon-pda-v5-map-radio-trade-flesh';
 const APP_SHELL = [
   './', './index.html', './styles.css', './manifest.webmanifest',
-  './assets/icons/radioactive.svg',
+  './assets/icons/radioactive.svg', './assets/images/cordon-clean.webp',
   './src/main.js', './src/ui/views.js', './src/core/storage.js',
-  './src/data/catalog.js', './src/systems/game-clock.js',
+  './src/data/catalog.js', './src/systems/game-clock.js', './src/systems/music.js',
   './src/systems/inventory.js', './src/systems/world.js',
   './src/systems/combat.js', './src/systems/action-engine.js'
 ];

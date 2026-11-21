@@ -7,6 +7,62 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 export const getLocation = (id) => LOCATIONS.find(location => location.id === id);
 export const getFaction = (id) => FACTIONS.find(faction => faction.id === id);
 
+
+const RANDOM_TRADER_NAMES = ['Серый','Муха','Гвоздь','Тихий','Пахарь','Клык','Рыжий','Шустрый','Филин','Крот'];
+const RANDOM_TRADER_STOCK = ['bread','water','canned','sausage','bandage','ammo9x18','ammo9x19','shells','knife','vodka','tail','flesh-eye','medusa','boltpack','flash','ai2','antirad'];
+
+function makeStock(ids, multiplier=1) {
+  return [...new Set(ids)].map(id=>{
+    const item=getItem(id);
+    return item ? { id, qty:1+Math.floor(Math.random()*3), price:Math.max(1,Math.ceil(item.price*multiplier)) } : null;
+  }).filter(Boolean);
+}
+
+function createTraderRecords() {
+  const fixed = NPCS.filter(npc=>npc.trader).map(npc=>({
+    id:npc.id, location:npc.location, stock:makeStock(npc.stockIds||[],npc.priceMultiplier||1),
+    buyMultiplier:npc.buyMultiplier||.45
+  }));
+  const random = Array.from({length:4},(_,index)=>{
+    const first=pick(RANDOM_TRADER_NAMES);
+    const faction=pick(FACTIONS);
+    const possible=LOCATIONS.filter(location=>location.id!=='sidorovich-bunker' && location.id!=='north-checkpoint');
+    return {
+      id:`wanderer-${index+1}`, name:first, role:'Бродячий торговец', group:'Путники', faction:faction.id,
+      location:pick(possible).id, icon:faction.icon, greeting:'Поторопись, сталкер. Я не задерживаюсь на одном месте.',
+      stock:makeStock(RANDOM_TRADER_STOCK.filter(()=>Math.random()>.42),1.28), buyMultiplier:.43,
+      priceMultiplier:1.28, trader:true, random:true
+    };
+  });
+  return { fixed, random };
+}
+
+function ensureTraderRecords(game) {
+  if (!Array.isArray(game.traders) || !game.traders.length) {
+    const records=createTraderRecords();
+    game.traders=records.fixed;
+    game.randomTraders=records.random;
+  }
+  if (!Array.isArray(game.randomTraders)) game.randomTraders=createTraderRecords().random;
+}
+
+function findTrader(game, traderId) {
+  ensureTraderRecords(game);
+  const profile=NPCS.find(npc=>npc.id===traderId && npc.trader);
+  const record=game.traders.find(entry=>entry.id===traderId) || game.randomTraders.find(entry=>entry.id===traderId);
+  if (!record) return null;
+  return { profile, record, trader:profile ? {...profile,...record} : {...record} };
+}
+
+function updatePurchasedCounters(game, itemId, direction=1) {
+  if (['ammo9x18','ammo9x19','shells'].includes(itemId)) {
+    const amount=itemId==='shells'?8:12;
+    game.ammoRounds ??= {};
+    game.ammoRounds[itemId]=Math.max(0,(game.ammoRounds[itemId]||0)+amount*direction);
+  }
+  if (itemId==='boltpack') game.boltsRemaining=Math.max(0,(game.boltsRemaining||0)+10*direction);
+}
+
 export function createGame(character, starterInventory = [], money = 0) {
   const faction = getFaction(character.faction);
   return {
@@ -22,10 +78,12 @@ export function createGame(character, starterInventory = [], money = 0) {
     boltsRemaining:countItem(starterInventory,'boltpack')*10,
     locationId:faction?.spawn || 'rookie-village',
     quests:QUESTS.map(quest => ({ ...quest, status:'available' })),
+    sidorovichJobs:{ active:null, cooldownUntil:0, completed:{ tails:0, collector:0, medusa:0 } },
     log:[{ type:'system', text:`15 апреля. Ты прибыл на Кордон. Место старта: ${getLocation(faction?.spawn)?.name || 'Деревня новичков'}.` }],
     searchedAt:{},
     lootRespawnMinutes:180,
     squads:SQUADS.map(squad => ({ ...squad })),
+    ...(() => { const traders=createTraderRecords(); return { traders:traders.fixed, randomTraders:traders.random }; })(),
     lastSquadMove:0,
     activeEncounter:null,
     artifactHunt:null,
@@ -95,6 +153,13 @@ export function simulateWorld(game) {
         squad.location = squad.destination;
         squad.destination = null;
       }
+    }
+    ensureTraderRecords(game);
+    for (const trader of game.randomTraders) {
+      if (Math.random() > .48) continue;
+      const current=getLocation(trader.location);
+      const options=(current?.neighbors||[]).filter(id=>id!==trader.location);
+      if (options.length) trader.location=pick(options);
     }
   }
 }
@@ -188,8 +253,12 @@ export function travelTo(game, destinationId) {
   }
   const danger = destination.hazards?.length ? .22 : .1;
   if (Math.random() < danger) {
-    game.activeEncounter = { type:'blind-dog', name:'Слепой пёс', hp:55, maxHp:55, damage:7+Math.floor(Math.random()*7), count:Math.random()<.3?2:1, imageIndex:Math.floor(Math.random()*2) };
-    const message = 'Из-за укрытия выскакивает слепой пёс! Он замечает тебя и готовится броситься.';
+    const fleshZone=['pig-farm','farmstead','forest-camp'].includes(destination.id);
+    const useFlesh=fleshZone && Math.random()<.55;
+    game.activeEncounter = useFlesh
+      ? { type:'flesh', name:'Плоть', hp:76, maxHp:76, damage:11+Math.floor(Math.random()*5), count:1, image:'https://media.moddb.com/images/downloads/1/244/243669/flesh.jpg' }
+      : { type:'blind-dog', name:'Слепой пёс', hp:55, maxHp:55, damage:7+Math.floor(Math.random()*7), count:Math.random()<.3?2:1, imageIndex:Math.floor(Math.random()*2) };
+    const message = useFlesh ? 'Из-за развалин выходит Плоть. Мутант тяжело переступает копытами и готовится к атаке.' : 'Из-за укрытия выскакивает слепой пёс! Он замечает тебя и готовится броситься.';
     addLog(game, message, 'danger');
     return { ok:true, message:message + hazardNotice, encounter:true };
   }
@@ -207,21 +276,144 @@ export function scoutLocation(game, destinationId) {
   return { ok:true, message:`Осмотр через бинокль: ${destination.name}. ${destination.desc}${hazard}${people}` };
 }
 
+function getDialogueNpc(game, npcId) {
+  return NPCS.find(entry => entry.id === npcId) || (game.randomTraders||[]).find(entry => entry.id === npcId) || null;
+}
+
+export function getSidorovichJobState(game) {
+  game.sidorovichJobs ||= { active:null, cooldownUntil:0, completed:{ tails:0, collector:0, medusa:0 } };
+  const jobs=game.sidorovichJobs;
+  if (jobs.active?.type==='tails') jobs.active.progress=countItem(game.inventory,'tail');
+  if (jobs.active?.type==='medusa') jobs.active.progress=countItem(game.inventory,'medusa');
+  return jobs;
+}
+
+export function acceptSidorovichJob(game) {
+  if (game.locationId!=='sidorovich-bunker') return {ok:false,message:'Сначала вернись в подвал Сидоровича.'};
+  const jobs=getSidorovichJobState(game);
+  if (jobs.active) return {ok:false,message:'У тебя уже есть его поручение. Сначала закончи его.'};
+  if (game.clock.worldMinutes<jobs.cooldownUntil) return {ok:false,message:'Сидорович пока не подготовил новую работу. Загляни позже.'};
+  const types=['tails','collector','medusa'];
+  const type=types[Math.floor(Math.random()*types.length)];
+  if (type==='tails') jobs.active={type,title:'Крутить хвосты собакам',description:'Принеси Сидоровичу 5 хвостов обычных слепых псов. Псевдособаки не подходят.',target:5,progress:countItem(game.inventory,'tail'),reward:850};
+  if (type==='collector') {
+    const candidates=(game.randomTraders||[]).filter(t=>t.faction==='loner');
+    const debtor=candidates[Math.floor(Math.random()*candidates.length)] || (game.randomTraders||[])[0];
+    if (!debtor) return {ok:false,message:'На Кордоне пока не нашлось подходящего должника.'};
+    debtor.faction='loner'; debtor.group='Одиночки'; debtor.role='Сталкер-должник';
+    jobs.active={type,title:'Коллектор',description:`Найди сталкера ${debtor.name} (${getLocation(debtor.location)?.name||'местоположение неизвестно'}) и поговори с ним о долге Сидоровичу. Затем вернись с докладом.`,targetNpcId:debtor.id,targetName:debtor.name,contacted:false,reward:600};
+  }
+  if (type==='medusa') jobs.active={type,title:'Ловля медузы',description:'Найди артефакт «Медуза» и принеси его Сидоровичу. Учёный с большой земли ждёт образец.',target:1,progress:countItem(game.inventory,'medusa'),reward:1100};
+  addLog(game,`Получено цикличное поручение Сидоровича: «${jobs.active.title}».`,'player');
+  return {ok:true,job:jobs.active,message:`Сидорович: «${jobs.active.description} За работу заплачу ${jobs.active.reward} RU».`};
+}
+
+export function turnInSidorovichJob(game) {
+  if (game.locationId!=='sidorovich-bunker') return {ok:false,message:'Сдать поручение можно только Сидоровичу.'};
+  const jobs=getSidorovichJobState(game), job=jobs.active;
+  if (!job) return {ok:false,message:'Сейчас у меня для тебя нет незакрытого поручения.'};
+  if (job.type==='tails') {
+    const amount=countItem(game.inventory,'tail');
+    if (amount<5) return {ok:false,message:`Сидорович: «Мне нужны пять хвостов. У тебя пока ${amount}.»`};
+    removeItem(game.inventory,'tail',5);
+  } else if (job.type==='medusa') {
+    if (!countItem(game.inventory,'medusa')) return {ok:false,message:'Сидорович: «Без Медузы возвращаться не надо». '};
+    removeItem(game.inventory,'medusa',1);
+  } else if (job.type==='collector' && !job.contacted) return {ok:false,message:`Сначала найди ${job.targetName} и напомни ему о долге.`};
+  game.money+=job.reward;
+  game.player.questsDone=(game.player.questsDone||0)+1;
+  grantReputation(game,5);
+  jobs.completed[job.type]=(jobs.completed[job.type]||0)+1;
+  jobs.active=null;
+  jobs.cooldownUntil=game.clock.worldMinutes+120;
+  addLog(game,`Поручение «${job.title}» выполнено. Сидорович выплатил ${job.reward} RU.`);
+  return {ok:true,message:`Сидорович: «Ну, ${job.type==='tails'?'хвосты получил':job.type==='medusa'?'Медузу забрал':'должнику напомнил'} — дело сделано. Держи ${job.reward} RU. Сидорович не обидел!» Получено +5 рейтинга.`};
+}
+
 export function talkToNpc(game, npcId) {
-  const npc = NPCS.find(entry => entry.id === npcId);
+  const npc = getDialogueNpc(game,npcId);
   if (!npc) return { ok:false, message:'Собеседник не найден.' };
-  if (npc.location !== game.locationId) return { ok:false, message:`${npc.name} сейчас не здесь. По последним сведениям он находится: ${getLocation(npc.location)?.name}.` };
+  if (npc.location !== game.locationId) return { ok:false, message:`${npc.name} сейчас не здесь. По последним сведениям он находится: ${getLocation(npc.location)?.name||'неизвестно'}.` };
   game.dialogueNpcId = npcId;
+  game.dialogueTopic = null;
+  const jobs=getSidorovichJobState(game);
+  if (npcId==='sidorovich' && jobs.active?.type==='collector' && jobs.active.targetNpcId) { /* player returned to the quest giver */ }
+  if (npcId!=='sidorovich' && jobs.active?.type==='collector' && jobs.active.targetNpcId===npcId) {
+    jobs.active.contacted=true;
+    addLog(game,`${npc.name} выслушал напоминание о долге Сидоровичу.`);
+  }
   progressQuest(game, `talk:${npcId}`);
   return { ok:true, npc };
 }
 
 export function replyNpc(game, npcId, topic) {
-  const npc = NPCS.find(entry => entry.id === npcId);
+  const npc = getDialogueNpc(game,npcId);
   if (!npc) return 'Собеседник не найден.';
+  game.dialogueTopic=topic.toLowerCase();
+  if (npcId==='sidorovich' && ['работа','задания','квесты','поручения'].some(word=>topic.toLowerCase().includes(word))) {
+    const jobs=getSidorovichJobState(game);
+    if (jobs.active) return `У тебя уже есть поручение «${jobs.active.title}». ${jobs.active.description}`;
+    if (game.clock.worldMinutes<jobs.cooldownUntil) return 'Пока ничего нового. Дай мне немного времени, сталкер.';
+    return 'Хе-хе. Есть для тебя работа. Скажи, если готов взяться за поручение.';
+  }
+  game.dialogueTopic=topic.toLowerCase();
   const key = topic.toLowerCase();
-  const mapped = Object.keys(npc.lines).find(entry => key.includes(entry) || entry.includes(key));
+  const mapped = Object.keys(npc.lines||{}).find(entry => key.includes(entry) || entry.includes(key));
   return mapped ? npc.lines[mapped] : `${npc.name} смотрит на тебя с недоверием. «Сейчас мне нечего добавить. Сначала разберись с делом».`;
+}
+
+
+export function getAvailableTraders(game, locationId=game.locationId) {
+  ensureTraderRecords(game);
+  const fixed=NPCS.filter(npc=>npc.trader && npc.location===locationId).map(npc=>{
+    const record=game.traders.find(entry=>entry.id===npc.id);
+    return {...npc,...record};
+  });
+  const wanderers=game.randomTraders.filter(trader=>trader.location===locationId);
+  return [...fixed,...wanderers];
+}
+
+export function getTraderById(game, traderId) {
+  return findTrader(game,traderId)?.trader || null;
+}
+
+export function buyFromTrader(game, traderId, itemId) {
+  const found=findTrader(game,traderId);
+  if (!found) return { ok:false, message:'Торговец больше не находится на связи.' };
+  const stock=found.record.stock.find(entry=>entry.id===itemId && entry.qty>0);
+  if (!stock) return { ok:false, message:'Этого товара сейчас нет в наличии.' };
+  if (game.money<stock.price) return { ok:false, message:'Не хватает денег.' };
+  const result=addItem(game.inventory,itemId,1);
+  if (!result.ok) return { ok:false, message:result.reason };
+  game.money-=stock.price;
+  stock.qty-=1;
+  updatePurchasedCounters(game,itemId,1);
+  if (stock.qty<=0) found.record.stock=found.record.stock.filter(entry=>entry!==stock);
+  const name=getItem(itemId)?.name||itemId;
+  const message=`Куплено у ${found.trader.name}: ${name} за ${stock.price} RU.`;
+  addLog(game,message);
+  return { ok:true, message, price:stock.price };
+}
+
+export function sellToTrader(game, traderId, itemId, quantity=1) {
+  const found=findTrader(game,traderId);
+  if (!found) return { ok:false, message:'Торговец больше не находится на связи.' };
+  const item=getItem(itemId);
+  const qty=Math.max(1,Math.floor(Number(quantity)||1));
+  if (!item || countItem(game.inventory,itemId)<qty) return { ok:false, message:'В рюкзаке нет такого количества предметов.' };
+  const price=Math.max(1,Math.floor(item.price*(found.record.buyMultiplier||.4)));
+  if (!removeItem(game.inventory,itemId,qty)) return { ok:false, message:'Не удалось изъять предмет из рюкзака.' };
+  game.money+=price*qty;
+  updatePurchasedCounters(game,itemId,-1*qty);
+  let stock=found.record.stock.find(entry=>entry.id===itemId);
+  if (!stock) {
+    stock={id:itemId,qty:0,price:Math.max(price+1,Math.ceil(item.price*(found.trader.priceMultiplier||1.1)))};
+    found.record.stock.push(stock);
+  }
+  stock.qty+=qty;
+  const message=`Продано ${item.name} ×${qty} торговцу ${found.trader.name}. Получено ${price*qty} RU.`;
+  addLog(game,message);
+  return { ok:true, message, price:price*qty };
 }
 
 export function sleep(game, hours) {
@@ -245,7 +437,7 @@ export function deactivateAnomaly(game) {
   if (game.boltsRemaining % 10 === 0) removeItem(game.inventory, 'boltpack', 1);
   game.anomalyStates[location.id] = true;
   addLog(game, 'Ты проверил подозрительный участок болтом и отметил безопасный проход.');
-  return { ok:true, message:'Болт прошёл через поле без резкого отклонения. Ты отметил безопасный проход и отключил одну локальную аномалию.' };
+  return { ok:true, message:`Болт прошёл через поле «${location.anomalyName||'аномалия'}» без резкого отклонения. Ты отметил безопасный проход и отключил одну локальную аномалию.` };
 }
 
 export function startArtifactHunt(game) {

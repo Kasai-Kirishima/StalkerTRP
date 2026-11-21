@@ -67,3 +67,68 @@
 .radio-station-choice small{font:10px 'Share Tech Mono',monospace;color:#98a77a}
 .radio-station-choice.active{border-color:#c3d17e;background:linear-gradient(145deg,#39472a,#1a2418);box-shadow:inset 0 0 0 1px rgba(195,209,126,.14)}
 @media(max-width:650px){.radio-stations{grid-template-columns:1fr}.radio-station-choice{padding:9px 11px}}
+
+/* v0.4 map pins: small translucent grey circles over the supplied clean map */
+.map-frame{position:relative;width:min(100%,500px);height:auto;min-height:0;aspect-ratio:1/2;margin:0 auto 18px;overflow:hidden;border:1px solid #59634c;background:#0b100b;box-shadow:0 12px 30px #0008}
+.map-frame>img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;filter:saturate(.78) contrast(1.02)}
+.map-frame .map-fallback{position:absolute;inset:0;display:grid;place-content:center;text-align:center;color:#b5c18d;background:#11170f;font:16px 'Share Tech Mono',monospace}
+.map-pins{position:absolute;inset:0;pointer-events:none}
+.map-pin{position:absolute;z-index:2;pointer-events:auto;width:15px;height:15px;min-width:15px;min-height:15px;transform:translate(-50%,-50%);padding:0;border-radius:50%;border:1px solid rgba(235,238,228,.62);background:rgba(125,132,130,.46);box-shadow:0 1px 5px rgba(0,0,0,.7);backdrop-filter:blur(1px);cursor:pointer;transition:transform .12s,background .12s,border-color .12s}
+.map-pin:hover,.map-pin:focus-visible{transform:translate(-50%,-50%) scale(1.35);background:rgba(183,192,185,.85);border-color:#eff3e3;z-index:5}
+.map-pin.current{width:18px;height:18px;border:2px solid #e0e88a;background:rgba(198,205,111,.62);box-shadow:0 0 0 4px rgba(211,220,123,.17),0 0 13px #d1df70}
+.map-pin.reachable:not(.current){border-color:rgba(221,230,208,.82);background:rgba(154,166,153,.62)}
+.map-location-modal{width:min(530px,100%)}
+.map-location-image-placeholder{height:158px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;margin:15px 0;padding:15px;border:1px dashed #65724c;background:linear-gradient(145deg,#263022,#111710);color:#aeba8a;text-align:center}
+.map-location-image-placeholder span{font-size:35px;opacity:.65}
+.map-location-image-placeholder b{font:11px 'Share Tech Mono',monospace;letter-spacing:.12em}
+.map-location-image-placeholder small{font-size:10px;color:#7f8d70}
+.map-location-modal>p{color:#d3dac4;line-height:1.55}
+.map-location-meta{display:grid;gap:6px;padding:10px 0;color:#abb98b;font-size:11px;border-top:1px solid #3a4733}
+.npc-row-wrap{display:flex;align-items:center;gap:5px;flex-wrap:wrap;border-bottom:1px solid rgba(127,137,112,.13)}
+.npc-row-wrap .npc-row{flex:1;min-width:0;border-bottom:0}
+.npc-row-wrap>.button{margin-right:6px}
+.contact-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+
+/* Background player and library */
+.music-dock{display:flex;align-items:center;gap:9px;min-height:48px;padding:7px 10px;margin:8px 10px;background:linear-gradient(100deg,#20291b,#111710);border:1px solid #566344;box-shadow:0 3px 12px #0005}
+.music-dock-icon{font-size:21px;color:#cbd883}
+.music-dock-text{display:grid;gap:2px;flex:1;min-width:0}
+.music-dock-text b{font-size:12px;color:#e1e9cc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.music-dock-text small{font-size:10px;color:#9aa88a}
+.music-dock-open{padding:5px 8px;background:#293521;border:1px solid #566444;color:#cbdc9c;font-size:10px}
+.player-now{margin-top:0;background:linear-gradient(120deg,#303e27,#151c13);border-color:#71814e}
+.player-now h3{margin:6px 0;font-size:22px;color:#e1e9bf}
+.player-now p{color:#b3c19b;margin:0 0 10px}
+.player-now>small{display:block;margin-top:9px;color:#8e9a7b}
+.player-library{margin-top:14px}
+.player-track-list{display:grid;gap:5px;max-height:470px;overflow:auto}
+.player-track{display:grid;grid-template-columns:32px minmax(0,1fr) 58px;align-items:center;gap:8px;padding:7px 9px;border:1px solid #313d2b;background:#151c14}
+.player-track.selected{border-color:#94a85b;background:#222d1c}
+.player-track .button{white-space:nowrap}
+.player-track .radio-track-meta b{font-size:12px}
+
+/* Functional trade interface */
+.trade-merchant-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.trade-merchant{display:flex;align-items:center;gap:12px;text-align:left;color:#e1e8cc;cursor:pointer;margin:0;padding:13px}
+.trade-merchant>span{display:grid;gap:3px;flex:1;min-width:0}
+.trade-merchant small,.trade-merchant em{font-size:11px;color:#9aa789;font-style:normal}
+.trade-merchant>i{font-style:normal;color:#c6d37f;font-size:11px;white-space:nowrap}
+.trade-topline{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding:10px;background:#1b2419;border:1px solid #4b5b3b}
+.trade-topline>div:nth-child(2){display:grid;gap:4px;flex:1}
+.trade-topline small{font-size:10px;color:#94a183}
+.trade-topline>span{font:11px 'Share Tech Mono',monospace;color:#c3d18b;white-space:nowrap}
+.trade-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;align-items:start}
+.trade-columns>.panel{margin:0;padding:12px;min-width:0}
+.trade-row{display:grid;grid-template-columns:45px minmax(0,1fr) auto;gap:8px;align-items:center;padding:8px 0;border-top:1px solid #374230}
+.trade-image{height:43px;width:45px;display:grid;place-items:center;background:#11170f;border:1px solid #404c34;overflow:hidden}
+.trade-image img{width:100%;height:100%;object-fit:contain}
+.trade-image .item-emoji{font-size:22px}
+.trade-info{display:grid;gap:3px;min-width:0}
+.trade-info b{font-size:12px;color:#e2e8d2}
+.trade-info small{font-size:10px;color:#93a083}
+.trade-info strong{font:11px 'Share Tech Mono',monospace;color:#d1dc8d}
+.trade-row>.button{padding:6px 8px;white-space:nowrap}
+@media(max-width:900px){.trade-columns{grid-template-columns:1fr}.trade-merchant-grid{grid-template-columns:1fr}}
+@media(max-width:540px){.map-frame{width:min(100%,420px);aspect-ratio:1/2;min-height:0}.map-pin{width:13px;height:13px;min-width:13px;min-height:13px}.map-pin.current{width:16px;height:16px}.trade-topline{flex-wrap:wrap}.trade-topline>span{order:4;width:100%}.trade-row{grid-template-columns:38px minmax(0,1fr) auto;gap:6px}.trade-image{width:38px;height:38px}.trade-info b{font-size:11px}.trade-row>.button{font-size:10px;padding:5px 6px}.music-dock{margin:6px;padding:6px}.music-dock .button{padding:5px 7px}.music-dock-open{font-size:9px;padding:5px}.player-track{grid-template-columns:24px minmax(0,1fr) 48px;padding:6px;gap:5px}}
+
+.dialogue-quest-actions{display:grid;gap:10px;margin-top:14px}.quest-mini{padding:12px;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.16);display:grid;gap:6px}.quest-mini small{color:var(--muted);line-height:1.45}.quest-card.active{border-color:rgba(190,170,92,.5)}

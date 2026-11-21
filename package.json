@@ -1,9 +1,9 @@
 {
   "name": "stalker-cordon-pda-prototype",
-  "version": "0.3.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
-  "description": "Responsive link-based STALKER text RP prototype with external music radio for GitHub Pages",
+  "description": "Responsive link-based STALKER text RP prototype with repeatable quests, radio and player, mutant combat and trading for GitHub Pages",
   "scripts": {
     "test": "node tests/smoke-test.mjs"
   }
