@@ -2,6 +2,7 @@ const STORAGE_KEY = 'cordon-pda-save-v1';
 
 export const DEFAULT_SETTINGS = {
   radioTrackId: 'firelake-dirge',
+  radioStationId: 'loner-village-radio',
   reducedMotion: false
 };
 

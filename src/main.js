@@ -1,5 +1,5 @@
 import { loadState, saveState, createInitialState, exportSave, importSave } from './core/storage.js';
-import { ASSETS, FACTIONS, START_BUDGET, MAX_CARRY_KG, NPCS, ITEMS, LOCATIONS, RADIO_TRACKS } from './data/catalog.js';
+import { ASSETS, FACTIONS, START_BUDGET, MAX_CARRY_KG, NPCS, ITEMS, LOCATIONS, RADIO_TRACKS, RADIO_STATIONS } from './data/catalog.js';
 import { renderMenu, renderAccount, renderCharacters, renderCreate, renderLoadout, renderGame, renderGameSettings, renderModal, esc } from './ui/views.js';
 import { canFitLoadout, getInventoryCost, getLoadoutWeight, addItem, getItem, getWeight, removeItem, useItem } from './systems/inventory.js';
 import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, simulateWorld } from './systems/world.js';
@@ -235,7 +235,7 @@ root.addEventListener('click', (event) => {
     persist(); render(); return;
   }
   if (action==='finish-loadout') return finishLoadout();
-  if (action==='tab') { state.ui.tab=tab; state.ui.radioPlaying=false; state.game.dialogueNpcId=null; state.ui.modal=null; persist(); return render(); }
+  if (action==='tab') { state.ui.tab=tab; state.ui.radioPlaying=false; if(tab==='radio'){ const localStation=RADIO_STATIONS.find(item=>item.locationId===state.game?.locationId); if(localStation){ state.settings.radioStationId=localStation.id; if(!localStation.trackIds.includes(state.settings.radioTrackId)) state.settings.radioTrackId=localStation.trackIds[0]; } } state.game.dialogueNpcId=null; state.ui.modal=null; persist(); return render(); }
   if (action==='tab-map') { state.ui.tab='map'; state.ui.radioPlaying=false; persist(); return render(); }
   if (action==='inspect') { const text=describeLocation(state.game); addGameLog(text); render(); return; }
   if (action==='search') { advanceGame(state.game,10); const result=searchLocation(state.game); updateWeather(state.game); persist(); render(); toast(result.message,result.ok?'info':'warning'); return; }
@@ -298,6 +298,25 @@ root.addEventListener('click', (event) => {
     persist(); return;
   }
   if (action==='export-save') { persist(); exportSave(state); return; }
+  if (action==='radio-base-open') {
+    const station=RADIO_STATIONS.find(item=>item.id===id);
+    if (!station) return;
+    state.settings.radioStationId=station.id;
+    state.settings.radioTrackId=station.trackIds[0];
+    state.ui.tab='radio';
+    state.ui.radioPlaying=false;
+    persist(); render();
+    return;
+  }
+  if (action==='radio-select-station') {
+    const station=RADIO_STATIONS.find(item=>item.id===id);
+    if (!station) return;
+    state.settings.radioStationId=station.id;
+    if (!station.trackIds.includes(state.settings.radioTrackId)) state.settings.radioTrackId=station.trackIds[0];
+    state.ui.radioPlaying=false;
+    persist(); render();
+    return;
+  }
   if (action==='radio-play-track') {
     state.settings.radioTrackId=id;
     state.ui.tab='radio';
@@ -311,10 +330,14 @@ root.addEventListener('click', (event) => {
     return;
   }
   if (action==='radio-prev' || action==='radio-next') {
-    const currentIndex=RADIO_TRACKS.findIndex(track=>track.id===state.settings.radioTrackId);
+    const station=RADIO_STATIONS.find(item=>item.id===state.settings.radioStationId)
+      || RADIO_STATIONS.find(item=>item.locationId===state.game?.locationId)
+      || RADIO_STATIONS[0];
+    const stationTracks=RADIO_TRACKS.filter(track=>station.trackIds.includes(track.id));
+    const currentIndex=stationTracks.findIndex(track=>track.id===state.settings.radioTrackId);
     const offset=action==='radio-next'?1:-1;
-    const nextIndex=(Math.max(0,currentIndex)+offset+RADIO_TRACKS.length)%RADIO_TRACKS.length;
-    state.settings.radioTrackId=RADIO_TRACKS[nextIndex].id;
+    const nextIndex=(Math.max(0,currentIndex)+offset+stationTracks.length)%stationTracks.length;
+    state.settings.radioTrackId=stationTracks[nextIndex].id;
     state.ui.radioPlaying=true;
     persist(); render();
     return;

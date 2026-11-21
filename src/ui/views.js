@@ -1,21 +1,36 @@
-import { ASSETS, FACTIONS, AVATAR_OPTIONS, RADIO_TRACKS, ITEMS, LOCATIONS, NPCS, BLIND_DOG_IMAGES, MAX_CARRY_KG, START_BUDGET } from '../data/catalog.js';
+import { ASSETS, IMAGE_FALLBACKS, FACTIONS, AVATAR_OPTIONS, RADIO_TRACKS, RADIO_STATIONS, ITEMS, LOCATIONS, NPCS, BLIND_DOG_IMAGES, MAX_CARRY_KG, START_BUDGET } from '../data/catalog.js';
 import { getWeight, countItem, getItem } from '../systems/inventory.js';
 import { getGameDateTime, formatElapsed } from '../systems/game-clock.js';
 import { getLocation } from '../systems/world.js';
 
 export const esc = (value='') => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const money = (value) => `${Number(value || 0).toLocaleString('ru-RU')} RU`;
+const avatarFallbackFor = (src, name='') => {
+  if (/Sidorovich|Сидорович/i.test(name)) return IMAGE_FALLBACKS.npc;
+  if (/Wolf|Волк|loner|green_stalker/i.test(`${name} ${src||''}`)) return IMAGE_FALLBACKS.loner;
+  if (/military|soldier|Военный/i.test(`${name} ${src||''}`)) return IMAGE_FALLBACKS.military;
+  if (/bandit|Бандит|Кефир/i.test(`${name} ${src||''}`)) return IMAGE_FALLBACKS.bandit;
+  return IMAGE_FALLBACKS.general;
+};
 const avatarMarkup = (src, name, emoji='☢') => src
-  ? `<div class="avatar-wrap"><img src="${esc(src)}" alt="${esc(name)}" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="avatar-fallback" hidden>${emoji}</span></div>`
+  ? `<div class="avatar-wrap"><img src="${esc(src)}" alt="${esc(name)}" loading="lazy" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${esc(avatarFallbackFor(src,name))}'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><span class="avatar-fallback" hidden>${emoji}</span></div>`
   : `<div class="avatar-wrap"><span class="avatar-fallback">${emoji}</span></div>`;
+const itemFallbackFor = (item) => {
+  if (item.cat==='Еда') return IMAGE_FALLBACKS.food;
+  if (item.cat==='Медицина') return IMAGE_FALLBACKS.medical;
+  if (item.cat==='Добыча') return IMAGE_FALLBACKS.dog;
+  if (item.cat==='Артефакты') return 'https://images.steamusercontent.com/ugc/1849289077641931927/64F2688F07678E9C674D4C3CC57D100E13DD9822/';
+  if (['Оружие','Боеприпасы','Снаряжение','Броня','Защита'].includes(item.cat)) return IMAGE_FALLBACKS.gear;
+  return IMAGE_FALLBACKS.general;
+};
 const itemImage = (item) => item.image
-  ? `<img src="${esc(item.image)}" alt="${esc(item.name)}" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="item-emoji" hidden>${item.emoji || '▧'}</span>`
+  ? `<img src="${esc(item.image)}" alt="${esc(item.name)}" loading="lazy" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${esc(itemFallbackFor(item))}'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><span class="item-emoji" hidden>${item.emoji || '▧'}</span>`
   : `<span class="item-emoji">${item.emoji || '▧'}</span>`;
 const bar = (label, value, cls='') => `<div class="stat-bar"><div class="stat-bar-label"><span>${label}</span><b>${Math.round(value)}%</b></div><div class="bar-track"><i class="${cls}" style="width:${Math.max(0,Math.min(100,value))}%"></i></div></div>`;
 const btn = (label, action, cls='button', data='') => `<button class="${cls}" data-action="${action}" ${data}>${label}</button>`;
 
 export function renderMenu(state) {
-  return `<section class="main-menu" style="--menu-bg:url('${ASSETS.menu}')">
+  return `<section class="main-menu" style="--menu-bg:url('${ASSETS.menu}'),url('${IMAGE_FALLBACKS.general}')">
     <div class="menu-shade"></div>
     <div class="menu-content">
       <div class="menu-kicker">ЗОНА ОТЧУЖДЕНИЯ · КОРДОН</div>
@@ -67,11 +82,11 @@ export function renderCharacters(state) {
 
 export function renderCreate(state) {
   const d = state.draft;
-  const factionCards = FACTIONS.map(f=>`<label class="faction-choice ${d.faction===f.id?'selected':''}"><input type="radio" name="faction" value="${f.id}" ${d.faction===f.id?'checked':''}><span class="faction-icon"><img src="${esc(f.icon)}" alt="" onerror="this.hidden=true"></span><span><b>${esc(f.name)}</b><small>${esc(f.description)}</small></span><i>${d.faction===f.id?'●':'○'}</i></label>`).join('');
+  const factionCards = FACTIONS.map(f=>`<label class="faction-choice ${d.faction===f.id?'selected':''}"><input type="radio" name="faction" value="${f.id}" ${d.faction===f.id?'checked':''}><span class="faction-icon"><img src="${esc(f.icon)}" alt="" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${esc(IMAGE_FALLBACKS[f.id]||IMAGE_FALLBACKS.general)}'}else{this.hidden=true}"></span><span><b>${esc(f.name)}</b><small>${esc(f.description)}</small></span><i>${d.faction===f.id?'●':'○'}</i></label>`).join('');
   const previewSrc = d.avatar || '';
   return `<section class="screen-wrap pda-screen-wrap">
     <header class="screen-heading"><div><div class="eyebrow">КПК · ЛИЧНОЕ ДЕЛО</div><h2>Регистрация сталкера</h2><p>Заполни данные персонажа перед выходом на Кордон.</p></div>${btn('← Назад','back-characters','button ghost')}</header>
-    <form id="character-form" class="pda-form">
+    <form id="character-form" class="pda-form" style="--pda-bg:url('${ASSETS.pda}'),url('${IMAGE_FALLBACKS.general}')">
       <div class="pda-topline"><span>НОВОЕ ЛИЧНОЕ ДЕЛО / КОРДОН</span><span class="pda-live-time" data-live-clock>15 апреля · ${new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</span></div>
       <div class="pda-form-layout">
         <div class="pda-photo-column">
@@ -125,11 +140,13 @@ function renderLocation(game, character) {
   const squads = game.squads.filter(squad=>squad.location===game.locationId);
   const description = game.currentDescription || location?.desc || '';
   const hazard = location?.hazards?.length ? `<div class="hazard-row">${location.hazards.map(h=>`<span class="hazard-chip ${h}">${h==='radiation'?'☢ Радиационный очаг':'◉ Гравитационная аномалия'}</span>`).join('')}</div>` : '';
+  const baseStation = RADIO_STATIONS.find(station=>station.locationId===game.locationId);
+  const baseRadio = baseStation ? `<div class="side-panel base-radio-panel"><div class="panel-title"><h3>Базовая радиостанция</h3><span>${esc(baseStation.frequency)}</span></div><p class="environment-copy">${esc(baseStation.name)} · эфир группировки: ${esc(baseStation.faction)}</p>${btn('♫ Включить местное радио','radio-base-open','button primary wide',`data-id="${baseStation.id}"`)}</div>` : '';
   return `<div class="location-view">
-    <div class="location-hero" style="--location-bg:url('${location?.image||''}')"><div class="location-overlay"></div><div class="location-title"><div class="eyebrow">КОРДОН · ТЕКУЩАЯ ЛОКАЦИЯ</div><h2>${esc(location?.name||'Неизвестно')}</h2><p>${esc(location?.desc||'')}</p></div><div class="location-weather">${esc(game.weather||'Пасмурно')}</div></div>
+    <div class="location-hero" style="--location-bg:url('${location?.image||IMAGE_FALLBACKS.general}'),url('${IMAGE_FALLBACKS.general}')"><img class="location-hero-source" src="${esc(location?.image||IMAGE_FALLBACKS.general)}" alt="" loading="lazy" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${IMAGE_FALLBACKS.general}'}else{this.hidden=true}"><div class="location-overlay"></div><div class="location-title"><div class="eyebrow">КОРДОН · ТЕКУЩАЯ ЛОКАЦИЯ</div><h2>${esc(location?.name||'Неизвестно')}</h2><p>${esc(location?.desc||'')}</p></div><div class="location-weather">${esc(game.weather||'Пасмурно')}</div></div>
     <div class="location-body"><div class="location-actions"><div class="section-caption"><b>ДЕЙСТВИЯ</b><small>Опиши действие в строке снизу или выбери команду</small></div><div class="action-grid">${btn('⌕ Осмотреться','inspect','action-tile')}${btn('▤ Обыскать местность','search','action-tile')}${btn('◉ Искать артефакт','artifact-start','action-tile')}${btn('⌖ Перейти на карте','tab-map','action-tile')}${btn('☾ Отдохнуть','sleep-open','action-tile')}${btn('⚑ Проверить аномалию','anomaly','action-tile')}</div>${hazard}</div>
       <div class="location-side"><div class="side-panel"><div class="panel-title"><h3>Люди рядом</h3><span>${npcs.length+squads.length}</span></div>${npcs.length ? npcs.map(npc=>`<button class="npc-row" data-action="talk" data-id="${npc.id}">${avatarMarkup(npc.icon,npc.name,'♟')}<span><b>${esc(npc.name)}</b><small>${esc(npc.role)} · ${esc(npc.group)}</small></span><i>→</i></button>`).join('') : '<p class="muted small-copy">Знакомых персонажей рядом нет.</p>'}${squads.map(s=>`<div class="squad-row"><span class="squad-mark">⚑</span><span><b>${esc(s.name)}</b><small>${s.members} человек · ${esc(s.faction==='loner'?'Одиночки':s.faction==='bandit'?'Бандиты':'Военные')}</small></span></div>`).join('')}</div>
-      <div class="side-panel"><div class="panel-title"><h3>Окружение</h3></div><p class="environment-copy">${esc(description)}</p><div class="mini-readout"><span>Соседние локации</span><b>${location?.neighbors?.length||0}</b></div><button class="text-action" data-action="tab-map">Открыть карту Кордона →</button></div></div>
+      <div class="side-panel"><div class="panel-title"><h3>Окружение</h3></div><p class="environment-copy">${esc(description)}</p><div class="mini-readout"><span>Соседние локации</span><b>${location?.neighbors?.length||0}</b></div><button class="text-action" data-action="tab-map">Открыть карту Кордона →</button></div>${baseRadio}</div></div>
     </div>
   </div>`;
 }
@@ -137,7 +154,7 @@ function renderLocation(game, character) {
 function renderMap(game) {
   const location = getLocation(game.locationId);
   return `<div class="tab-page map-page"><div class="tab-heading"><div><div class="eyebrow">КПК · НАВИГАЦИЯ</div><h2>Карта Кордона</h2><p>Метка с жёлтой рамкой показывает твоё местоположение. Выбирай только соседние локации.</p></div><span class="legend"><i></i> Ты сейчас здесь</span></div>
-    <div class="map-frame"><img src="${ASSETS.map}" alt="Карта Кордона" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><div class="map-fallback" hidden>КАРТА КОРДОНА<br><small>Внешнее изображение недоступно</small></div><div class="map-pins">${LOCATIONS.map(loc=>`<button class="map-pin ${loc.id===game.locationId?'current':''} ${(location?.neighbors||[]).includes(loc.id)?'reachable':''}" style="left:${loc.x}%;top:${loc.y}%" data-action="travel" data-id="${loc.id}" title="${esc(loc.name)}"><i></i><span>${esc(loc.name)}</span></button>`).join('')}</div></div>
+    <div class="map-frame"><img src="${ASSETS.map}" alt="Карта Кордона" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='https://www.mrdictionary.net/users/mecha-neko/saigimages/STALKER/STALKER_Shadow_of_Chernobyl_PC_s_074.jpg'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><div class="map-fallback" hidden>КАРТА КОРДОНА<br><small>Внешнее изображение недоступно</small></div><div class="map-pins">${LOCATIONS.map(loc=>`<button class="map-pin ${loc.id===game.locationId?'current':''} ${(location?.neighbors||[]).includes(loc.id)?'reachable':''}" style="left:${loc.x}%;top:${loc.y}%" data-action="travel" data-id="${loc.id}" title="${esc(loc.name)}"><i></i><span>${esc(loc.name)}</span></button>`).join('')}</div></div>
     <div class="map-location-list"><h3>Ближайшие переходы</h3><div class="neighbor-grid">${(location?.neighbors||[]).map(id=>{const loc=getLocation(id);return `<article class="neighbor-card"><button class="neighbor-main" data-action="travel" data-id="${id}"><span>⌖</span><b>${esc(loc?.name||id)}</b><small>Перейти · 30–50 мин</small></button><button class="neighbor-scout" data-action="scout" data-id="${id}">Осмотреть биноклем</button></article>`}).join('')}</div></div>
     <div class="map-legend-row"><span>☢ Радиационные очаги отмечаются в описании локации</span><span>◉ Гравитационные поля требуют проверки болтом</span><span>▧ Тайники и находки появляются после исследования</span></div>
   </div>`;
@@ -178,28 +195,34 @@ function renderQuests(game) {
 
 
 function renderRadio(state) {
-  const selectedId = state.settings.radioTrackId || RADIO_TRACKS[0].id;
-  const track = RADIO_TRACKS.find(item => item.id === selectedId) || RADIO_TRACKS[0];
+  const station = RADIO_STATIONS.find(item=>item.id===state.settings.radioStationId)
+    || RADIO_STATIONS.find(item=>item.locationId===state.game?.locationId)
+    || RADIO_STATIONS[0];
+  const stationTracks = RADIO_TRACKS.filter(item=>station.trackIds.includes(item.id));
+  const selectedId = station.trackIds.includes(state.settings.radioTrackId) ? state.settings.radioTrackId : stationTracks[0].id;
+  const track = stationTracks.find(item=>item.id===selectedId) || stationTracks[0];
   const playing = !!state.ui.radioPlaying;
   const player = playing
-    ? `<iframe class="radio-iframe" title="${esc(track.artist)} — ${esc(track.title)}" src="https://www.youtube-nocookie.com/embed/${esc(track.videoId)}?autoplay=1&rel=0&playsinline=1&modestbranding=1" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`
-    : `<div class="radio-idle"><span class="radio-frequency">100.7 FM</span><b>РАДИО КОРДОН</b><small>ЭФИР ОЖИДАЕТ НАСТРОЙКИ</small><span class="radio-wave">▂▅▃▇▅▂▆▃▅</span></div>`;
+    ? `<iframe class="radio-iframe" title="${esc(track.artist)} — ${esc(track.title)}" src="https://www.youtube-nocookie.com/embed/${esc(track.videoId)}?autoplay=1&rel=0&playsinline=1&modestbranding=1&start=${track.startSeconds||0}" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`
+    : `<div class="radio-idle"><span class="radio-frequency">${esc(station.frequency)}</span><b>${esc(station.name.toUpperCase())}</b><small>ЭФИР ОЖИДАЕТ НАСТРОЙКИ</small><span class="radio-wave">▂▅▃▇▅▂▆▃▅</span></div>`;
+  const stationButtons = RADIO_STATIONS.map(item=>`<button class="radio-station-choice ${item.id===station.id?'active':''}" data-action="radio-select-station" data-id="${item.id}"><b>${esc(item.name)}</b><small>${esc(item.frequency)} · ${item.trackIds.length} треков</small></button>`).join('');
   return `<div class="tab-page radio-page">
-    <div class="tab-heading"><div><div class="eyebrow">КПК · ПРИЁМНИК</div><h2>Радио Кордон</h2><p>Музыка сталкеров, песни из старых приёмников и дальние радиоволны.</p></div><span class="radio-status ${playing?'live':''}"><i></i>${playing?'В ЭФИРЕ':'ОЖИДАНИЕ'}</span></div>
+    <div class="tab-heading"><div><div class="eyebrow">КПК · ПРИЁМНИК</div><h2>Радио Кордон</h2><p>${esc(station.name)} · ${esc(station.frequency)} · тематический эфир каждой базы.</p></div><span class="radio-status ${playing?'live':''}"><i></i>${playing?'В ЭФИРЕ':'ОЖИДАНИЕ'}</span></div>
+    <div class="radio-stations">${stationButtons}</div>
     <div class="radio-layout">
       <section class="radio-console panel">
         <div class="radio-console-top"><span>ZONE RADIO / R-100</span><span>FM · STEREO</span></div>
         <div class="radio-screen">${player}</div>
         <div class="radio-now-playing"><div class="eyebrow">${playing?'СЕЙЧАС ИГРАЕТ':'ВЫБРАННАЯ КОМПОЗИЦИЯ'} · ${esc(track.era)}</div><h3>${esc(track.title)}</h3><p>${esc(track.artist)} <span>·</span> ${esc(track.label)}</p></div>
         <div class="radio-controls">${btn('◂ Предыдущая','radio-prev','button ghost')}${btn(playing?'▶ Перезапустить':'▶ Включить радио','radio-play-current','button primary')}${btn('Следующая ▸','radio-next','button ghost')}${btn('Ⅱ Выключить','radio-stop','button ghost',playing?'':'disabled')}</div>
-        <div class="radio-hint">Плеер подключается напрямую к YouTube после нажатия. Если встроенный эфир недоступен, открой композицию по ссылке в списке.</div>
+        <div class="radio-hint">Часть саундтреков размещена как длинный сборник: радио начинает воспроизведение с таймкода выбранной композиции.</div>
       </section>
       <section class="radio-playlist panel">
-        <div class="panel-title"><h3>Плейлист приёмника</h3><span>${RADIO_TRACKS.length} треков</span></div>
-        <div class="radio-track-list">${RADIO_TRACKS.map((item,index)=>`<article class="radio-track ${item.id===track.id?'selected':''}"><span class="radio-track-number">${String(index+1).padStart(2,'0')}</span><div class="radio-track-meta"><b>${esc(item.title)}</b><small>${esc(item.artist)} · ${esc(item.era)}</small></div><button class="radio-track-play" data-action="radio-play-track" data-id="${esc(item.id)}" title="Включить ${esc(item.title)}">${item.id===track.id&&playing?'Ⅱ':'▶'}</button><a class="radio-track-link" href="https://www.youtube.com/watch?v=${esc(item.videoId)}" target="_blank" rel="noopener noreferrer" aria-label="Открыть ${esc(item.title)} на YouTube">↗</a></article>`).join('')}</div>
+        <div class="panel-title"><h3>Плейлист базы</h3><span>${stationTracks.length} из ${RADIO_TRACKS.length}</span></div>
+        <div class="radio-track-list">${stationTracks.map((item,index)=>`<article class="radio-track ${item.id===track.id?'selected':''}"><span class="radio-track-number">${String(index+1).padStart(2,'0')}</span><div class="radio-track-meta"><b>${esc(item.title)}</b><small>${esc(item.artist)} · ${esc(item.era)}</small></div><button class="radio-track-play" data-action="radio-play-track" data-id="${esc(item.id)}" title="Включить ${esc(item.title)}">${item.id===track.id&&playing?'Ⅱ':'▶'}</button><a class="radio-track-link" href="https://www.youtube.com/watch?v=${esc(item.videoId)}${item.startSeconds?`&t=${item.startSeconds}s`:''}" target="_blank" rel="noopener noreferrer" aria-label="Открыть ${esc(item.title)} на YouTube">↗</a></article>`).join('')}</div>
       </section>
     </div>
-    <p class="radio-disclaimer">Треки не хранятся в проекте: музыка транслируется с YouTube. Для воспроизведения требуется интернет; доступность отдельных видео зависит от правообладателя и региона.</p>
+    <p class="radio-disclaimer">В проекте хранятся только ссылки и таймкоды. Для прослушивания нужен интернет; YouTube может ограничивать отдельные видео по региону или настройкам правообладателя.</p>
   </div>`;
 }
 
@@ -216,7 +239,7 @@ function renderCombat(game) {
   if (!enemy) return '';
   const image = enemy.type==='blind-dog' ? BLIND_DOG_IMAGES[enemy.imageIndex||0] : '';
   const enemyFallback = enemy.type==='blind-dog' ? '🐕' : enemy.type==='military' ? '🪖' : '♟';
-  return `<div class="combat-overlay"><div class="combat-card"><div class="eyebrow danger-text">ОПАСНОСТЬ · БОЕВОЙ КОНТАКТ</div><h2>${esc(enemy.name)}${enemy.count>1?` ×${enemy.count}`:''}</h2><div class="combat-visual">${image?`<img src="${image}" alt="Слепой пёс" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden>🐕</span>`:`<span>${enemyFallback}</span>`}</div><div class="combat-health"><span>Состояние противника</span><b>${enemy.hp}/${enemy.maxHp}</b></div><div class="bar-track"><i class="danger" style="width:${enemy.hp/enemy.maxHp*100}%"></i></div><p>Противник находится рядом. Выбери действие; каждый ход занимает немного игрового времени.</p><div class="combat-actions">${btn('⚔ Атаковать','combat-attack','button danger')}${btn('▣ Защищаться','combat-defend','button')}${btn('↗ Отступить','combat-flee','button ghost')}</div></div></div>`;
+  return `<div class="combat-overlay"><div class="combat-card"><div class="eyebrow danger-text">ОПАСНОСТЬ · БОЕВОЙ КОНТАКТ</div><h2>${esc(enemy.name)}${enemy.count>1?` ×${enemy.count}`:''}</h2><div class="combat-visual">${image?`<img src="${image}" alt="Слепой пёс" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${IMAGE_FALLBACKS.dog}'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><span hidden>🐕</span>`:`<span>${enemyFallback}</span>`}</div><div class="combat-health"><span>Состояние противника</span><b>${enemy.hp}/${enemy.maxHp}</b></div><div class="bar-track"><i class="danger" style="width:${enemy.hp/enemy.maxHp*100}%"></i></div><p>Противник находится рядом. Выбери действие; каждый ход занимает немного игрового времени.</p><div class="combat-actions">${btn('⚔ Атаковать','combat-attack','button danger')}${btn('▣ Защищаться','combat-defend','button')}${btn('↗ Отступить','combat-flee','button ghost')}</div></div></div>`;
 }
 
 function renderArtifact(game) {

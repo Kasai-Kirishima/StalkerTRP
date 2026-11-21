@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cordon-pda-v2-radio';
+const CACHE_NAME = 'cordon-pda-v3-radio-40';
 const APP_SHELL = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './assets/icons/radioactive.svg',
