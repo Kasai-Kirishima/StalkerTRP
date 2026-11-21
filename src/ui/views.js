@@ -5,33 +5,19 @@ import { getLocation, getAvailableTraders, getSidorovichJobState } from '../syst
 
 export const esc = (value='') => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const money = (value) => `${Number(value || 0).toLocaleString('ru-RU')} RU`;
-const avatarFallbackFor = (src, name='') => {
-  if (/Sidorovich|Сидорович/i.test(name)) return IMAGE_FALLBACKS.npc;
-  if (/Wolf|Волк|loner|green_stalker/i.test(`${name} ${src||''}`)) return IMAGE_FALLBACKS.loner;
-  if (/military|soldier|Военный/i.test(`${name} ${src||''}`)) return IMAGE_FALLBACKS.military;
-  if (/bandit|Бандит|Кефир/i.test(`${name} ${src||''}`)) return IMAGE_FALLBACKS.bandit;
-  return IMAGE_FALLBACKS.general;
+const avatarMarkup = (src, name, emoji='☢') => {
+  if (src && String(src).startsWith('data:image/')) return `<div class="avatar-wrap"><img src="${esc(src)}" alt="${esc(name)}"></div>`;
+  return `<div class="avatar-wrap"><span class="avatar-fallback">${emoji}</span></div>`;
 };
-const avatarMarkup = (src, name, emoji='☢') => src
-  ? `<div class="avatar-wrap"><img src="${esc(src)}" alt="${esc(name)}" loading="lazy" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${esc(avatarFallbackFor(src,name))}'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><span class="avatar-fallback" hidden>${emoji}</span></div>`
-  : `<div class="avatar-wrap"><span class="avatar-fallback">${emoji}</span></div>`;
-const itemFallbackFor = (item) => {
-  if (item.id==='flesh-eye') return IMAGE_FALLBACKS.fleshEye;
-  if (item.cat==='Еда') return IMAGE_FALLBACKS.food;
-  if (item.cat==='Медицина') return IMAGE_FALLBACKS.medical;
-  if (item.cat==='Добыча') return IMAGE_FALLBACKS.dog;
-  if (item.cat==='Артефакты') return 'https://images.steamusercontent.com/ugc/1849289077641931927/64F2688F07678E9C674D4C3CC57D100E13DD9822/';
-  if (['Оружие','Боеприпасы','Снаряжение','Броня','Защита'].includes(item.cat)) return IMAGE_FALLBACKS.gear;
-  return IMAGE_FALLBACKS.general;
+const itemImage = (item) => {
+  const icons = { 'Еда':'🥫', 'Медицина':'✚', 'Добыча':'☣', 'Артефакты':'◆', 'Оружие':'⚒', 'Боеприпасы':'▦', 'Снаряжение':'▣', 'Броня':'▤', 'Защита':'◈' };
+  return `<span class="item-emoji">${item.emoji || icons[item.cat] || '▧'}</span>`;
 };
-const itemImage = (item) => item.image
-  ? `<img src="${esc(item.image)}" alt="${esc(item.name)}" loading="lazy" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${esc(itemFallbackFor(item))}'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><span class="item-emoji" hidden>${item.emoji || '▧'}</span>`
-  : `<span class="item-emoji">${item.emoji || '▧'}</span>`;
 const bar = (label, value, cls='') => `<div class="stat-bar"><div class="stat-bar-label"><span>${label}</span><b>${Math.round(value)}%</b></div><div class="bar-track"><i class="${cls}" style="width:${Math.max(0,Math.min(100,value))}%"></i></div></div>`;
 const btn = (label, action, cls='button', data='') => `<button class="${cls}" data-action="${action}" ${data}>${label}</button>`;
 
 export function renderMenu(state) {
-  return `<section class="main-menu" style="--menu-bg:url('${ASSETS.menu}'),url('${IMAGE_FALLBACKS.general}')">
+  return `<section class="main-menu" style="--menu-bg:url('${ASSETS.menu}')">
     <div class="menu-shade"></div>
     <div class="menu-content">
       <div class="menu-kicker">ЗОНА ОТЧУЖДЕНИЯ · КОРДОН</div>
@@ -83,15 +69,16 @@ export function renderCharacters(state) {
 
 export function renderCreate(state) {
   const d = state.draft;
-  const factionCards = FACTIONS.map(f=>`<label class="faction-choice ${d.faction===f.id?'selected':''}"><input type="radio" name="faction" value="${f.id}" ${d.faction===f.id?'checked':''}><span class="faction-icon"><img src="${esc(f.icon)}" alt="" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${esc(IMAGE_FALLBACKS[f.id]||IMAGE_FALLBACKS.general)}'}else{this.hidden=true}"></span><span><b>${esc(f.name)}</b><small>${esc(f.description)}</small></span><i>${d.faction===f.id?'●':'○'}</i></label>`).join('');
-  const previewSrc = d.avatar || '';
+  const factionCards = FACTIONS.map(f=>`<label class="faction-choice ${d.faction===f.id?'selected':''}"><input type="radio" name="faction" value="${f.id}" ${d.faction===f.id?'checked':''}><span class="faction-icon"><span class="faction-icon-symbol">${f.id==='military'?'🪖':f.id==='bandit'?'♟':'☢'}</span></span><span><b>${esc(f.name)}</b><small>${esc(f.description)}</small></span><i>${d.faction===f.id?'●':'○'}</i></label>`).join('');
+  const previewSrc = (d.avatar || '').startsWith('data:image/') ? d.avatar : '';
+  const portraitMark = d.avatar ? (d.faction==='military'?'🪖':d.faction==='bandit'?'♟':'☢') : '☢';
   return `<section class="screen-wrap pda-screen-wrap">
     <header class="screen-heading"><div><div class="eyebrow">КПК · ЛИЧНОЕ ДЕЛО</div><h2>Регистрация сталкера</h2><p>Заполни данные персонажа перед выходом на Кордон.</p></div>${btn('← Назад','back-characters','button ghost')}</header>
-    <form id="character-form" class="pda-form" style="--pda-bg:url('${ASSETS.pda}'),url('${IMAGE_FALLBACKS.general}')">
+    <form id="character-form" class="pda-form" style="--pda-bg:none">
       <div class="pda-topline"><span>НОВОЕ ЛИЧНОЕ ДЕЛО / КОРДОН</span><span class="pda-live-time" data-live-clock>15 апреля · ${new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</span></div>
       <div class="pda-form-layout">
         <div class="pda-photo-column">
-          <div class="photo-frame">${previewSrc ? `<img src="${esc(previewSrc)}" alt="Портрет" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span hidden>☢</span>` : '<span>☢</span>'}</div>
+          <div class="photo-frame">${previewSrc ? `<img src="${esc(previewSrc)}" alt="Портрет">` : `<span>${portraitMark}</span>`}</div>
           <b>ФОТО / ПОРТРЕТ</b>
           ${btn('Выбрать из списка','open-avatars','button small wide')}
           <label class="button small wide upload-button">Загрузить с устройства<input type="file" id="avatar-upload" accept="image/*" hidden></label>
@@ -147,7 +134,7 @@ function renderLocation(game, character) {
   const npcRows = npcs.map(npc=>`<div class="npc-row-wrap"><button class="npc-row" data-action="talk" data-id="${npc.id}">${avatarMarkup(npc.icon,npc.name,'♟')}<span><b>${esc(npc.name)}</b><small>${esc(npc.role)} · ${esc(npc.group)}</small></span><i>→</i></button>${npc.trader?btn('Открыть торговлю','trade-open','button tiny ghost',`data-id="${npc.id}"`):''}</div>`).join('');
   const traderRows = traders.filter(trader=>trader.random).map(trader=>`<div class="npc-row-wrap"><button class="npc-row" data-action="trade-open" data-id="${trader.id}">${avatarMarkup(trader.icon,trader.name,'♟')}<span><b>${esc(trader.name)}</b><small>Бродячий торговец · Путник</small></span><i>₽</i></button></div>`).join('');
   return `<div class="location-view">
-    <div class="location-hero" style="--location-bg:url('${location?.image||IMAGE_FALLBACKS.general}'),url('${IMAGE_FALLBACKS.general}')"><img class="location-hero-source" src="${esc(location?.image||IMAGE_FALLBACKS.general)}" alt="" loading="lazy" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${IMAGE_FALLBACKS.general}'}else{this.hidden=true}"><div class="location-overlay"></div><div class="location-title"><div class="eyebrow">КОРДОН · ТЕКУЩАЯ ЛОКАЦИЯ</div><h2>${esc(location?.name||'Неизвестно')}</h2><p>${esc(location?.desc||'')}</p></div><div class="location-weather">${esc(game.weather||'Пасмурно')}</div></div>
+    <div class="location-hero"><div class="location-terrain-mark" aria-hidden="true">☢</div><div class="location-overlay"></div><div class="location-title"><div class="eyebrow">КОРДОН · ТЕКУЩАЯ ЛОКАЦИЯ</div><h2>${esc(location?.name||'Неизвестно')}</h2><p>${esc(location?.desc||'')}</p></div><div class="location-weather">${esc(game.weather||'Пасмурно')}</div></div>
     <div class="location-body"><div class="location-actions"><div class="section-caption"><b>ДЕЙСТВИЯ</b><small>Опиши действие в строке снизу или выбери команду</small></div><div class="action-grid">${btn('⌕ Осмотреться','inspect','action-tile')}${btn('▤ Обыскать местность','search','action-tile')}${btn('◉ Искать артефакт','artifact-start','action-tile')}${btn('⌖ Перейти на карте','tab-map','action-tile')}${btn('☾ Отдохнуть','sleep-open','action-tile')}${btn('⚑ Проверить аномалию','anomaly','action-tile')}</div>${hazard}</div>
       <div class="location-side"><div class="side-panel"><div class="panel-title"><h3>Люди рядом</h3><span>${npcs.length+traders.filter(t=>t.random).length+squads.length}</span></div>${npcRows || '<p class="muted small-copy">Знакомых персонажей рядом нет.</p>'}${traderRows}${squads.map(s=>`<div class="squad-row"><span class="squad-mark">⚑</span><span><b>${esc(s.name)}</b><small>${s.members} человек · ${esc(s.faction==='loner'?'Одиночки':s.faction==='bandit'?'Бандиты':'Военные')}</small></span></div>`).join('')}</div>
       <div class="side-panel"><div class="panel-title"><h3>Окружение</h3></div><p class="environment-copy">${esc(description)}</p><div class="mini-readout"><span>Соседние локации</span><b>${location?.neighbors?.length||0}</b></div><button class="text-action" data-action="tab-map">Открыть карту Кордона →</button></div>${baseRadio}</div></div>
@@ -159,7 +146,7 @@ function renderMap(game) {
   const location = getLocation(game.locationId);
   const mapLocations=LOCATIONS.filter(loc=>loc.mapVisible!==false);
   return `<div class="tab-page map-page"><div class="tab-heading"><div><div class="eyebrow">КПК · НАВИГАЦИЯ</div><h2>Карта Кордона</h2><p>Нажми на серую точку, чтобы открыть карточку подлокации. Жёлтая точка показывает твоё местоположение.</p></div><span class="legend"><i></i> Ты сейчас здесь</span></div>
-    <div class="map-frame"><img src="${ASSETS.map}" alt="Чистая карта Кордона" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${IMAGE_FALLBACKS.general}'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><div class="map-fallback" hidden>КАРТА КОРДОНА<br><small>Изображение карты недоступно</small></div><div class="map-pins">${mapLocations.map(loc=>`<button class="map-pin ${loc.id===game.locationId?'current':''} ${(location?.neighbors||[]).includes(loc.id)?'reachable':''}" style="left:${loc.x}%;top:${loc.y}%" data-action="location-open" data-id="${loc.id}" aria-label="${esc(loc.name)}" title="${esc(loc.name)}"></button>`).join('')}</div></div>
+    <div class="map-frame"><img src="${ASSETS.map}" alt="Чистая карта Кордона" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><div class="map-fallback" hidden>КАРТА КОРДОНА<br><small>Изображение карты недоступно</small></div><div class="map-pins">${mapLocations.map(loc=>`<button class="map-pin ${loc.id===game.locationId?'current':''} ${(location?.neighbors||[]).includes(loc.id)?'reachable':''}" style="left:${loc.x}%;top:${loc.y}%" data-action="location-open" data-id="${loc.id}" aria-label="${esc(loc.name)}" title="${esc(loc.name)}"></button>`).join('')}</div></div>
     <div class="map-location-list"><h3>Ближайшие переходы</h3><div class="neighbor-grid">${(location?.neighbors||[]).map(id=>{const loc=getLocation(id);return `<article class="neighbor-card"><button class="neighbor-main" data-action="travel" data-id="${id}"><span>⌖</span><b>${esc(loc?.name||id)}</b><small>Перейти · 30–50 мин</small></button><button class="neighbor-scout" data-action="scout" data-id="${id}">Осмотреть биноклем</button></article>`}).join('')}</div></div>
     <div class="map-legend-row"><span>☢ Радиационные очаги отмечаются в описании локации</span><span>◉ Гравитационные поля требуют проверки болтом</span><span>▧ Тайники и находки появляются после исследования</span></div>
   </div>`;
@@ -269,9 +256,9 @@ function renderContacts(game) {
 function renderCombat(game) {
   const enemy=game.activeEncounter;
   if (!enemy) return '';
-  const image = enemy.type==='blind-dog' ? BLIND_DOG_IMAGES[enemy.imageIndex||0] : enemy.type==='flesh' ? (enemy.image||IMAGE_FALLBACKS.flesh) : '';
+  const image = '';
   const enemyFallback = enemy.type==='blind-dog' ? '🐕' : enemy.type==='flesh' ? '🐗' : enemy.type==='military' ? '🪖' : '♟';
-  return `<div class="combat-overlay"><div class="combat-card"><div class="eyebrow danger-text">ОПАСНОСТЬ · БОЕВОЙ КОНТАКТ</div><h2>${esc(enemy.name)}${enemy.count>1?` ×${enemy.count}`:''}</h2><div class="combat-visual">${image?`<img src="${image}" alt="${esc(enemy.name)}" onerror="if(!this.dataset.fallback){this.dataset.fallback='1';this.src='${enemy.type==='flesh'?IMAGE_FALLBACKS.flesh:IMAGE_FALLBACKS.dog}'}else{this.hidden=true;this.nextElementSibling.hidden=false}"><span hidden>${enemyFallback}</span>`:`<span>${enemyFallback}</span>`}</div><div class="combat-health"><span>Состояние противника</span><b>${enemy.hp}/${enemy.maxHp}</b></div><div class="bar-track"><i class="danger" style="width:${enemy.hp/enemy.maxHp*100}%"></i></div><p>Противник находится рядом. Выбери действие; каждый ход занимает немного игрового времени.</p><div class="combat-actions">${btn('⚔ Атаковать','combat-attack','button danger')}${btn('▣ Защищаться','combat-defend','button')}${btn('↗ Отступить','combat-flee','button ghost')}</div></div></div>`;
+  return `<div class="combat-overlay"><div class="combat-card"><div class="eyebrow danger-text">ОПАСНОСТЬ · БОЕВОЙ КОНТАКТ</div><h2>${esc(enemy.name)}${enemy.count>1?` ×${enemy.count}`:''}</h2><div class="combat-visual"><span>${enemyFallback}</span></div><div class="combat-health"><span>Состояние противника</span><b>${enemy.hp}/${enemy.maxHp}</b></div><div class="bar-track"><i class="danger" style="width:${enemy.hp/enemy.maxHp*100}%"></i></div><p>Противник находится рядом. Выбери действие; каждый ход занимает немного игрового времени.</p><div class="combat-actions">${btn('⚔ Атаковать','combat-attack','button danger')}${btn('▣ Защищаться','combat-defend','button')}${btn('↗ Отступить','combat-flee','button ghost')}</div></div></div>`;
 }
 
 function renderArtifact(game) {
@@ -318,7 +305,7 @@ export function renderModal(state) {
       { id:'military', title:'Военные', note:'4 портрета' },
       { id:'npc', title:'Ключевые NPC', note:'4 портрета' }
     ];
-    return `<div class="modal-shade"><div class="modal-card avatar-modal"><button class="modal-close" data-action="close-modal">×</button><div class="eyebrow">ВНЕШНОСТЬ · БИБЛИОТЕКА ИЗОБРАЖЕНИЙ</div><h2>Выбрать портрет</h2><p>Все 18 портретов из списка проекта. Можно выбрать персонажа любой группировки, в том числе портреты Сидоровича, Волка, Кефира и Дзержинского.</p>${groups.map(group=>`<section class="avatar-group"><div class="avatar-group-heading"><b>${group.title}</b><small>${group.note}</small></div><div class="avatar-choice-grid">${AVATAR_OPTIONS.filter(option=>option.group===group.id).map(option=>`<button data-action="choose-avatar" data-src="${esc(option.src)}" title="${esc(option.name)}">${avatarMarkup(option.src,option.name,group.id==='military'?'🪖':group.id==='bandit'?'♟':'☢')}<span class="avatar-choice-label">${esc(option.name)}</span></button>`).join('')}</div></section>`).join('')}</div></div>`;
+    return `<div class="modal-shade"><div class="modal-card avatar-modal"><button class="modal-close" data-action="close-modal">×</button><div class="eyebrow">ВНЕШНОСТЬ · НАБОР ПОРТРЕТНЫХ ЗНАЧКОВ</div><h2>Выбрать портрет</h2><p>Все 18 встроенных вариантов обозначений. Можно выбрать символ своей группировки или ключевого NPC.</p>${groups.map(group=>`<section class="avatar-group"><div class="avatar-group-heading"><b>${group.title}</b><small>${group.note}</small></div><div class="avatar-choice-grid">${AVATAR_OPTIONS.filter(option=>option.group===group.id).map(option=>`<button data-action="choose-avatar" data-src="${esc(option.src)}" title="${esc(option.name)}">${avatarMarkup(option.src,option.name,group.id==='military'?'🪖':group.id==='bandit'?'♟':'☢')}<span class="avatar-choice-label">${esc(option.name)}</span></button>`).join('')}</div></section>`).join('')}</div></div>`;
   }
   if (state.ui.modal === 'exit') return `<div class="modal-shade"><div class="modal-card"><div class="eyebrow">ВЫХОД</div><h2>Закрыть игру?</h2><p>Браузер не может закрыть вкладку, открытую пользователем. Сохранение уже хранится на устройстве.</p>${btn('Понятно','close-modal','button primary')}</div></div>`;
   if (state.ui.modal === 'reset') return `<div class="modal-shade"><div class="modal-card"><div class="eyebrow danger-text">ВНИМАНИЕ</div><h2>Сбросить прогресс?</h2><p>Будут удалены все персонажи, достижения и настройки, хранящиеся в этом браузере.</p><div class="modal-actions">${btn('Отмена','close-modal','button ghost')}${btn('Удалить всё','confirm-reset','button danger')}</div></div></div>`;

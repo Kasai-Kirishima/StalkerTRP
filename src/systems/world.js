@@ -256,7 +256,7 @@ export function travelTo(game, destinationId) {
     const fleshZone=['pig-farm','farmstead','forest-camp'].includes(destination.id);
     const useFlesh=fleshZone && Math.random()<.55;
     game.activeEncounter = useFlesh
-      ? { type:'flesh', name:'Плоть', hp:76, maxHp:76, damage:11+Math.floor(Math.random()*5), count:1, image:'https://media.moddb.com/images/downloads/1/244/243669/flesh.jpg' }
+      ? { type:'flesh', name:'Плоть', hp:76, maxHp:76, damage:11+Math.floor(Math.random()*5), count:1, image:'' }
       : { type:'blind-dog', name:'Слепой пёс', hp:55, maxHp:55, damage:7+Math.floor(Math.random()*7), count:Math.random()<.3?2:1, imageIndex:Math.floor(Math.random()*2) };
     const message = useFlesh ? 'Из-за развалин выходит Плоть. Мутант тяжело переступает копытами и готовится к атаке.' : 'Из-за укрытия выскакивает слепой пёс! Он замечает тебя и готовится броситься.';
     addLog(game, message, 'danger');

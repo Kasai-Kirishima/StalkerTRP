@@ -17,7 +17,7 @@ export function beginEncounter(game, type='blind-dog') {
   const name = type === 'military' ? 'Военнослужащий' : type === 'bandit' ? 'Бандит' : type === 'flesh' ? 'Плоть' : 'Слепой пёс';
   const hp = type === 'military' ? 82 : type === 'bandit' ? 70 : type === 'flesh' ? 76 : 55;
   const damage = type === 'military' ? 12 : type === 'bandit' ? 10 : type === 'flesh' ? 13 : 9;
-  const image = type === 'flesh' ? 'https://media.moddb.com/images/downloads/1/244/243669/flesh.jpg' : '';
+  const image = '';
   game.activeEncounter = { type, name, hp, maxHp:hp, damage, count:1, imageIndex:0, image };
   return true;
 }

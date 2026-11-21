@@ -1,29 +1,17 @@
 export const ASSETS = {
-  menu: 'https://images.igdb.com/igdb/image/upload/t_screenshot_med/ar3uc6.jpg',
-  pda: 'https://skillbox.ru/upload/setka_images/17065805112024_d75dd4921f9f5ca9dc828e1efafbd5a21dfa9c5d.jpg',
+  menu: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS5OXJVGkhNyzTjS2YABky-DUSo45VdfMiDvddnm2NsexQfHmc4giGVzRY&s=10',
+  pda: null,
   map: './assets/images/cordon-clean.webp',
   factions: {
-    loner: 'https://static.wikia.nocookie.net/stalker/images/1/17/%D0%9B%D0%BE%D0%B3%D0%BE_%D1%81%D1%82%D0%B0%D0%BB%D0%BA%D0%B5%D1%80%D0%BE%D0%B2.png/revision/latest/scale-to-width-down/20?cb=20160804135224&path-prefix=ru',
-    bandit: 'https://static.wikia.nocookie.net/stalker/images/0/06/%D0%9B%D0%BE%D0%B3%D0%BE_%D0%B1%D0%B0%D0%BD%D0%B4%D0%B8%D1%82%D0%BE%D0%B2.png/revision/latest/scale-to-width-down/20?cb=20160804132919&path-prefix=ru',
-    military: 'https://static.wikia.nocookie.net/stalker/images/d/d8/%D0%9B%D0%BE%D0%B3%D0%BE_%D0%B2%D0%BE%D0%B5%D0%BD%D0%BD%D1%85.png/revision/latest/scale-to-width-down/20?cb=20160804135736&path-prefix=ru'
+    loner: 'builtin:faction:loner',
+    bandit: 'builtin:faction:bandit',
+    military: 'builtin:faction:military'
   }
 };
 
-// Внешние резервные изображения. Если исходная картинка удалена или заблокирована,
-// интерфейс попробует показать другой тематически близкий ресурс.
-export const IMAGE_FALLBACKS = {
-  general: 'https://images.igdb.com/igdb/image/upload/t_screenshot_med/scxwzv.jpg',
-  loner: 'https://images.steamusercontent.com/ugc/11005102176941003819/8A515CD2C72D02F164EEE9468644E88450F59CA5/',
-  bandit: 'https://images.igdb.com/igdb/image/upload/t_screenshot_med/scxwzk.jpg',
-  military: 'https://zefirka.club/wallpapers/uploads/posts/2023-04/1680562840_zefirka-club-p-severnii-blokpost-stalker-23.jpg',
-  npc: 'https://i.playground.ru/p/h9UL88AMD4RBUd8XD1kPLw.jpeg',
-  dog: 'https://p7.hiclipart.com/preview/311/542/501/dog-s-t-a-l-k-e-r-shadow-of-chernobyl-oblivion-lost-mutant-3d-dog.jpg',
-  food: 'https://xgm.guru/files/2004/289010/Bezymyannyy.png',
-  medical: 'https://img.atwiki.jp/stalker-cop/attach/15/21/medical.PNG',
-  gear: 'https://i.playground.ru/p/A9kozXRCh3RHd95Z3F5VJQ.png',
-  flesh: 'https://media.moddb.com/images/downloads/1/244/243669/flesh.jpg',
-  fleshEye: 'https://stalker-world.ru/_bd/7/74777320.webp'
-};
+// Внешние изображения отключены. Для игровых элементов используются локальные
+// CSS/emoji-заглушки; единственное внешнее изображение — фон главного меню.
+export const IMAGE_FALLBACKS = { general: '', loner: '', bandit: '', military: '', npc: '', dog: '', food: '', medical: '', gear: '', flesh: '', fleshEye: '' };
 
 export const FACTIONS = [
   { id: 'loner', name: 'Одиночки', short: 'Сталкеры', rank: 'Новичок', spawn: 'rookie-village', icon: ASSETS.factions.loner, description: 'Вольные сталкеры, которые пытаются выжить в Зоне и держаться подальше от больших разборок.' },
@@ -32,92 +20,74 @@ export const FACTIONS = [
 ];
 
 export const AVATARS = {
-  loner: [
-    'https://static.wikia.nocookie.net/stalker/images/0/00/Icon_SoC_character_green_stalker_10.png/revision/latest?cb=20210221111323&path-prefix=ru',
-    'https://static.wikia.nocookie.net/stalker/images/1/1e/Icon_SoC_character_green_stalker_2.png/revision/latest?cb=20210221111322&path-prefix=ru',
-    'https://static.wikia.nocookie.net/stalker/images/9/96/Icon_SoC_character_stalker_neytral_hood_9.png/revision/latest?cb=20210221111323&path-prefix=ru',
-    'https://static.wikia.nocookie.net/stalker/images/5/50/Icon_SoC_character_stalker_neytral_hood_uzor.png/revision/latest?cb=20210221111322&path-prefix=ru',
-    'https://static.wikia.nocookie.net/stalker/images/4/49/Icon_SoC_character_green_stalker_8.png/revision/latest?cb=20210221111322&path-prefix=ru',
-    'https://static.wikia.nocookie.net/stalker/images/6/60/Icon_SoC_character_stalker_neytral_balon_4.png/revision/latest?cb=20210221111322&path-prefix=ru'
-  ],
-  bandit: [
-    'https://static.wikia.nocookie.net/stalker/images/d/d5/Icon_SoC_character_stalker_bandit_master.png/revision/latest?cb=20210626095103&path-prefix=ru',
-    'https://static.wikia.nocookie.net/stalker/images/c/c4/Icon_SoC_character_stalker_bandit_8.png/revision/latest?cb=20210626095101&path-prefix=ru',
-    'https://static.wikia.nocookie.net/stalker/images/0/05/Icon_SoC_character_stalker_bandit_5.png/revision/latest?cb=20210626095101&path-prefix=ru',
-    'https://static.wikia.nocookie.net/stalker/images/d/dc/Icon_SoC_character_stalker_bandit_3.png/revision/latest?cb=20210626095101&path-prefix=ru'
-  ],
-  military: [
-    'https://static.wikia.nocookie.net/stalker/images/0/0a/Icon_SoC_character_soldier_mask.png/revision/latest?cb=20210626063312&path-prefix=ru',
-    'https://static.wikia.nocookie.net/stalker/images/4/48/Icon_SoC_character_soldier_bandana_4.png/revision/latest?cb=20250923093014&path-prefix=ru',
-    'https://static.wikia.nocookie.net/stalker/images/e/e0/Icon_SoC_character_soldier_bandana_3.png/revision/latest?cb=20250923092915&path-prefix=ru',
-    'https://static.wikia.nocookie.net/stalker/images/8/80/Icon_SoC_character_soldier_bandana_6.png/revision/latest?cb=20210626063309&path-prefix=ru'
-  ]
+  loner: Array.from({length:6}, (_,i)=>`builtin:loner:${i+1}`),
+  bandit: Array.from({length:4}, (_,i)=>`builtin:bandit:${i+1}`),
+  military: Array.from({length:4}, (_,i)=>`builtin:military:${i+1}`)
 };
 
-const icon = (name) => `https://static.wikia.nocookie.net/stalker/images/${name}`;
 export const ITEMS = [
-  { id:'bread', name:'Хлеб', price:35, weight:.45, w:1,h:1, cat:'Еда', desc:'Простой хлеб. Не роскошь, но в дороге пригодится.', image:'https://static.wikia.nocookie.net/stalker/images/2/29/Render_dev_bred.png/revision/latest?cb=20220312112050&path-prefix=ru', use:'food', restore:14 },
-  { id:'water', name:'Минеральная вода', price:40, weight:.55, w:1,h:2, cat:'Еда', desc:'Бутылка питьевой воды.', image:'https://static.wikia.nocookie.net/stalker_ru_gamepedia/images/e/e4/Mineralka.png/revision/latest?cb=20170724201237', use:'water', restore:25 },
-  { id:'sausage', name:'Колбаса диетическая', price:65, weight:.35, w:2,h:1, cat:'Еда', desc:'Небольшая палка колбасы.', image:'https://static.wikia.nocookie.net/stalker/images/b/b7/Render_dev_kolbasa.png/revision/latest?cb=20220312112145&path-prefix=ru', use:'food', restore:22 },
-  { id:'vodka', name:'Водка «Казаки»', price:70, weight:.5, w:1,h:2, cat:'Еда', desc:'Крепкий напиток. Снижает стресс, но ухудшает самочувствие.', image:'https://static.wikia.nocookie.net/stalker/images/9/95/Vodka_render.png/revision/latest?cb=20220121115720&path-prefix=ru', use:'vodka', restore:15 },
-  { id:'shells', name:'Пачка патронов 12 калибра', price:80, weight:.6, w:2,h:1, cat:'Боеприпасы', desc:'Пачка дробовых патронов.', image:'https://static.wikia.nocookie.net/stalker/images/2/2a/Icon_SoC_ammo_12x70_buck.png/revision/latest/thumbnail-down/width/40/height/20?cb=20221005142500&path-prefix=ru' },
-  { id:'energy', name:'Энергетик', price:80, weight:.45, w:1,h:2, cat:'Еда', desc:'Помогает взбодриться и немного восстановить силы.', image:'https://static.wikia.nocookie.net/stalker/images/8/8b/Stalker-drink.png/revision/latest?cb=20210623020432&path-prefix=ru', use:'energy', restore:18 },
-  { id:'canned', name:'Тушёнка', price:90, weight:.45, w:1,h:1, cat:'Еда', desc:'Банка тушёнки.', image:'https://static.wikia.nocookie.net/stalker/images/d/d0/Render_dev_conserv.png/revision/latest?cb=20220312112232&path-prefix=ru', use:'food', restore:30 },
-  { id:'knife', name:'Нож', price:100, weight:.35, w:1,h:2, cat:'Оружие', desc:'Надёжный нож для бытовых задач и самообороны.', image:'https://static.wikia.nocookie.net/stalker/images/7/7f/Render_weapon_knife_main_soc.png/revision/latest?cb=20221025164505&path-prefix=ru', damage:12, weapon:'melee' },
-  { id:'ammo9x18', name:'Пачка патронов 9×18', price:110, weight:.35, w:2,h:1, cat:'Боеприпасы', desc:'Пачка патронов 9×18 мм.', image:'https://static.wikia.nocookie.net/stalker/images/c/c2/Render_ammo_9x18_fmj.png/revision/latest?cb=20211210132845&path-prefix=ru' },
-  { id:'ammo9x19', name:'Пачка патронов 9×19', price:130, weight:.4, w:2,h:1, cat:'Боеприпасы', desc:'Пачка патронов 9×19 мм.', image:'https://static.wikia.nocookie.net/stalker/images/5/55/Render_ammo_9x19_fmj.png/revision/latest?cb=20211210132849&path-prefix=ru' },
-  { id:'bandage', name:'Бинт', price:140, weight:.12, w:1,h:1, cat:'Медицина', desc:'Останавливает небольшое кровотечение и восстанавливает здоровье.', image:'https://static.wikia.nocookie.net/stalker/images/9/94/Icon_SoC_item_bandage.png/revision/latest/thumbnail-down/width/20/height/20?cb=20180320192715&path-prefix=ru', use:'heal', restore:18 },
-  { id:'boltpack', name:'Болты (10 шт.)', price:160, weight:.5, w:2,h:1, cat:'Снаряжение', desc:'Пачка из десяти болтов. Используются для проверки и отключения некоторых аномалий.', image:'https://static.wikia.nocookie.net/stalker/images/9/92/Render_weapon_bolt_main.png/revision/latest?cb=20221025161521&path-prefix=ru', restore:10 },
-  { id:'rgd5', name:'РГД-5', price:220, weight:.4, w:1,h:2, cat:'Оружие', desc:'Осколочная граната. В прототипе используется как редкий боевой расходник.', image:'https://static.wikia.nocookie.net/stalker/images/3/3d/Render_grenade_rgd5_main.png/revision/latest?cb=20221025160627&path-prefix=ru', damage:35, weapon:'grenade' },
-  { id:'antirad', name:'Антирад', price:240, weight:.15, w:1,h:1, cat:'Медицина', desc:'Снижает накопленную радиацию.', image:'https://static.wikia.nocookie.net/stalker/images/c/c5/Render_aptechka_low.png/revision/latest?cb=20220312111741&path-prefix=ru', use:'antirad', restore:35 },
-  { id:'ai2', name:'АИ-2', price:260, weight:.25, w:1,h:1, cat:'Медицина', desc:'Аптечка первой помощи.', image:'https://static.wikia.nocookie.net/stalker/images/c/c5/Render_aptechka_low.png/revision/latest?cb=20220312111741&path-prefix=ru', use:'heal', restore:38 },
-  { id:'binoculars', name:'Бинокль', price:320, weight:.6, w:2,h:2, cat:'Снаряжение', desc:'Позволяет осмотреть соседнюю локацию, не заходя на неё.', image:'https://images.steamusercontent.com/ugc/11005102176941003819/8A515CD2C72D02F164EEE9468644E88450F59CA5/', emoji:'🔭' },
-  { id:'flash', name:'Флешка', price:350, weight:.05, w:1,h:1, cat:'Снаряжение', desc:'Может содержать данные о задании или координаты тайника.', image:'https://static.wikia.nocookie.net/stalker/images/5/5d/Mini-pda.png/revision/latest?cb=20210622183057&path-prefix=ru' },
-  { id:'tail', name:'Хвост слепого пса', price:400, weight:.4, w:2,h:1, cat:'Добыча', desc:'Мутантный трофей, который можно продать торговцу.', image:'https://media.moddb.com/cache/images/mods/1/27/26420/thumb_620x2000/ads.jpg', emoji:'🐕' },
-  { id:'flesh-eye', name:'Глаз плоти', price:650, weight:.2, w:1,h:1, cat:'Добыча', desc:'Редкий мутантный трофей. Торговцы платят за него заметно больше, чем за обычные части мутантов.', image:'https://stalker-world.ru/_bd/7/74777320.webp', emoji:'👁' },
-  { id:'medusa', name:'Артефакт «Медуза»', price:650, weight:.3, w:2,h:2, cat:'Артефакты', desc:'Небольшой артефакт. Может быть продан или изучен.', image:'https://images.steamusercontent.com/ugc/1849289077641931927/64F2688F07678E9C674D4C3CC57D100E13DD9822/' },
-  { id:'milmed', name:'Военная аптечка', price:700, weight:.45, w:2,h:1, cat:'Медицина', desc:'Улучшенная аптечка.', image:'https://static.wikia.nocookie.net/stalker/images/3/34/Army_medkit_render.png/revision/latest?cb=20211202083942&path-prefix=ru', use:'heal', restore:60 },
-  { id:'aurora', name:'Противогаз «Аврора»', price:800, weight:1.2, w:2,h:2, cat:'Защита', desc:'Базовая защита органов дыхания.', image:'https://static.wikia.nocookie.net/stalker/images/b/bf/Icon_HoC_item_T_IFI_FOL_FAC_20_00_MAS_01.png/revision/latest?cb=20241124222238&path-prefix=ru' },
-  { id:'leather', name:'Кожанка', price:900, weight:2.8, w:2,h:2, cat:'Броня', desc:'Лёгкая куртка с минимальной защитой.', image:'https://static.wikia.nocookie.net/stalker/images/7/74/Icon_HoC_item_Jemmy_Neutral_Armor.png/revision/latest?cb=20241124222222&path-prefix=ru', armor:8 },
-  { id:'sawedoff', name:'Обрез', price:950, weight:2.2, w:2,h:2, cat:'Оружие', desc:'Двуствольное ружьё укороченного типа.', image:'https://static.wikia.nocookie.net/stalker/images/4/45/Render_weapon_bm16_main_cs.png/revision/latest?cb=20221025161449&path-prefix=ru', damage:28, weapon:'shotgun', ammo:'shells' },
-  { id:'biker', name:'Косуха', price:1100, weight:2.4, w:2,h:2, cat:'Броня', desc:'Кожаная куртка, узнаваемая среди бандитов.', image:'https://static.wikia.nocookie.net/stalker/images/0/02/Icon_HoC_item_T_IFI_FOL_BAN_01.png/revision/latest?cb=20241124222233&path-prefix=ru', armor:10 },
-  { id:'pm', name:'ПМм', price:1250, weight:.9, w:2,h:2, cat:'Оружие', desc:'Пистолет под патрон 9×18 мм.', image:'https://static.wikia.nocookie.net/stalker/images/8/8d/Render_weapon_pm_main_soc.png/revision/latest?cb=20221025171424&path-prefix=ru', damage:21, weapon:'pistol', ammo:'ammo9x18' },
-  { id:'otklik', name:'Детектор «Отклик»', price:1450, weight:.7, w:2,h:2, cat:'Снаряжение', desc:'Простейший детектор аномальных сигналов. Нужен для поиска артефактов.', image:'https://static.wikia.nocookie.net/stalker/images/e/e6/Det-otklik.png/revision/latest?cb=20210622143859&path-prefix=ru' },
-  { id:'vm17', name:'ВМ-17', price:1800, weight:3.4, w:3,h:2, cat:'Оружие', desc:'Двуствольное охотничье ружьё.', image:'https://static.wikia.nocookie.net/stalker/images/d/d3/Render_weapon_bm16_main_old.png/revision/latest?cb=20221025161505&path-prefix=ru', damage:34, weapon:'shotgun', ammo:'shells' },
-  { id:'psz5', name:'Бронежилет ПСЗ-5', price:2600, weight:5.8, w:3,h:2, cat:'Броня', desc:'Армейский бронежилет.', image:'https://static.wikia.nocookie.net/stalker/images/c/c4/Icon_HoC_item_T_IFI_FOL_MIL_03.png/revision/latest?cb=20241124222246&path-prefix=ru', armor:24 },
-  { id:'gaduka', name:'Гадюка-5', price:3400, weight:3.1, w:3,h:2, cat:'Оружие', desc:'Пистолет-пулемёт под патрон 9×19 мм.', image:'https://static.wikia.nocookie.net/stalker/images/4/4b/Render_weapon_mp5_main_soc.png/revision/latest?cb=20221025170919&path-prefix=ru', damage:26, weapon:'smg', ammo:'ammo9x19' },
-  { id:'optik', name:'Противогаз «Оптик»', price:3900, weight:1.4, w:2,h:2, cat:'Защита', desc:'Продвинутая маска с улучшенным обзором.', image:'https://static.wikia.nocookie.net/stalker/images/6/60/Icon_HoC_item_T_IFI_FOL_HEA_STA_03_d_FAC_30_04.png/revision/latest?cb=20241124222244&path-prefix=ru' },
-  { id:'zarya', name:'Заря', price:5200, weight:6.5, w:3,h:3, cat:'Броня', desc:'Защитный костюм для опасных вылазок.', image:'https://static.wikia.nocookie.net/stalker/images/0/0b/Icon_HoC_item_Zorya_Neutral_Armor.png/revision/latest?cb=20241124222221&path-prefix=ru', armor:30 }
+  { id:'bread', name:'Хлеб', price:35, weight:.45, w:1,h:1, cat:'Еда', desc:'Простой хлеб. Не роскошь, но в дороге пригодится.', image:'', use:'food', restore:14 },
+  { id:'water', name:'Минеральная вода', price:40, weight:.55, w:1,h:2, cat:'Еда', desc:'Бутылка питьевой воды.', image:'', use:'water', restore:25 },
+  { id:'sausage', name:'Колбаса диетическая', price:65, weight:.35, w:2,h:1, cat:'Еда', desc:'Небольшая палка колбасы.', image:'', use:'food', restore:22 },
+  { id:'vodka', name:'Водка «Казаки»', price:70, weight:.5, w:1,h:2, cat:'Еда', desc:'Крепкий напиток. Снижает стресс, но ухудшает самочувствие.', image:'', use:'vodka', restore:15 },
+  { id:'shells', name:'Пачка патронов 12 калибра', price:80, weight:.6, w:2,h:1, cat:'Боеприпасы', desc:'Пачка дробовых патронов.', image:'' },
+  { id:'energy', name:'Энергетик', price:80, weight:.45, w:1,h:2, cat:'Еда', desc:'Помогает взбодриться и немного восстановить силы.', image:'', use:'energy', restore:18 },
+  { id:'canned', name:'Тушёнка', price:90, weight:.45, w:1,h:1, cat:'Еда', desc:'Банка тушёнки.', image:'', use:'food', restore:30 },
+  { id:'knife', name:'Нож', price:100, weight:.35, w:1,h:2, cat:'Оружие', desc:'Надёжный нож для бытовых задач и самообороны.', image:'', damage:12, weapon:'melee' },
+  { id:'ammo9x18', name:'Пачка патронов 9×18', price:110, weight:.35, w:2,h:1, cat:'Боеприпасы', desc:'Пачка патронов 9×18 мм.', image:'' },
+  { id:'ammo9x19', name:'Пачка патронов 9×19', price:130, weight:.4, w:2,h:1, cat:'Боеприпасы', desc:'Пачка патронов 9×19 мм.', image:'' },
+  { id:'bandage', name:'Бинт', price:140, weight:.12, w:1,h:1, cat:'Медицина', desc:'Останавливает небольшое кровотечение и восстанавливает здоровье.', image:'', use:'heal', restore:18 },
+  { id:'boltpack', name:'Болты (10 шт.)', price:160, weight:.5, w:2,h:1, cat:'Снаряжение', desc:'Пачка из десяти болтов. Используются для проверки и отключения некоторых аномалий.', image:'', restore:10 },
+  { id:'rgd5', name:'РГД-5', price:220, weight:.4, w:1,h:2, cat:'Оружие', desc:'Осколочная граната. В прототипе используется как редкий боевой расходник.', image:'', damage:35, weapon:'grenade' },
+  { id:'antirad', name:'Антирад', price:240, weight:.15, w:1,h:1, cat:'Медицина', desc:'Снижает накопленную радиацию.', image:'', use:'antirad', restore:35 },
+  { id:'ai2', name:'АИ-2', price:260, weight:.25, w:1,h:1, cat:'Медицина', desc:'Аптечка первой помощи.', image:'', use:'heal', restore:38 },
+  { id:'binoculars', name:'Бинокль', price:320, weight:.6, w:2,h:2, cat:'Снаряжение', desc:'Позволяет осмотреть соседнюю локацию, не заходя на неё.', image:'', emoji:'🔭' },
+  { id:'flash', name:'Флешка', price:350, weight:.05, w:1,h:1, cat:'Снаряжение', desc:'Может содержать данные о задании или координаты тайника.', image:'' },
+  { id:'tail', name:'Хвост слепого пса', price:400, weight:.4, w:2,h:1, cat:'Добыча', desc:'Мутантный трофей, который можно продать торговцу.', image:'', emoji:'🐕' },
+  { id:'flesh-eye', name:'Глаз плоти', price:650, weight:.2, w:1,h:1, cat:'Добыча', desc:'Редкий мутантный трофей. Торговцы платят за него заметно больше, чем за обычные части мутантов.', image:'', emoji:'👁' },
+  { id:'medusa', name:'Артефакт «Медуза»', price:650, weight:.3, w:2,h:2, cat:'Артефакты', desc:'Небольшой артефакт. Может быть продан или изучен.', image:'' },
+  { id:'milmed', name:'Военная аптечка', price:700, weight:.45, w:2,h:1, cat:'Медицина', desc:'Улучшенная аптечка.', image:'', use:'heal', restore:60 },
+  { id:'aurora', name:'Противогаз «Аврора»', price:800, weight:1.2, w:2,h:2, cat:'Защита', desc:'Базовая защита органов дыхания.', image:'' },
+  { id:'leather', name:'Кожанка', price:900, weight:2.8, w:2,h:2, cat:'Броня', desc:'Лёгкая куртка с минимальной защитой.', image:'', armor:8 },
+  { id:'sawedoff', name:'Обрез', price:950, weight:2.2, w:2,h:2, cat:'Оружие', desc:'Двуствольное ружьё укороченного типа.', image:'', damage:28, weapon:'shotgun', ammo:'shells' },
+  { id:'biker', name:'Косуха', price:1100, weight:2.4, w:2,h:2, cat:'Броня', desc:'Кожаная куртка, узнаваемая среди бандитов.', image:'', armor:10 },
+  { id:'pm', name:'ПМм', price:1250, weight:.9, w:2,h:2, cat:'Оружие', desc:'Пистолет под патрон 9×18 мм.', image:'', damage:21, weapon:'pistol', ammo:'ammo9x18' },
+  { id:'otklik', name:'Детектор «Отклик»', price:1450, weight:.7, w:2,h:2, cat:'Снаряжение', desc:'Простейший детектор аномальных сигналов. Нужен для поиска артефактов.', image:'' },
+  { id:'vm17', name:'ВМ-17', price:1800, weight:3.4, w:3,h:2, cat:'Оружие', desc:'Двуствольное охотничье ружьё.', image:'', damage:34, weapon:'shotgun', ammo:'shells' },
+  { id:'psz5', name:'Бронежилет ПСЗ-5', price:2600, weight:5.8, w:3,h:2, cat:'Броня', desc:'Армейский бронежилет.', image:'', armor:24 },
+  { id:'gaduka', name:'Гадюка-5', price:3400, weight:3.1, w:3,h:2, cat:'Оружие', desc:'Пистолет-пулемёт под патрон 9×19 мм.', image:'', damage:26, weapon:'smg', ammo:'ammo9x19' },
+  { id:'optik', name:'Противогаз «Оптик»', price:3900, weight:1.4, w:2,h:2, cat:'Защита', desc:'Продвинутая маска с улучшенным обзором.', image:'' },
+  { id:'zarya', name:'Заря', price:5200, weight:6.5, w:3,h:3, cat:'Броня', desc:'Защитный костюм для опасных вылазок.', image:'', armor:30 }
 ];
 
 export const LOCATIONS = [
-  { id:'north-checkpoint', name:'Северный блокпост', image:'https://zefirka.club/wallpapers/uploads/posts/2023-04/1680562840_zefirka-club-p-severnii-blokpost-stalker-23.jpg', x:48,y:8, desc:'Старый контрольный пункт на северном въезде. За бетонными блоками видны следы недавнего патруля.', neighbors:['farmstead','locomotive'], loot:['bread','ammo9x18','bandage','flash'], hazards:['radiation'] },
-  { id:'farmstead', name:'Развалины хутора', image:'https://images.igdb.com/igdb/image/upload/t_screenshot_med/scxwzl.jpg', x:63,y:33, desc:'Разрушенные хозяйственные постройки и заросший двор. Ветер гоняет по земле куски жести.', neighbors:['north-checkpoint','pig-farm','elevator','forest-camp'], loot:['canned','water','tail','bandage'], hazards:[] },
-  { id:'pig-farm', name:'Свиноферма', image:'https://images.igdb.com/igdb/image/upload/t_screenshot_med/scxwzl.jpg', x:47,y:37, desc:'Заброшенная ферма с пустыми загонами. В грязи попадаются тяжёлые копыта и следы мутировавших кабанов.', neighbors:['farmstead','elevator','locomotive'], loot:['canned','water','flesh-eye','tail'], hazards:[] },
-  { id:'locomotive', name:'Локомотив', image:'https://blog-uploads.eneba.games/uploads/2025/02/stalker-shadow-of-chernobyl.jpeg', x:85,y:41, desc:'Ржавый локомотив застыл у насыпи. Между колёсами можно заметить старые следы.', neighbors:['north-checkpoint','pig-farm','rail-tunnel','underpass'], loot:['boltpack','ammo9x19','canned'], hazards:[] },
-  { id:'rail-tunnel', name:'Восточный туннель ЖД', image:'https://cdn-ak.f.st-hatena.com/images/fotolife/K/KuroNuri13/20250613/20250613180024.jpg', x:93,y:38, desc:'Восточный железнодорожный туннель расположен чуть выше и правее локомотива. Внутри слышны капли и далёкий металлический звон.', neighbors:['locomotive','underpass'], loot:['ammo9x18','flash','medusa'], hazards:['gravity'] },
-  { id:'under-embankment', name:'Тоннель под ЖД насыпью', image:'https://images.steamusercontent.com/ugc/11423665923566573470/0C7414AB209BD5B4997E5421CCC6F78889F89135/', x:33,y:46, desc:'Низкий проход под железнодорожной насыпью. Местами осыпался потолок.', neighbors:['bridge-checkpoint','underpass','elevator'], loot:['ammo9x18','ai2','flash'], hazards:['gravity'] },
-  { id:'bridge-checkpoint', name:'Блокпост под мостом', image:'https://i.playground.ru/p/wabKJip31SRjnk3_aktO0Q.jpeg', x:50,y:47, desc:'Под мостом устроили временный пост. С бетонных опор хорошо просматривается дорога.', neighbors:['under-embankment','elevator','atp','ravine-tunnel'], loot:['ammo9x19','bandage','water'], hazards:[] },
-  { id:'elevator', name:'Элеватор', image:'https://images.igdb.com/igdb/image/upload/t_screenshot_med/scxwzn.jpg', x:44,y:51, desc:'Промышленное здание с пустыми силосами. Внутри эхом отзывается каждый шаг.', neighbors:['farmstead','pig-farm','under-embankment','bridge-checkpoint','stop'], loot:['canned','flash','tail','ai2'], hazards:['radiation'] },
-  { id:'stop', name:'Остановка', image:'https://images.igdb.com/igdb/image/upload/t_screenshot_med/scxwzv.jpg', x:47,y:55, desc:'Покосившаяся остановка у дороги. На стене сохранились обрывки старых объявлений.', neighbors:['elevator','atp','rookie-village','trailer'], loot:['bread','water','energy'], hazards:[] },
-  { id:'atp', name:'АТП', image:'https://images.igdb.com/igdb/image/upload/t_screenshot_med/scxwzk.jpg', x:60,y:58, desc:'Территория автотранспортного предприятия занята бандитами. Между корпусами стоят брошенные машины.', neighbors:['stop','bridge-checkpoint','anomaly-dump','ravine-tunnel'], loot:['vodka','ammo9x18','leather','flash'], hazards:[] },
-  { id:'ravine-tunnel', name:'Тоннель в лощину', image:'https://cdn-ak.f.st-hatena.com/images/fotolife/K/KuroNuri13/20250613/20250613180024.jpg', x:86,y:57, desc:'Проход в низину зарос кустарником. Слышно, как где-то рядом скребутся мутанты.', neighbors:['forest-camp','atp','underpass','bridge-checkpoint'], loot:['medusa','tail','bandage'], hazards:['radiation'] },
-  { id:'anomaly-dump', name:'Тайный лагерь', image:'https://images.igdb.com/igdb/image/upload/t_screenshot_med/scxwzl.jpg', x:11,y:58, anomalyName:'Воронка', desc:'Скрытая стоянка в стороне от дороги. В центре лагеря находится гравитационная аномалия «Воронка»: мусор и обломки медленно стягиваются к одной точке.', neighbors:['forest-camp','atp','south-checkpoint'], loot:['medusa','otklik','boltpack','tail','flesh-eye'], hazards:['gravity'] },
-  { id:'trailer', name:'Вагончик', image:'https://images.igdb.com/igdb/image/upload/t_screenshot_med/scxwzm.jpg', x:31,y:61, desc:'Старый рабочий вагончик у дороги. Дверь закрыта неплотно, внутри давно никто не жил.', neighbors:['rookie-village','stop','underpass','forest-camp'], loot:['bread','canned','bandage','flash'], hazards:[] },
-  { id:'underpass', name:'Подземный переход', image:'https://images.steamusercontent.com/ugc/11423665923566573470/0C7414AB209BD5B4997E5421CCC6F78889F89135/', x:38,y:59, desc:'Подземный переход находится правее и немного выше вагончика. Под дорогой сыро, вода доходит до щиколоток, а в углах лежит мусор.', neighbors:['rail-tunnel','under-embankment','ravine-tunnel','trailer','locomotive'], loot:['ammo9x18','ai2','water'], hazards:['radiation'] },
-  { id:'rookie-village', name:'Деревня новичков', image:'https://i.playground.ru/e/k3yjft7jI29pk4fv1PwVJg.png', x:18,y:66, desc:'Небольшая деревня, где новички получают первые советы и пытаются освоиться в Зоне.', neighbors:['stop','trailer','forest-camp','sidorovich-bunker'], loot:['bread','water','canned','bandage'], hazards:[] },
-  { id:'forest-camp', name:'Лагерь в лесу', image:'https://images.igdb.com/igdb/image/upload/t_screenshot_med/scxwzm.jpg', x:17,y:74, desc:'Небольшая стоянка среди деревьев. Здесь иногда останавливаются одиночки и проводники.', neighbors:['farmstead','ravine-tunnel','anomaly-dump','rookie-village','trailer'], loot:['bread','water','medusa','tail'], hazards:['radiation'] },
-  { id:'south-checkpoint', name:'Южный блокпост', image:'https://zefirka.club/wallpapers/uploads/posts/2023-04/1680562840_zefirka-club-p-severnii-blokpost-stalker-23.jpg', x:23,y:82, desc:'Военный блокпост на южном подходе к Кордону. Дежурные внимательно следят за дорогой.', neighbors:['atp','trailer','anomaly-dump'], loot:['ammo9x19','bandage','water','milmed'], hazards:[] },
-  { id:'sidorovich-bunker', name:'Подвал Сидоровича', image:'https://images.steamusercontent.com/ugc/7414005921618788/62B334868E013BA99FAB3E8D30FD43939502AA64A/', x:20,y:68, mapVisible:false, desc:'Подвал торговца заставлен ящиками и старой аппаратурой. Здесь всегда пахнет табаком и консервами.', neighbors:['rookie-village'], loot:['ammo9x18','ai2','flash'], hazards:[] }
+  { id:'north-checkpoint', name:'Северный блокпост', image:'', x:48,y:8, desc:'Старый контрольный пункт на северном въезде. За бетонными блоками видны следы недавнего патруля.', neighbors:['farmstead','locomotive'], loot:['bread','ammo9x18','bandage','flash'], hazards:['radiation'] },
+  { id:'farmstead', name:'Развалины хутора', image:'', x:63,y:33, desc:'Разрушенные хозяйственные постройки и заросший двор. Ветер гоняет по земле куски жести.', neighbors:['north-checkpoint','pig-farm','elevator','forest-camp'], loot:['canned','water','tail','bandage'], hazards:[] },
+  { id:'pig-farm', name:'Свиноферма', image:'', x:47,y:37, desc:'Заброшенная ферма с пустыми загонами. В грязи попадаются тяжёлые копыта и следы мутировавших кабанов.', neighbors:['farmstead','elevator','locomotive'], loot:['canned','water','flesh-eye','tail'], hazards:[] },
+  { id:'locomotive', name:'Локомотив', image:'', x:85,y:41, desc:'Ржавый локомотив застыл у насыпи. Между колёсами можно заметить старые следы.', neighbors:['north-checkpoint','pig-farm','rail-tunnel','underpass'], loot:['boltpack','ammo9x19','canned'], hazards:[] },
+  { id:'rail-tunnel', name:'Восточный туннель ЖД', image:'', x:93,y:38, desc:'Восточный железнодорожный туннель расположен чуть выше и правее локомотива. Внутри слышны капли и далёкий металлический звон.', neighbors:['locomotive','underpass'], loot:['ammo9x18','flash','medusa'], hazards:['gravity'] },
+  { id:'under-embankment', name:'Тоннель под ЖД насыпью', image:'', x:33,y:46, desc:'Низкий проход под железнодорожной насыпью. Местами осыпался потолок.', neighbors:['bridge-checkpoint','underpass','elevator'], loot:['ammo9x18','ai2','flash'], hazards:['gravity'] },
+  { id:'bridge-checkpoint', name:'Блокпост под мостом', image:'', x:50,y:47, desc:'Под мостом устроили временный пост. С бетонных опор хорошо просматривается дорога.', neighbors:['under-embankment','elevator','atp','ravine-tunnel'], loot:['ammo9x19','bandage','water'], hazards:[] },
+  { id:'elevator', name:'Элеватор', image:'', x:44,y:51, desc:'Промышленное здание с пустыми силосами. Внутри эхом отзывается каждый шаг.', neighbors:['farmstead','pig-farm','under-embankment','bridge-checkpoint','stop'], loot:['canned','flash','tail','ai2'], hazards:['radiation'] },
+  { id:'stop', name:'Остановка', image:'', x:47,y:55, desc:'Покосившаяся остановка у дороги. На стене сохранились обрывки старых объявлений.', neighbors:['elevator','atp','rookie-village','trailer'], loot:['bread','water','energy'], hazards:[] },
+  { id:'atp', name:'АТП', image:'', x:60,y:58, desc:'Территория автотранспортного предприятия занята бандитами. Между корпусами стоят брошенные машины.', neighbors:['stop','bridge-checkpoint','anomaly-dump','ravine-tunnel'], loot:['vodka','ammo9x18','leather','flash'], hazards:[] },
+  { id:'ravine-tunnel', name:'Тоннель в лощину', image:'', x:86,y:57, desc:'Проход в низину зарос кустарником. Слышно, как где-то рядом скребутся мутанты.', neighbors:['forest-camp','atp','underpass','bridge-checkpoint'], loot:['medusa','tail','bandage'], hazards:['radiation'] },
+  { id:'anomaly-dump', name:'Тайный лагерь', image:'', x:11,y:58, anomalyName:'Воронка', desc:'Скрытая стоянка в стороне от дороги. В центре лагеря находится гравитационная аномалия «Воронка»: мусор и обломки медленно стягиваются к одной точке.', neighbors:['forest-camp','atp','south-checkpoint'], loot:['medusa','otklik','boltpack','tail','flesh-eye'], hazards:['gravity'] },
+  { id:'trailer', name:'Вагончик', image:'', x:31,y:61, desc:'Старый рабочий вагончик у дороги. Дверь закрыта неплотно, внутри давно никто не жил.', neighbors:['rookie-village','stop','underpass','forest-camp'], loot:['bread','canned','bandage','flash'], hazards:[] },
+  { id:'underpass', name:'Подземный переход', image:'', x:38,y:59, desc:'Подземный переход находится правее и немного выше вагончика. Под дорогой сыро, вода доходит до щиколоток, а в углах лежит мусор.', neighbors:['rail-tunnel','under-embankment','ravine-tunnel','trailer','locomotive'], loot:['ammo9x18','ai2','water'], hazards:['radiation'] },
+  { id:'rookie-village', name:'Деревня новичков', image:'', x:18,y:66, desc:'Небольшая деревня, где новички получают первые советы и пытаются освоиться в Зоне.', neighbors:['stop','trailer','forest-camp','sidorovich-bunker'], loot:['bread','water','canned','bandage'], hazards:[] },
+  { id:'forest-camp', name:'Лагерь в лесу', image:'', x:17,y:74, desc:'Небольшая стоянка среди деревьев. Здесь иногда останавливаются одиночки и проводники.', neighbors:['farmstead','ravine-tunnel','anomaly-dump','rookie-village','trailer'], loot:['bread','water','medusa','tail'], hazards:['radiation'] },
+  { id:'south-checkpoint', name:'Южный блокпост', image:'', x:23,y:82, desc:'Военный блокпост на южном подходе к Кордону. Дежурные внимательно следят за дорогой.', neighbors:['atp','trailer','anomaly-dump'], loot:['ammo9x19','bandage','water','milmed'], hazards:[] },
+  { id:'sidorovich-bunker', name:'Подвал Сидоровича', image:'', x:20,y:68, mapVisible:false, desc:'Подвал торговца заставлен ящиками и старой аппаратурой. Здесь всегда пахнет табаком и консервами.', neighbors:['rookie-village'], loot:['ammo9x18','ai2','flash'], hazards:[] }
 ];
 
 export const NPCS = [
-  { id:'sidorovich', name:'Сидорович', role:'Торговец', group:'Одиночки', faction:'loner', location:'sidorovich-bunker', icon:'https://images.steamusercontent.com/ugc/7414005921618788/62B334868E013BA99FAB3E8D30FD43939502AA64A', trader:true, stockIds:['bread','water','canned','sausage','bandage','ai2','antirad','ammo9x18','ammo9x19','shells','knife','pm','binoculars','boltpack','otklik','medusa','flesh-eye','leather','aurora'], priceMultiplier:1.08, buyMultiplier:.48, greeting:'Ну, заходи, сталкер. Есть дело или просто погреться пришёл?', topics:['работа','задания','квесты','поручения','торговля','слухи'], lines:{ work:'Есть пара мелких поручений. Для начала осмотрись на Кордоне, не лезь куда не просят.', trade:'Открывай торговую вкладку КПК. Покупай мой товар или продавай найденное — только не жди, что я дам за хлам большие деньги.', rumors:'Говорят, у старой насыпи снова что-то притягивает железо. Я бы туда без болтов не совался.' } },
-  { id:'wolf', name:'Волк', role:'Вожатый', group:'Одиночки', faction:'loner', location:'rookie-village', icon:'https://images.steamusercontent.com/ugc/11005102176941003819/8A515CD2C72D02F164EEE9468644E88450F59CA5', greeting:'Новенький? Тогда запоминай: в Зоне сначала смотри под ноги, потом по сторонам.', topics:['совет','работа','деревня'], lines:{ advice:'Не отходи далеко от деревни, пока не поймёшь, где здесь безопасно. И всегда держи путь назад.', work:'Сходи к остановке и проверь, не остались ли там припасы. Только не задерживайся.', village:'Здесь собираются одиночки. Если не нарываться на неприятности, можно спокойно начать.' } },
-  { id:'kefir', name:'Кефир', role:'Пахан', group:'Бандиты', faction:'bandit', location:'atp', icon:'https://static.wikia.nocookie.net/stalker/images/5/52/Icon_SoC_character_stalker_bandit_veteran.png/revision/latest?cb=20210626095102&path-prefix=ru', greeting:'Чего надо? Говори быстро, у меня тут люди заняты.', topics:['дело','правила','слухи'], lines:{ work:'Есть работа для тех, кто умеет держать язык за зубами. Сначала покажи, что не пустышка.', rules:'На АТП чужое добро без спроса не трогают. Особенно если оно моё.', rumors:'У мусорки замечали странные вспышки. Парни туда пока не суются.' } },
-  { id:'shnurok', name:'Шнурок', role:'Торговец АТП', group:'Бандиты', faction:'bandit', location:'atp', icon:'https://static.wikia.nocookie.net/stalker/images/c/c4/Icon_SoC_character_stalker_bandit_8.png/revision/latest?cb=20210626095101&path-prefix=ru', trader:true, stockIds:['vodka','bread','canned','sausage','knife','rgd5','shells','ammo9x18','ammo9x19','sawedoff','vm17','pm','biker','leather','tail','flesh-eye'], priceMultiplier:1.04, buyMultiplier:.42, greeting:'Чё надо? У Шнурка товар не залеживается. Есть деньги — найдём общий язык.', topics:['торговля','слухи','дела'], lines:{ trade:'Смотри товар в КПК. Могу продать ствол или патроны, а могу принять добычу. Только без мутантских соплей на прилавок.', rumors:'На свиноферме что-то копается. Парни говорят, там уже не обычные свиньи.', дела:'Сначала разберись с Кефиром. Не люблю, когда чужие решают вопросы без пахана.' } },
-  { id:'dzerzhinsky', name:'Дмитрий Дзержинский', role:'Капитан блокпоста', group:'Военные', faction:'military', location:'south-checkpoint', icon:'https://static.wikia.nocookie.net/stalker/images/9/96/Icon_SoC_character_soldier_beret.png/revision/latest?cb=20210626063310&path-prefix=ru', greeting:'Документы и цель прибытия. На блокпосту без самодеятельности.', topics:['служба','пропуск','обстановка'], lines:{ service:'Я отвечаю за порядок на южном блокпосту. Любые подозрительные перемещения докладываются.', pass:'Порядок прохода зависит от обстановки и твоей репутации. Пока у тебя нулевой рейтинг.', situation:'Патрули проверяют дорогу и ближайшие строения. В последнее время в районе свалки участились странные сигналы.' } },
-  { id:'kapterka', name:'Каптёрка', role:'Квартирмейстер / снабженец', group:'Военные', faction:'military', location:'south-checkpoint', icon:'https://static.wikia.nocookie.net/stalker/images/4/48/Icon_SoC_character_soldier_bandana_4.png/revision/latest?cb=20250923093014&path-prefix=ru', trader:true, stockIds:['ammo9x18','ammo9x19','shells','bandage','ai2','antirad','milmed','aurora','optik','psz5','vm17','pm','gaduka','boltpack'], priceMultiplier:1.18, buyMultiplier:.5, greeting:'Снабжение выдаётся по ведомости. Лишних вопросов не задавай — лучше скажи, что нужно.', topics:['торговля','снабжение','служба'], lines:{ trade:'В КПК открыт мой склад. Снаряжение выдаю по цене, трофеи принимаю по оценке.', supply:'Боеприпасы и аптечки есть не всегда. Запасы пополняются после поставок.', service:'Список имущества ведётся строго. За потерю армейского снаряжения придётся отвечать.' } }
+  { id:'sidorovich', name:'Сидорович', role:'Торговец', group:'Одиночки', faction:'loner', location:'sidorovich-bunker', icon:'', trader:true, stockIds:['bread','water','canned','sausage','bandage','ai2','antirad','ammo9x18','ammo9x19','shells','knife','pm','binoculars','boltpack','otklik','medusa','flesh-eye','leather','aurora'], priceMultiplier:1.08, buyMultiplier:.48, greeting:'Ну, заходи, сталкер. Есть дело или просто погреться пришёл?', topics:['работа','задания','квесты','поручения','торговля','слухи'], lines:{ work:'Есть пара мелких поручений. Для начала осмотрись на Кордоне, не лезь куда не просят.', trade:'Открывай торговую вкладку КПК. Покупай мой товар или продавай найденное — только не жди, что я дам за хлам большие деньги.', rumors:'Говорят, у старой насыпи снова что-то притягивает железо. Я бы туда без болтов не совался.' } },
+  { id:'wolf', name:'Волк', role:'Вожатый', group:'Одиночки', faction:'loner', location:'rookie-village', icon:'', greeting:'Новенький? Тогда запоминай: в Зоне сначала смотри под ноги, потом по сторонам.', topics:['совет','работа','деревня'], lines:{ advice:'Не отходи далеко от деревни, пока не поймёшь, где здесь безопасно. И всегда держи путь назад.', work:'Сходи к остановке и проверь, не остались ли там припасы. Только не задерживайся.', village:'Здесь собираются одиночки. Если не нарываться на неприятности, можно спокойно начать.' } },
+  { id:'kefir', name:'Кефир', role:'Пахан', group:'Бандиты', faction:'bandit', location:'atp', icon:'', greeting:'Чего надо? Говори быстро, у меня тут люди заняты.', topics:['дело','правила','слухи'], lines:{ work:'Есть работа для тех, кто умеет держать язык за зубами. Сначала покажи, что не пустышка.', rules:'На АТП чужое добро без спроса не трогают. Особенно если оно моё.', rumors:'У мусорки замечали странные вспышки. Парни туда пока не суются.' } },
+  { id:'shnurok', name:'Шнурок', role:'Торговец АТП', group:'Бандиты', faction:'bandit', location:'atp', icon:'', trader:true, stockIds:['vodka','bread','canned','sausage','knife','rgd5','shells','ammo9x18','ammo9x19','sawedoff','vm17','pm','biker','leather','tail','flesh-eye'], priceMultiplier:1.04, buyMultiplier:.42, greeting:'Чё надо? У Шнурка товар не залеживается. Есть деньги — найдём общий язык.', topics:['торговля','слухи','дела'], lines:{ trade:'Смотри товар в КПК. Могу продать ствол или патроны, а могу принять добычу. Только без мутантских соплей на прилавок.', rumors:'На свиноферме что-то копается. Парни говорят, там уже не обычные свиньи.', дела:'Сначала разберись с Кефиром. Не люблю, когда чужие решают вопросы без пахана.' } },
+  { id:'dzerzhinsky', name:'Дмитрий Дзержинский', role:'Капитан блокпоста', group:'Военные', faction:'military', location:'south-checkpoint', icon:'', greeting:'Документы и цель прибытия. На блокпосту без самодеятельности.', topics:['служба','пропуск','обстановка'], lines:{ service:'Я отвечаю за порядок на южном блокпосту. Любые подозрительные перемещения докладываются.', pass:'Порядок прохода зависит от обстановки и твоей репутации. Пока у тебя нулевой рейтинг.', situation:'Патрули проверяют дорогу и ближайшие строения. В последнее время в районе свалки участились странные сигналы.' } },
+  { id:'kapterka', name:'Каптёрка', role:'Квартирмейстер / снабженец', group:'Военные', faction:'military', location:'south-checkpoint', icon:'', trader:true, stockIds:['ammo9x18','ammo9x19','shells','bandage','ai2','antirad','milmed','aurora','optik','psz5','vm17','pm','gaduka','boltpack'], priceMultiplier:1.18, buyMultiplier:.5, greeting:'Снабжение выдаётся по ведомости. Лишних вопросов не задавай — лучше скажи, что нужно.', topics:['торговля','снабжение','служба'], lines:{ trade:'В КПК открыт мой склад. Снаряжение выдаю по цене, трофеи принимаю по оценке.', supply:'Боеприпасы и аптечки есть не всегда. Запасы пополняются после поставок.', service:'Список имущества ведётся строго. За потерю армейского снаряжения придётся отвечать.' } }
 ];
 
 // Все портреты для выбора персонажа: 14 иконок фракций + 4 портрета ключевых NPC.
@@ -126,69 +96,130 @@ export const AVATAR_OPTIONS = [
   ...AVATARS.loner.map((src, index) => ({ src, name: `Одиночка ${index + 1}`, group: 'loner' })),
   ...AVATARS.bandit.map((src, index) => ({ src, name: `Бандит ${index + 1}`, group: 'bandit' })),
   ...AVATARS.military.map((src, index) => ({ src, name: `Военный ${index + 1}`, group: 'military' })),
-  { src:'https://images.steamusercontent.com/ugc/7414005921618788/62B334868E013BA99FAB3E8D30FD43939502AA64A/', name:'Сидорович', group:'npc' },
-  { src:'https://images.steamusercontent.com/ugc/11005102176941003819/8A515CD2C72D02F164EEE9468644E88450F59CA5/', name:'Волк', group:'npc' },
-  { src:'https://static.wikia.nocookie.net/stalker/images/5/52/Icon_SoC_character_stalker_bandit_veteran.png/revision/latest?cb=20210626095102&path-prefix=ru', name:'Кефир', group:'npc' },
-  { src:'https://static.wikia.nocookie.net/stalker/images/9/96/Icon_SoC_character_soldier_beret.png/revision/latest?cb=20210626063310&path-prefix=ru', name:'Дмитрий Дзержинский', group:'npc' }
+  { src:'builtin:npc:sidorovich', name:'Сидорович', group:'npc' },
+  { src:'builtin:npc:wolf', name:'Волк', group:'npc' },
+  { src:'builtin:npc:kefir', name:'Кефир', group:'npc' },
+  { src:'builtin:npc:dzerzhinsky', name:'Дмитрий Дзержинский', group:'npc' }
 ];
 
 // Музыка для радио и личного плеера. Воспроизведение выполняется встроенным YouTube-плеером,
 // поэтому проект хранит только ссылки и не копирует защищённые аудиозаписи.
 // Композиции воспроизводятся с YouTube; startSeconds выбирает отдельный трек в длинном саундтреке.
-export const RADIO_TRACKS = [
-  { id:'ts-abyss', title:'Abyss (Menu theme)', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:0, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-sad', title:'S.A.D. (MoozE Cover)', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:136, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-theme-escape', title:'Theme of Escape (MoozE Cover)', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:404, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-superfluous', title:'Man, you’re superfluous here (v2)', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:915, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-theme-garbage', title:'Theme of Garbage (MoozE Cover)', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:1511, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-garbage', title:'Garbage (MoozE Cover)', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:1814, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-wanderer-1', title:'Wanderer Part 1', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:2153, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-bar', title:'Bar', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:2293, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-garbage-alt', title:'Garbage (alt. version)', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:2498, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-missing-person', title:'Missing Person', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:2715, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-wanderer-2', title:'Wanderer Part 2', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:2882, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-radwind', title:'Radwind Part 1 (MoozE Cover)', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:3013, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-watch', title:'Watch', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:3212, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-refuge', title:'Refuge (Menu theme)', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:3722, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-emptiness', title:'Emptiness', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:3901, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-eternity', title:'Eternity', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:4027, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-only-hope', title:'Only hope…', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:4360, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-sleeping', title:'Sleeping In Ashes v.2 (MoozE Cover)', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:4634, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-yantar', title:'Yantar Night', artist:'Kreazot-max', videoId:'sn-p5n4-e1k', startSeconds:5042, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-wake-up', title:'Wake Up (Menu theme)', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:5692, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-cold', title:'Cold Freezing Out (MoozE Cover)', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:5814, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-forgotten', title:'Forgotten faces of departed friends', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:6115, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-foreboding', title:'Foreboding', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:6488, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-science', title:'Science first of all', artist:'Anger of Darkness', videoId:'sn-p5n4-e1k', startSeconds:6799, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'ts-road', title:'Road, sunset, tail wind', artist:'Anger of Darkness feat. Rodion Lovchev', videoId:'sn-p5n4-e1k', startSeconds:6959, label:'True Stalker Original Soundtrack', era:'Саундтрек True Stalker', year:2023 },
-  { id:'molchat-sudno', title:'Судно (Борис Рыжий)', artist:'Молчат Дома', videoId:'91GTuZWCQmY', startSeconds:0, label:'Этажи', era:'Постпанк', year:2018 },
-  { id:'piknik-chuzhestranets', title:'Чужестранец', artist:'Пикник', videoId:'U5JlaxFrDm0', startSeconds:0, label:'Чужестранец', era:'Рок', year:2014 },
-  { id:'vladimirsky-central', title:'Владимирский централ', artist:'Михаил Круг', videoId:'Vf40nqy81yw', startSeconds:0, label:'Мадам', era:'Блатная романтика', year:1999, exception:'Добавлен по отдельному запросу для бандитской станции' }
+// Полная музыкальная библиотека: никаких композиций из True Stalker.
+// Треки из длинных видео выделяются по таймкодам; прямые ролики запускаются с 0.
+const song = (id,title,artist,videoId,startSeconds=0,year=null,label='YouTube') => ({
+  id,title,artist,videoId,startSeconds,year,label,era:artist
+});
+
+const lonerStationTracks = [
+  song('grob-rodina','Родина','Гражданская Оборона','SwYZQ0zgdsw',0,1989,'Плейлист Гражданской Обороны'),
+  song('grob-mertvye','Мёртвые','Гражданская Оборона','SwYZQ0zgdsw',252,1989,'Плейлист Гражданской Обороны'),
+  song('grob-uragan','Значит ураган','Гражданская Оборона','SwYZQ0zgdsw',406,1989,'Плейлист Гражданской Обороны'),
+  song('grob-durachok','Про дурачка','Гражданская Оборона','SwYZQ0zgdsw',624,1990,'Плейлист Гражданской Обороны'),
+  song('grob-dsch','Долгая счастливая жизнь','Гражданская Оборона','SwYZQ0zgdsw',914,2004,'Плейлист Гражданской Обороны'),
+  song('grob-esche','Ещё немного','Гражданская Оборона','SwYZQ0zgdsw',1235,1990,'Плейлист Гражданской Обороны'),
+  song('grob-dem','Дембельская','Гражданская Оборона','SwYZQ0zgdsw',1627,1990,'Плейлист Гражданской Обороны'),
+  song('grob-revolution','Пой, революция!','Гражданская Оборона','SwYZQ0zgdsw',1913,1990,'Плейлист Гражданской Обороны'),
+  song('grob-krasnoarm','Песня красноармейца','Гражданская Оборона','SwYZQ0zgdsw',2105,1990,'Плейлист Гражданской Обороны'),
+  song('grob-zhit','Жить','Гражданская Оборона','SwYZQ0zgdsw',2538,1990,'Плейлист Гражданской Обороны'),
+  song('piknik-siyanie','Сияние','Пикник','Zgd5EX8CB38',0,2014,'Официальный видеоклип'),
+  song('piknik-dorian-grey','Дориан (Грей)','Пикник','FSr21xK0GqU',0,2026,'Альбом «Вечное движение»'),
+  song('kino-razreshi','Разреши мне','Кино','hr2fP-G5lXs',0,2025,'Официальное видео'),
+  song('ddt-gde-letim','Где мы летим','ДДТ','yWr8HQayBUQ',0,2012,'Видеоклип'),
+  song('zhadan-rohan','Рогань','Жадан і Собаки','HXNO7Z9D5n0',0,2023,'Официальное видео'),
+  song('kukryniksy-nadezhda','Надежда','Кукрыниксы','nI9rCTVFjmA',0,2015,'Видео группы «Горшенёв»'),
+  song('kukryniksy-raskrashennaya','По раскрашенной душе','Кукрыниксы','BiY0pvtcs8k',0,2002,'Аудиозапись'),
+  song('black-obelisk-ostayus','Я остаюсь','Чёрный Обелиск','PnOHYU4TtE0',0,2014,'Видеозапись'),
+  song('splean-moya-lyubov','Моя любовь','Сплин','43ScNT79o50',0,1997,'Официальный канал'),
+  song('bi2-varvara','Варвара','Би-2','T18deTeV0RI',0,2000,'Видеоклип')
 ];
 
-// True Stalker опубликован значительно позже весны 2012; каждая композиция
-// берётся из собственного таймкода общего OST-видео, следующая отметка задаёт границу.
+const banditStationTracks = [
+  song('kish-vedma','Ведьма и Осёл','Король и Шут','44YS6zEsjQw',0,1998,'Подборка песен Короля и Шута'),
+  song('kish-kukla','Кукла Колдуна','Король и Шут','44YS6zEsjQw',177,2001,'Подборка песен Короля и Шута'),
+  song('kish-lesnik','Лесник','Король и Шут','44YS6zEsjQw',381,1997,'Подборка песен Короля и Шута'),
+  song('kish-durak','Дурак и Молния','Король и Шут','44YS6zEsjQw',573,1996,'Подборка песен Короля и Шута'),
+  song('kish-geniy','Танец злобного гения','Король и Шут','44YS6zEsjQw',687,2001,'Подборка песен Короля и Шута'),
+  song('kish-gimn','Гимн Шута','Король и Шут','44YS6zEsjQw',923,2002,'Подборка песен Короля и Шута'),
+  song('kish-prygnu','Прыгну со скалы','Король и Шут','44YS6zEsjQw',1224,1999,'Подборка песен Короля и Шута'),
+  song('kish-kamnem','Камнем по голове','Король и Шут','44YS6zEsjQw',1417,1996,'Подборка песен Короля и Шута'),
+  song('kish-vospominaniya','Воспоминания о былой любви','Король и Шут','44YS6zEsjQw',1575,2001,'Подборка песен Короля и Шута'),
+  song('kish-dom','Проклятый старый дом','Король и Шут','44YS6zEsjQw',1870,2001,'Подборка песен Короля и Шута'),
+  song('sector-demobilizaciya','Демобилизация','Сектор Газа','ILT3n0WMVJY',0,1990,'Видеозапись'),
+  song('vladimirsky-central','Владимирский централ','Владимир Круг','GqFQbNn0ZBo',0,1999,'Официальный канал',),
+  song('agata-kak-na-voyne','Как на войне','Агата Кристи','1fm1XCJAY0s',0,1989,'Официальный канал'),
+  song('agata-opium','Опиум для никого','Агата Кристи','Ty8QVhtdsgI',0,1995,'Видеоклип'),
+  song('ipv-nepreryvny','Непрерывный суицид','Инструкция по выживанию','qfuxLKt7IQ0',0,1990,'Альбомная запись'),
+  song('ipv-severnaya','Моя северная страна','Инструкция по выживанию','qfuxLKt7IQ0',384,1990,'Альбомная запись'),
+  song('ipv-gorbachev','Товарищ Горбачёв','Инструкция по выживанию','qfuxLKt7IQ0',936,1990,'Альбомная запись'),
+  song('bi2-polkovniku','Полковнику никто не пишет','Би-2','hl2O9EijZnc',0,2000,'Музыкальная подборка Би-2'),
+  song('electro-ischu','Ищу тебя','Приключения Электроников','XBawgi2fQLI',0,2015,'Официальный канал'),
+  song('grob-moya-oborona','Моя оборона','Гражданская Оборона','OPTl11RKzXQ',850,1989,'Подборка песен Егора Летова')
+];
+
+const militaryStationTracks = [
+  song('bonjovi-always','Always','Bon Jovi','yV-GX00-UPw',0,1994,'Подборка Bon Jovi'),
+  song('bonjovi-prayer','Livin’ on a Prayer','Bon Jovi','yV-GX00-UPw',347,1986,'Подборка Bon Jovi'),
+  song('bonjovi-itsmy','It’s My Life','Bon Jovi','yV-GX00-UPw',582,2000,'Подборка Bon Jovi'),
+  song('bonjovi-badname','You Give Love a Bad Name','Bon Jovi','yV-GX00-UPw',806,1986,'Подборка Bon Jovi'),
+  song('bonjovi-bedroses','Bed of Roses','Bon Jovi','yV-GX00-UPw',1022,1992,'Подборка Bon Jovi'),
+  song('bonjovi-illbe','I’ll Be There for You','Bon Jovi','yV-GX00-UPw',1411,1988,'Подборка Bon Jovi'),
+  song('bonjovi-miracle','Miracle','Bon Jovi','yV-GX00-UPw',1749,1990,'Подборка Bon Jovi'),
+  song('bonjovi-blaze','Blaze of Glory','Bon Jovi','yV-GX00-UPw',2050,1990,'Подборка Bon Jovi'),
+  song('bonjovi-love-song','This Ain’t a Love Song','Bon Jovi','yV-GX00-UPw',2382,1995,'Подборка Bon Jovi'),
+  song('bonjovi-neversay','Never Say Goodbye','Bon Jovi','yV-GX00-UPw',2676,1986,'Подборка Bon Jovi'),
+  song('bonjovi-baby','Born to Be My Baby','Bon Jovi','yV-GX00-UPw',2962,1988,'Подборка Bon Jovi'),
+  song('bonjovi-thesedays','These Days','Bon Jovi','yV-GX00-UPw',3235,1995,'Подборка Bon Jovi'),
+  song('bonjovi-misunderstood','Misunderstood','Bon Jovi','yV-GX00-UPw',3504,2002,'Подборка Bon Jovi'),
+  song('bonjovi-arms','In These Arms','Bon Jovi','yV-GX00-UPw',3725,1992,'Подборка Bon Jovi'),
+  song('bonjovi-badmedicine','Bad Medicine','Bon Jovi','yV-GX00-UPw',4036,1988,'Подборка Bon Jovi'),
+  song('ratt-bestofme','Best of Me','Ratt','DCEjiMO0tW4',0,2010,'Официальный клип'),
+  song('survivor-cant-hold','I Can’t Hold Back','Survivor','GaMcsKtBDwE',0,1984,'Официальный клип'),
+  song('zztop-gotsta','I Gotsta Get Paid','ZZ Top','kaIZWjItReI',0,2012,'Официальный канал'),
+  song('dokken-fugitive','Fugitive','Dokken','XZ0CocSSpzw',0,2023,'Официальный клип'),
+  song('stones-doom','Doom and Gloom','The Rolling Stones','1DWiB7ZuLvI',0,2012,'Официальный канал')
+];
+
+// Дополнительные композиции доступны в личном КПК-плеере, но не повторяются в эфире баз.
+const personalOnlyTracks = [
+  song('grob-svoi-sredi','Свой среди чужих','Гражданская Оборона','SwYZQ0zgdsw',7998,1990,'Плейлист Гражданской Обороны'),
+  song('grob-nechego','Нечего терять','Гражданская Оборона','SwYZQ0zgdsw',3660,1990,'Плейлист Гражданской Обороны'),
+  song('kish-myaso','Ели мясо мужики','Король и Шут','44YS6zEsjQw',2127,1999,'Подборка песен Короля и Шута'),
+  song('kish-rom','Ром','Король и Шут','44YS6zEsjQw',2261,2000,'Подборка песен Короля и Шута'),
+  song('bonjovi-because','Because We Can','Bon Jovi','chXJFjrl-Q4',0,2013,'Официальный канал')
+];
+
+export const RADIO_TRACKS = [...lonerStationTracks,...banditStationTracks,...militaryStationTracks];
+// Автоматически выставляем конец каждого фрагмента следующей отметкой из той же записи.
 for (const track of RADIO_TRACKS) {
-  const next=RADIO_TRACKS.filter(other=>other.videoId===track.videoId && other.startSeconds>track.startSeconds)
+  const next = RADIO_TRACKS.filter(other=>other.videoId===track.videoId && other.startSeconds>track.startSeconds)
     .sort((a,b)=>a.startSeconds-b.startSeconds)[0];
   if (next) track.endSeconds=next.startSeconds;
 }
+for (const track of personalOnlyTracks) {
+  const next=personalOnlyTracks.filter(other=>other.videoId===track.videoId && other.startSeconds>track.startSeconds)
+    .sort((a,b)=>a.startSeconds-b.startSeconds)[0];
+  if (next && next.startSeconds>track.startSeconds) track.endSeconds=next.startSeconds;
+}
+// Пропущенные композиции между выбранными фрагментами не должны попадать в эфир.
+const preciseSegmentEnds = {
+  'grob-esche':1479, 'grob-krasnoarm':2259, 'grob-zhit':2730,
+  'kish-dom':2127, 'bonjovi-badmedicine':4358,
+  'grob-svoi-sredi':8303, 'grob-nechego':3885,
+  'grob-moya-oborona':1008, 'kish-rom':2423
+};
+for (const track of [...RADIO_TRACKS,...personalOnlyTracks]) {
+  if (preciseSegmentEnds[track.id]) track.endSeconds=preciseSegmentEnds[track.id];
+}
 
-// Радио играет случайную очередь и не позволяет выбирать отдельные песни.
-// Индивидуальный выбор треков доступен во вкладке «Плеер».
-const sharedModernTracks = RADIO_TRACKS.filter(track=>track.id!=='vladimirsky-central').map(track=>track.id);
-export const PLAYER_TRACKS = [...RADIO_TRACKS];
-
+export const PLAYER_TRACKS = [...RADIO_TRACKS,...personalOnlyTracks];
 export const RADIO_STATIONS = [
-  { id:'loner-village-radio', name:'Радио Деревни новичков', faction:'Одиночки', locationId:'rookie-village', frequency:'100.7 FM', trackIds:[...sharedModernTracks] },
-  { id:'bandit-atp-radio', name:'Радио АТП', faction:'Бандиты', locationId:'atp', frequency:'101.3 FM', trackIds:[...sharedModernTracks,'vladimirsky-central'] },
-  { id:'military-checkpoint-radio', name:'Радио Южного блокпоста', faction:'Военные', locationId:'south-checkpoint', frequency:'103.1 FM', trackIds:[...sharedModernTracks] }
+  { id:'loner-village-radio', name:'Радио Деревни новичков', faction:'Одиночки', locationId:'rookie-village', frequency:'100.7 FM', trackIds:lonerStationTracks.map(track=>track.id) },
+  { id:'bandit-atp-radio', name:'Радио АТП', faction:'Бандиты', locationId:'atp', frequency:'101.3 FM', trackIds:banditStationTracks.map(track=>track.id) },
+  { id:'military-checkpoint-radio', name:'Радио Южного блокпоста', faction:'Военные', locationId:'south-checkpoint', frequency:'103.1 FM', trackIds:militaryStationTracks.map(track=>track.id) }
 ];
 
-export const BLIND_DOG_IMAGES = [
-  'https://p7.hiclipart.com/preview/311/542/501/dog-s-t-a-l-k-e-r-shadow-of-chernobyl-oblivion-lost-mutant-3d-dog.jpg',
-  'https://media.moddb.com/cache/images/mods/1/27/26420/thumb_620x2000/ads.jpg'
-];
+export const BLIND_DOG_IMAGES = [];
 
 
 export const QUESTS = [

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cordon-pda-v5-map-radio-trade-flesh';
+const CACHE_NAME = 'cordon-pda-v8-offline-images';
 const APP_SHELL = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './assets/icons/radioactive.svg', './assets/images/cordon-clean.webp',
