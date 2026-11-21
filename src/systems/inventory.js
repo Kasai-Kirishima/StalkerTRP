@@ -1,0 +1,81 @@
+import { ITEMS, MAX_CARRY_KG } from '../data/catalog.js';
+
+export const getItem = (id) => ITEMS.find(item => item.id === id);
+
+export function getWeight(inventory = []) {
+  return inventory.reduce((sum, stack) => sum + (getItem(stack.id)?.weight || 0) * stack.qty, 0);
+}
+
+export function getInventoryCost(selected = {}) {
+  return Object.entries(selected).reduce((sum, [id, qty]) => sum + (getItem(id)?.price || 0) * qty, 0);
+}
+
+export function getLoadoutWeight(selected = {}) {
+  return Object.entries(selected).reduce((sum, [id, qty]) => sum + (getItem(id)?.weight || 0) * qty, 0);
+}
+
+export function addItem(inventory, id, qty = 1) {
+  const item = getItem(id);
+  if (!item || qty <= 0) return { ok:false, reason:'Предмет не найден.' };
+  const current = getWeight(inventory);
+  if (current + item.weight * qty > MAX_CARRY_KG) return { ok:false, reason:`Лимит переносимого веса — ${MAX_CARRY_KG} кг.` };
+  const stack = inventory.find(entry => entry.id === id);
+  if (stack) stack.qty += qty;
+  else inventory.push({ id, qty, uid:`${id}-${Date.now()}-${Math.random().toString(16).slice(2,6)}` });
+  return { ok:true };
+}
+
+export function removeItem(inventory, id, qty = 1) {
+  const stack = inventory.find(entry => entry.id === id);
+  if (!stack || qty <= 0) return false;
+  stack.qty -= qty;
+  if (stack.qty <= 0) inventory.splice(inventory.indexOf(stack), 1);
+  return true;
+}
+
+export function countItem(inventory, id) {
+  return inventory.find(entry => entry.id === id)?.qty || 0;
+}
+
+export function canFitLoadout(selected, id, delta, budget) {
+  const item = getItem(id);
+  if (!item) return { ok:false, reason:'Неизвестный предмет.' };
+  const nextQty = (selected[id] || 0) + delta;
+  if (nextQty < 0) return { ok:false, reason:'Количество не может быть отрицательным.' };
+  const next = { ...selected };
+  if (nextQty === 0) delete next[id]; else next[id] = nextQty;
+  const cost = getInventoryCost(next);
+  const weight = getLoadoutWeight(next);
+  if (cost > budget) return { ok:false, reason:'Не хватает денег.' };
+  if (weight > MAX_CARRY_KG) return { ok:false, reason:`Превышен лимит ${MAX_CARRY_KG} кг.` };
+  return { ok:true, selected:next, cost, weight };
+}
+
+export function useItem(game, id) {
+  const item = getItem(id);
+  if (!item?.use || !countItem(game.inventory, id)) return { ok:false, message:'Этот предмет нельзя использовать сейчас.' };
+  const result = { ok:true, message:`Использовано: ${item.name}.` };
+  if (item.use === 'heal') {
+    game.player.hp = Math.min(game.player.maxHp, game.player.hp + item.restore);
+    result.message = `Ты обработал раны. Здоровье: ${game.player.hp}/${game.player.maxHp}.`;
+  } else if (item.use === 'antirad') {
+    game.player.radiation = Math.max(0, game.player.radiation - item.restore);
+    result.message = `Радиационный фон снизился. Текущий уровень: ${game.player.radiation}%.`;
+  } else if (item.use === 'food') {
+    game.player.hunger = Math.max(0, game.player.hunger - item.restore);
+    result.message = `Ты перекусил. Голод: ${game.player.hunger}%.`;
+  } else if (item.use === 'water') {
+    game.player.thirst = Math.max(0, game.player.thirst - item.restore);
+    result.message = `Ты сделал несколько глотков. Жажда: ${game.player.thirst}%.`;
+  } else if (item.use === 'energy') {
+    game.player.stamina = Math.min(100, game.player.stamina + item.restore);
+    game.player.thirst = Math.min(100, game.player.thirst + 4);
+    result.message = `Энергетик немного взбодрил тебя.`;
+  } else if (item.use === 'vodka') {
+    game.player.stress = Math.max(0, (game.player.stress || 0) - item.restore);
+    game.player.stamina = Math.max(0, game.player.stamina - 8);
+    result.message = `Горло обожгло. Стало спокойнее, но голова немного кружится.`;
+  }
+  removeItem(game.inventory, id, 1);
+  return result;
+}

@@ -1,0 +1,10 @@
+{
+  "name": "stalker-cordon-pda-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Responsive offline-first STALKER text RP prototype for GitHub Pages",
+  "scripts": {
+    "test": "node tests/smoke-test.mjs"
+  }
+}
