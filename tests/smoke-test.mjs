@@ -1,14 +1,18 @@
 import assert from 'node:assert/strict';
-import { FACTIONS, ITEMS, LOCATIONS, NPCS, START_BUDGET, MAX_CARRY_KG } from '../src/data/catalog.js';
+import { FACTIONS, ITEMS, LOCATIONS, NPCS, AVATAR_OPTIONS, RADIO_TRACKS, START_BUDGET, MAX_CARRY_KG } from '../src/data/catalog.js';
 import { createGame, travelTo, talkToNpc, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly } from '../src/systems/world.js';
 import { addItem, getWeight, canFitLoadout } from '../src/systems/inventory.js';
 import { beginEncounter, playerAttack } from '../src/systems/combat.js';
 import { processPlayerAction } from '../src/systems/action-engine.js';
-import { renderMenu, renderLoadout, renderGame } from '../src/ui/views.js';
+import { renderMenu, renderLoadout, renderGame, renderModal } from '../src/ui/views.js';
 
 assert.equal(FACTIONS.length,3);
 assert.equal(LOCATIONS.length,17);
 assert.equal(NPCS.length,4);
+assert.equal(AVATAR_OPTIONS.length,18,'all faction portraits and four key NPC portraits should be present');
+assert.ok(AVATAR_OPTIONS.every(option=>option.src.startsWith('https://')),'all avatar portraits should use remote URLs');
+assert.equal(RADIO_TRACKS.length,10,'radio should contain ten real music tracks');
+assert.ok(RADIO_TRACKS.every(track=>/^[A-Za-z0-9_-]{11}$/.test(track.videoId)),'each track must have a YouTube video ID');
 assert.ok(ITEMS.length >= 30);
 
 for (const faction of FACTIONS) {
@@ -68,4 +72,11 @@ const uiState={screen:'game',characters:[character],activeCharacterId:'smoke',pe
 assert.ok(renderMenu(uiState).includes('Играть'));
 assert.ok(renderLoadout(uiState).includes('КАТАЛОГ'));
 assert.ok(renderGame(uiState).includes('game-shell'));
-console.log('Smoke tests passed.');
+uiState.ui.tab='radio';
+assert.ok(renderGame(uiState).includes('Радио Кордон'));
+uiState.ui.radioPlaying=true;
+assert.ok(renderGame(uiState).includes('youtube-nocookie.com/embed/'));
+uiState.ui.modal='avatars';
+const avatarModal=renderModal(uiState);
+assert.ok(avatarModal.includes('Сидорович') && avatarModal.includes('Волк') && avatarModal.includes('Кефир') && avatarModal.includes('Дмитрий Дзержинский'));
+console.log('Smoke tests passed, including radio and all avatar portraits.');

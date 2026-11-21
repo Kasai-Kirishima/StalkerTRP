@@ -7,3 +7,52 @@
 @media(orientation:portrait) and (max-width:760px){.game-shell{min-height:100dvh}.game-content{overflow:visible}.game-main{min-height:calc(100dvh - 58px)}}
 
 .neighbor-card{padding:0;overflow:hidden;display:flex;flex-direction:column}.neighbor-main{width:100%;display:grid;gap:4px;text-align:left;background:transparent;border:0;color:inherit;padding:10px}.neighbor-main>span{font-size:18px;color:var(--acid)}.neighbor-main b{font-size:13px}.neighbor-main small{font-size:10px}.neighbor-scout{border:0;border-top:1px solid #414d38;background:#20291e;color:#b6c782;padding:7px 8px;font-size:10px;text-align:left}.neighbor-scout:hover{background:#303b29}
+
+
+/* External music radio */
+.radio-status{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #4a563d;background:#171e16;color:#aeb89a;font:10px 'Share Tech Mono',monospace;letter-spacing:.1em;white-space:nowrap}
+.radio-status i{width:7px;height:7px;border-radius:50%;background:#727b61;display:inline-block}
+.radio-status.live{border-color:#879e4f;color:#d6e29e}
+.radio-status.live i{background:#b4d85d;box-shadow:0 0 10px #a4cd50}
+.radio-layout{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(300px,.9fr);gap:14px;align-items:start}
+.radio-console,.radio-playlist{margin:0;min-width:0}
+.radio-console{padding:14px}
+.radio-console-top{display:flex;justify-content:space-between;gap:10px;padding:0 2px 10px;color:#aab783;font:10px 'Share Tech Mono',monospace;letter-spacing:.12em}
+.radio-screen{width:100%;min-height:220px;aspect-ratio:16/9;background:#080d08;border:1px solid #68794b;box-shadow:inset 0 0 24px #000;overflow:hidden;display:grid;place-items:center}
+.radio-iframe{width:100%;height:100%;min-height:220px;aspect-ratio:16/9;border:0;display:block;background:#000}
+.radio-idle{width:100%;min-height:220px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;background:radial-gradient(ellipse at center,#34432b,#101710 68%);color:#d9e5a2;text-align:center}
+.radio-idle .radio-frequency{font:clamp(28px,5vw,46px) 'Share Tech Mono',monospace;text-shadow:0 0 15px #9dad5b}
+.radio-idle>b{font:18px 'Share Tech Mono',monospace;letter-spacing:.18em}
+.radio-idle>small{font:9px 'Share Tech Mono',monospace;letter-spacing:.2em;color:#8e9e72}
+.radio-wave{font:22px 'Share Tech Mono',monospace;letter-spacing:.18em;color:#9aaa5d;animation:radio-wave 1.4s ease-in-out infinite alternate}
+@keyframes radio-wave{from{opacity:.45;transform:scaleX(.88)}to{opacity:1;transform:scaleX(1.08)}}
+.radio-now-playing{padding:14px 2px 8px}
+.radio-now-playing h3{font-size:20px;margin:5px 0}
+.radio-now-playing p{margin:0;color:#aeb89d;font-size:12px}
+.radio-now-playing p span{color:#82945a;padding:0 4px}
+.radio-controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
+.radio-hint,.radio-disclaimer{font-size:11px;line-height:1.45;color:#86917b;margin:12px 0 0}
+.radio-playlist{padding:14px}
+.radio-playlist .panel-title{margin-bottom:10px}
+.radio-track-list{display:grid;gap:5px;max-height:510px;overflow:auto;padding-right:2px}
+.radio-track{display:grid;grid-template-columns:30px minmax(0,1fr) 34px 30px;gap:7px;align-items:center;padding:8px;background:#151c14;border:1px solid #303b2b;min-width:0}
+.radio-track.selected{border-color:#899954;background:#20291a}
+.radio-track-number{font:11px 'Share Tech Mono',monospace;color:#879665;text-align:center}
+.radio-track-meta{display:grid;gap:3px;min-width:0}
+.radio-track-meta b{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#e0e6cf}
+.radio-track-meta small{font-size:10px;color:#929e82;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.radio-track-play,.radio-track-link{width:30px;height:30px;display:grid;place-items:center;background:#293521;border:1px solid #566444;color:#d6e39e;text-decoration:none;font-size:13px}
+.radio-track-play:hover,.radio-track-link:hover{background:#39482d;border-color:#a3b566}
+.radio-disclaimer{margin-top:10px}
+
+/* Full remote-avatar picker */
+.avatar-modal{width:min(780px,100%)}
+.avatar-group{margin-top:17px}
+.avatar-group-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:7px;margin-bottom:8px;border-bottom:1px solid #46533a}
+.avatar-group-heading b{font:12px 'Share Tech Mono',monospace;letter-spacing:.1em;color:#d3df9a}
+.avatar-group-heading small{color:#87937a;font-size:10px}
+.avatar-choice-grid button{min-width:0;display:flex;flex-direction:column;gap:5px;align-items:stretch}
+.avatar-choice-grid .avatar-wrap{height:88px}
+.avatar-choice-label{font-size:10px;color:#c5cfb5;line-height:1.2;min-height:22px;display:grid;place-items:center;text-align:center}
+@media(max-width:900px){.radio-layout{grid-template-columns:1fr}.radio-track-list{max-height:360px}}
+@media(max-width:540px){.radio-console,.radio-playlist{padding:10px}.radio-screen,.radio-iframe,.radio-idle{min-height:180px}.radio-track{grid-template-columns:24px minmax(0,1fr) 30px 26px;gap:5px;padding:6px}.radio-track-play,.radio-track-link{width:26px;height:28px}.radio-now-playing h3{font-size:17px}.radio-controls .button{flex:1}.avatar-modal{padding:16px}.avatar-choice-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.avatar-choice-grid .avatar-wrap{height:70px}}

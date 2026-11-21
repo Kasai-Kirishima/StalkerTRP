@@ -1,4 +1,4 @@
-import { ASSETS, FACTIONS, AVATARS, ITEMS, LOCATIONS, NPCS, SOUNDTRACK, BLIND_DOG_IMAGES, MAX_CARRY_KG, START_BUDGET } from '../data/catalog.js';
+import { ASSETS, FACTIONS, AVATAR_OPTIONS, RADIO_TRACKS, ITEMS, LOCATIONS, NPCS, BLIND_DOG_IMAGES, MAX_CARRY_KG, START_BUDGET } from '../data/catalog.js';
 import { getWeight, countItem, getItem } from '../systems/inventory.js';
 import { getGameDateTime, formatElapsed } from '../systems/game-clock.js';
 import { getLocation } from '../systems/world.js';
@@ -68,7 +68,6 @@ export function renderCharacters(state) {
 export function renderCreate(state) {
   const d = state.draft;
   const factionCards = FACTIONS.map(f=>`<label class="faction-choice ${d.faction===f.id?'selected':''}"><input type="radio" name="faction" value="${f.id}" ${d.faction===f.id?'checked':''}><span class="faction-icon"><img src="${esc(f.icon)}" alt="" onerror="this.hidden=true"></span><span><b>${esc(f.name)}</b><small>${esc(f.description)}</small></span><i>${d.faction===f.id?'●':'○'}</i></label>`).join('');
-  const avatar = d.avatar || AVATARS[d.faction]?.[0] || '';
   const previewSrc = d.avatar || '';
   return `<section class="screen-wrap pda-screen-wrap">
     <header class="screen-heading"><div><div class="eyebrow">КПК · ЛИЧНОЕ ДЕЛО</div><h2>Регистрация сталкера</h2><p>Заполни данные персонажа перед выходом на Кордон.</p></div>${btn('← Назад','back-characters','button ghost')}</header>
@@ -116,7 +115,7 @@ export function renderLoadout(state) {
 }
 
 function gameNav(active) {
-  const tabs = [ ['location','◈','Местность'],['map','⌖','Карта'],['inventory','▦','Инвентарь'],['stats','▤','Статистика'],['messages','✉','Связь'],['quests','☷','Задания'],['contacts','♟','Контакты'] ];
+  const tabs = [ ['location','◈','Местность'],['map','⌖','Карта'],['inventory','▦','Инвентарь'],['stats','▤','Статистика'],['radio','♫','Радио'],['messages','✉','Связь'],['quests','☷','Задания'],['contacts','♟','Контакты'] ];
   return tabs.map(([id,ico,label])=>`<button class="nav-tab ${active===id?'active':''}" data-action="tab" data-tab="${id}"><span>${ico}</span><b>${label}</b></button>`).join('');
 }
 
@@ -177,6 +176,33 @@ function renderQuests(game) {
   </div>`;
 }
 
+
+function renderRadio(state) {
+  const selectedId = state.settings.radioTrackId || RADIO_TRACKS[0].id;
+  const track = RADIO_TRACKS.find(item => item.id === selectedId) || RADIO_TRACKS[0];
+  const playing = !!state.ui.radioPlaying;
+  const player = playing
+    ? `<iframe class="radio-iframe" title="${esc(track.artist)} — ${esc(track.title)}" src="https://www.youtube-nocookie.com/embed/${esc(track.videoId)}?autoplay=1&rel=0&playsinline=1&modestbranding=1" allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`
+    : `<div class="radio-idle"><span class="radio-frequency">100.7 FM</span><b>РАДИО КОРДОН</b><small>ЭФИР ОЖИДАЕТ НАСТРОЙКИ</small><span class="radio-wave">▂▅▃▇▅▂▆▃▅</span></div>`;
+  return `<div class="tab-page radio-page">
+    <div class="tab-heading"><div><div class="eyebrow">КПК · ПРИЁМНИК</div><h2>Радио Кордон</h2><p>Музыка сталкеров, песни из старых приёмников и дальние радиоволны.</p></div><span class="radio-status ${playing?'live':''}"><i></i>${playing?'В ЭФИРЕ':'ОЖИДАНИЕ'}</span></div>
+    <div class="radio-layout">
+      <section class="radio-console panel">
+        <div class="radio-console-top"><span>ZONE RADIO / R-100</span><span>FM · STEREO</span></div>
+        <div class="radio-screen">${player}</div>
+        <div class="radio-now-playing"><div class="eyebrow">${playing?'СЕЙЧАС ИГРАЕТ':'ВЫБРАННАЯ КОМПОЗИЦИЯ'} · ${esc(track.era)}</div><h3>${esc(track.title)}</h3><p>${esc(track.artist)} <span>·</span> ${esc(track.label)}</p></div>
+        <div class="radio-controls">${btn('◂ Предыдущая','radio-prev','button ghost')}${btn(playing?'▶ Перезапустить':'▶ Включить радио','radio-play-current','button primary')}${btn('Следующая ▸','radio-next','button ghost')}${btn('Ⅱ Выключить','radio-stop','button ghost',playing?'':'disabled')}</div>
+        <div class="radio-hint">Плеер подключается напрямую к YouTube после нажатия. Если встроенный эфир недоступен, открой композицию по ссылке в списке.</div>
+      </section>
+      <section class="radio-playlist panel">
+        <div class="panel-title"><h3>Плейлист приёмника</h3><span>${RADIO_TRACKS.length} треков</span></div>
+        <div class="radio-track-list">${RADIO_TRACKS.map((item,index)=>`<article class="radio-track ${item.id===track.id?'selected':''}"><span class="radio-track-number">${String(index+1).padStart(2,'0')}</span><div class="radio-track-meta"><b>${esc(item.title)}</b><small>${esc(item.artist)} · ${esc(item.era)}</small></div><button class="radio-track-play" data-action="radio-play-track" data-id="${esc(item.id)}" title="Включить ${esc(item.title)}">${item.id===track.id&&playing?'Ⅱ':'▶'}</button><a class="radio-track-link" href="https://www.youtube.com/watch?v=${esc(item.videoId)}" target="_blank" rel="noopener noreferrer" aria-label="Открыть ${esc(item.title)} на YouTube">↗</a></article>`).join('')}</div>
+      </section>
+    </div>
+    <p class="radio-disclaimer">Треки не хранятся в проекте: музыка транслируется с YouTube. Для воспроизведения требуется интернет; доступность отдельных видео зависит от правообладателя и региона.</p>
+  </div>`;
+}
+
 function renderContacts(game) {
   const groups = ['Одиночки','Бандиты','Военные'];
   return `<div class="tab-page"><div class="tab-heading"><div><div class="eyebrow">КПК · КОНТАКТЫ</div><h2>Персонажи и группировки</h2><p>Найди персонажа в его текущей локации, чтобы начать диалог.</p></div></div>
@@ -210,10 +236,9 @@ function renderSleep(game) {
 }
 
 export function renderGameSettings(state) {
-  const s=state.settings;
-  return `<section class="screen-wrap settings-screen"><header class="screen-heading"><div><div class="eyebrow">СИСТЕМНЫЕ ПАРАМЕТРЫ</div><h2>Настройки</h2><p>Параметры интерфейса, атмосферы и локального сохранения.</p></div>${btn('← Назад','settings-back','button ghost')}</header>
-    <div class="settings-layout"><div class="panel"><h3>Звук и атмосфера</h3><label class="setting-row"><span><b>Звуковые эффекты</b><small>Включить фоновую дорожку</small></span><input type="checkbox" data-setting="soundEnabled" ${s.soundEnabled?'checked':''}></label><label class="setting-row"><span><b>Автовоспроизведение</b><small>Запускать звук при входе в игру</small></span><input type="checkbox" data-setting="ambientAutoplay" ${s.ambientAutoplay?'checked':''}></label><label class="field"><span>Громкость</span><input type="range" min="0" max="1" step="0.01" value="${s.volume}" data-setting="volume"></label><label class="field"><span>Фоновая дорожка</span><select data-setting="selectedTrack">${SOUNDTRACK.map(t=>`<option value="${t.id}" ${s.selectedTrack===t.id?'selected':''}>${esc(t.name)} — ${esc(t.note)}</option>`).join('')}</select></label><div class="setting-actions">${btn('▶ Прослушать','preview-track','button primary')}${btn('Ⅱ Пауза','pause-track','button ghost')}</div></div>
-    <div class="panel"><h3>Интерфейс</h3><label class="setting-row"><span><b>Уменьшить анимацию</b><small>Для слабых устройств</small></span><input type="checkbox" data-setting="reducedMotion" ${s.reducedMotion?'checked':''}></label><div class="setting-row"><span><b>Ориентация</b><small>Лучше всего горизонтально, но портретный режим тоже поддерживается.</small></span><span class="setting-value">LANDSCAPE</span></div></div>
+  return `<section class="screen-wrap settings-screen"><header class="screen-heading"><div><div class="eyebrow">СИСТЕМНЫЕ ПАРАМЕТРЫ</div><h2>Настройки</h2><p>Параметры интерфейса и локального сохранения.</p></div>${btn('← Назад','settings-back','button ghost')}</header>
+    <div class="settings-layout"><div class="panel"><h3>Музыкальное радио</h3><p class="muted">В проект не вшиты MP3/WAV. Настоящие композиции открываются через встроенный YouTube-плеер во вкладке «Радио». Выбери трек и включи его вручную — браузер не запускает музыку без действия пользователя.</p>${btn('♫ Открыть радио','settings-open-radio','button primary')}</div>
+    <div class="panel"><h3>Интерфейс</h3><label class="setting-row"><span><b>Уменьшить анимацию</b><small>Для слабых устройств</small></span><input type="checkbox" data-setting="reducedMotion" ${state.settings.reducedMotion?'checked':''}></label><div class="setting-row"><span><b>Ориентация</b><small>Лучше всего горизонтально, но портретный режим тоже поддерживается.</small></span><span class="setting-value">LANDSCAPE</span></div></div>
     <div class="panel"><h3>Сохранения</h3><p class="muted">Данные хранятся в браузере этого устройства. Экспортируй файл, чтобы перенести прогресс на другой телефон или ноутбук.</p><div class="setting-actions">${btn('↓ Скачать сохранение','export-save','button primary')}<label class="button ghost upload-button">Загрузить сохранение<input type="file" id="save-upload" accept="application/json" hidden></label></div><small>Перенос между устройствами: экспорт на первом устройстве → импорт на втором.</small></div></div>
     ${btn('Сбросить весь прогресс','reset-all','button danger-ghost')}
   </section>`;
@@ -221,8 +246,13 @@ export function renderGameSettings(state) {
 
 export function renderModal(state) {
   if (state.ui.modal === 'avatars') {
-    const faction=state.draft.faction;
-    return `<div class="modal-shade"><div class="modal-card avatar-modal"><button class="modal-close" data-action="close-modal">×</button><div class="eyebrow">ВНЕШНОСТЬ</div><h2>Выбрать портрет</h2><p>Выбери один из доступных портретов для своей группировки.</p><div class="avatar-choice-grid">${(AVATARS[faction]||[]).map(src=>`<button data-action="choose-avatar" data-src="${esc(src)}">${avatarMarkup(src,'Портрет','☢')}</button>`).join('')}</div></div></div>`;
+    const groups = [
+      { id:'loner', title:'Одиночки', note:'6 портретов' },
+      { id:'bandit', title:'Бандиты', note:'4 портрета' },
+      { id:'military', title:'Военные', note:'4 портрета' },
+      { id:'npc', title:'Ключевые NPC', note:'4 портрета' }
+    ];
+    return `<div class="modal-shade"><div class="modal-card avatar-modal"><button class="modal-close" data-action="close-modal">×</button><div class="eyebrow">ВНЕШНОСТЬ · БИБЛИОТЕКА ИЗОБРАЖЕНИЙ</div><h2>Выбрать портрет</h2><p>Все 18 портретов из списка проекта. Можно выбрать персонажа любой группировки, в том числе портреты Сидоровича, Волка, Кефира и Дзержинского.</p>${groups.map(group=>`<section class="avatar-group"><div class="avatar-group-heading"><b>${group.title}</b><small>${group.note}</small></div><div class="avatar-choice-grid">${AVATAR_OPTIONS.filter(option=>option.group===group.id).map(option=>`<button data-action="choose-avatar" data-src="${esc(option.src)}" title="${esc(option.name)}">${avatarMarkup(option.src,option.name,group.id==='military'?'🪖':group.id==='bandit'?'♟':'☢')}<span class="avatar-choice-label">${esc(option.name)}</span></button>`).join('')}</div></section>`).join('')}</div></div>`;
   }
   if (state.ui.modal === 'exit') return `<div class="modal-shade"><div class="modal-card"><div class="eyebrow">ВЫХОД</div><h2>Закрыть игру?</h2><p>Браузер не может закрыть вкладку, открытую пользователем. Сохранение уже хранится на устройстве.</p>${btn('Понятно','close-modal','button primary')}</div></div>`;
   if (state.ui.modal === 'reset') return `<div class="modal-shade"><div class="modal-card"><div class="eyebrow danger-text">ВНИМАНИЕ</div><h2>Сбросить прогресс?</h2><p>Будут удалены все персонажи, достижения и настройки, хранящиеся в этом браузере.</p><div class="modal-actions">${btn('Отмена','close-modal','button ghost')}${btn('Удалить всё','confirm-reset','button danger')}</div></div></div>`;
@@ -236,7 +266,7 @@ export function renderGame(state) {
   const clock=getGameDateTime(game.clock);
   const tabs={
     location:renderLocation(game,character), map:renderMap(game), inventory:renderInventory(game),
-    stats:renderStats(game,character), messages:renderMessages(game), quests:renderQuests(game), contacts:renderContacts(game)
+    stats:renderStats(game,character), radio:renderRadio(state), messages:renderMessages(game), quests:renderQuests(game), contacts:renderContacts(game)
   };
   return `<section class="game-shell">
     <aside class="game-sidebar"><div class="game-brand"><span>☢</span><b>КОРДОН</b><small>КПК / ZONE LINK</small></div><nav class="game-nav">${gameNav(state.ui.tab||'location')}</nav><div class="sidebar-footer"><div class="signal"><i></i><span>СИГНАЛ КПК</span></div><small>ЛОКАЛЬНОЕ СОХРАНЕНИЕ</small>${btn('⟵ Меню','back-menu','sidebar-exit')}</div></aside>

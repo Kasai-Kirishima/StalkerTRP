@@ -100,23 +100,39 @@ export const NPCS = [
   { id:'dzerzhinsky', name:'Дмитрий Дзержинский', role:'Капитан блокпоста', group:'Военные', faction:'military', location:'south-checkpoint', icon:'https://static.wikia.nocookie.net/stalker/images/9/96/Icon_SoC_character_soldier_beret.png/revision/latest?cb=20210626063310&path-prefix=ru', greeting:'Документы и цель прибытия. На блокпосту без самодеятельности.', topics:['служба','пропуск','обстановка'], lines:{ service:'Я отвечаю за порядок на южном блокпосту. Любые подозрительные перемещения докладываются.', pass:'Порядок прохода зависит от обстановки и твоей репутации. Пока у тебя нулевой рейтинг.', situation:'Патрули проверяют дорогу и ближайшие строения. В последнее время в районе свалки участились странные сигналы.' } }
 ];
 
+
+// Все портреты для выбора персонажа: 14 иконок фракций + 4 портрета ключевых NPC.
+// Изображения загружаются напрямую с внешних источников; локальные копии не требуются.
+export const AVATAR_OPTIONS = [
+  ...AVATARS.loner.map((src, index) => ({ src, name: `Одиночка ${index + 1}`, group: 'loner' })),
+  ...AVATARS.bandit.map((src, index) => ({ src, name: `Бандит ${index + 1}`, group: 'bandit' })),
+  ...AVATARS.military.map((src, index) => ({ src, name: `Военный ${index + 1}`, group: 'military' })),
+  { src:'https://static.wikia.nocookie.net/stalker/images/3/3a/Icon_SoC_character_trader.png/revision/latest?cb=20210313091759&path-prefix=ru', name:'Сидорович', group:'npc' },
+  { src:'https://static.wikia.nocookie.net/stalker/images/0/0e/Icon_SoC_character_stalker_neytral_balon_1.png/revision/latest?cb=20210221111322&path-prefix=ru', name:'Волк', group:'npc' },
+  { src:'https://static.wikia.nocookie.net/stalker/images/5/52/Icon_SoC_character_stalker_bandit_veteran.png/revision/latest?cb=20210626095102&path-prefix=ru', name:'Кефир', group:'npc' },
+  { src:'https://static.wikia.nocookie.net/stalker/images/9/96/Icon_SoC_character_soldier_beret.png/revision/latest?cb=20210626063310&path-prefix=ru', name:'Дмитрий Дзержинский', group:'npc' }
+];
+
+// Музыка для радио. Воспроизведение выполняется встроенным YouTube-плеером,
+// поэтому проект хранит только ссылки и не копирует защищённые аудиозаписи.
+export const RADIO_TRACKS = [
+  { id:'firelake-dirge', title:'Dirge for the Planet', artist:'FireLake', videoId:'Yth_jZcZrtA', label:'S.T.A.L.K.E.R. OST', era:'Гимн Зоны' },
+  { id:'mooze-radwind-1', title:'Radwind Pt.1', artist:'MoozE', videoId:'lq9qNdutbBk', label:'Shadow of Chernobyl OST', era:'Эмбиент Зоны' },
+  { id:'mooze-dead-cities-2', title:'Dead Cities Pt.2', artist:'MoozE', videoId:'RBnjguppfaA', label:'Shadow of Chernobyl OST', era:'Эмбиент Зоны' },
+  { id:'mooze-radwind-2', title:'Radwind Pt.2', artist:'MoozE', videoId:'7hLV-hVKuhM', label:'Shadow of Chernobyl OST', era:'Эмбиент Зоны' },
+  { id:'agata-kak-na-voine', title:'Как на войне', artist:'Агата Кристи', videoId:'e4q35OeSpEU', label:'Позорная звезда', era:'Старая волна' },
+  { id:'agata-opium', title:'Опиум для никого', artist:'Агата Кристи', videoId:'Ty8QVhtdsgI', label:'Опиум', era:'Старая волна' },
+  { id:'ddt-autumn', title:'Что такое осень', artist:'ДДТ', videoId:'LvaYk-phy14', label:'Актриса весна', era:'Старая волна' },
+  { id:'bi2-varvara', title:'Варвара', artist:'Би-2', videoId:'T18deTeV0RI', label:'Би-2', era:'Старая волна' },
+  { id:'pink-floyd-wish', title:'Wish You Were Here', artist:'Pink Floyd', videoId:'K6qj09OHvjw', label:'Wish You Were Here', era:'Дальняя волна' },
+  { id:'cash-hurt', title:'Hurt', artist:'Johnny Cash', videoId:'8AHCfZTRGiI', label:'American IV: The Man Comes Around', era:'Дальняя волна' }
+];
+
 export const BLIND_DOG_IMAGES = [
   'https://static.wikia.nocookie.net/stalker/images/d/de/%D0%A1%D0%BB%D0%B5%D0%BF%D0%BE%D0%B9_%D0%BF%D1%91%D81.png/revision/latest?cb=20180712114910',
   'https://static.wikia.nocookie.net/stalker/images/5/5a/%D0%A1%D0%BB%D0%B5%D0%BF%D0%BE%D0%B9_%D0%BF%D1%91%D82.png/revision/latest?cb=20180712114910'
 ];
 
-export const SOUNDTRACK = [
-  { id:'wind', name:'Ветер Кордона', file:'wind.wav', note:'Мягкий ветер и низкий гул открытой местности' },
-  { id:'rain', name:'Дождь по крыше', file:'rain.wav', note:'Дождь, капли и далёкий гром' },
-  { id:'geiger', name:'Счётчик Гейгера', file:'geiger.wav', note:'Нерегулярные щелчки дозиметра' },
-  { id:'underground', name:'Подземный тоннель', file:'underground.wav', note:'Гул и капли в бетонном тоннеле' },
-  { id:'forest', name:'Ночная лесополоса', file:'forest.wav', note:'Ночные насекомые и лёгкий ветер' },
-  { id:'campfire', name:'Костёр', file:'campfire.wav', note:'Тихий треск горящих дров' },
-  { id:'radio', name:'Старая рация', file:'radio.wav', note:'Шум эфира и редкие помехи' },
-  { id:'dogs', name:'Далёкие мутанты', file:'dogs.wav', note:'Низкий ветер и отдалённые звуковые сигналы' },
-  { id:'anomaly', name:'Гравитационный фон', file:'anomaly.wav', note:'Низкочастотный аномальный гул' },
-  { id:'generator', name:'Генератор убежища', file:'generator.wav', note:'Ровная работа старого генератора' }
-];
 
 export const QUESTS = [
   { id:'first-steps', title:'Первые шаги', giver:'wolf', text:'Осмотрись в деревне новичков и загляни к Волку за советом.', reward:150, condition:'talk:wolf', status:'available' },

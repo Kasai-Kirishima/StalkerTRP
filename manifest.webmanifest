@@ -1,7 +1,7 @@
 {
   "name": "STALKER — Путь по Кордону",
   "short_name": "КОРДОН",
-  "description": "Локальный текстовый STALKER-RP прототип",
+  "description": "STALKER-RP: Кордон, КПК, персонажи и музыкальное радио",
   "lang": "ru",
   "start_url": "./index.html",
   "display": "standalone",
@@ -9,6 +9,11 @@
   "background_color": "#10140f",
   "theme_color": "#151b13",
   "icons": [
-    {"src":"./assets/icons/radioactive.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}
+    {
+      "src": "./assets/icons/radioactive.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
   ]
 }

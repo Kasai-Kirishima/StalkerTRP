@@ -1,13 +1,11 @@
-const CACHE_NAME = 'cordon-pda-v1';
+const CACHE_NAME = 'cordon-pda-v2-radio';
 const APP_SHELL = [
   './', './index.html', './styles.css', './manifest.webmanifest',
+  './assets/icons/radioactive.svg',
   './src/main.js', './src/ui/views.js', './src/core/storage.js',
   './src/data/catalog.js', './src/systems/game-clock.js',
   './src/systems/inventory.js', './src/systems/world.js',
-  './src/systems/combat.js', './src/systems/action-engine.js', './src/systems/audio.js',
-  './assets/audio/wind.wav', './assets/audio/rain.wav', './assets/audio/geiger.wav',
-  './assets/audio/underground.wav', './assets/audio/forest.wav', './assets/audio/campfire.wav',
-  './assets/audio/radio.wav', './assets/audio/dogs.wav', './assets/audio/anomaly.wav', './assets/audio/generator.wav'
+  './src/systems/combat.js', './src/systems/action-engine.js'
 ];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));

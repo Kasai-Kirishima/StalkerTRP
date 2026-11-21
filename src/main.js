@@ -1,11 +1,10 @@
 import { loadState, saveState, createInitialState, exportSave, importSave } from './core/storage.js';
-import { ASSETS, FACTIONS, START_BUDGET, MAX_CARRY_KG, NPCS, ITEMS, LOCATIONS } from './data/catalog.js';
+import { ASSETS, FACTIONS, START_BUDGET, MAX_CARRY_KG, NPCS, ITEMS, LOCATIONS, RADIO_TRACKS } from './data/catalog.js';
 import { renderMenu, renderAccount, renderCharacters, renderCreate, renderLoadout, renderGame, renderGameSettings, renderModal, esc } from './ui/views.js';
 import { canFitLoadout, getInventoryCost, getLoadoutWeight, addItem, getItem, getWeight, removeItem, useItem } from './systems/inventory.js';
 import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, simulateWorld } from './systems/world.js';
 import { playerAttack, defend, flee } from './systems/combat.js';
 import { processPlayerAction } from './systems/action-engine.js';
-import { setupAudio, playTrack, setVolume, toggleAudio, stopAudio } from './systems/audio.js';
 import { getGameDateTime, syncRealElapsed } from './systems/game-clock.js';
 
 const root = document.getElementById('app');
@@ -52,6 +51,7 @@ function toast(message, kind='info') {
 function setScreen(screen) {
   state.screen = screen;
   state.ui.modal = null;
+  state.ui.radioPlaying = false;
   render();
   persist();
 }
@@ -152,12 +152,12 @@ function finishLoadout() {
   state.pendingCharacter=null;
   state.account.sessions=(state.account.sessions||0)+1;
   state.ui.tab='location';
+  state.ui.radioPlaying=false;
   state.screen='game';
   describeLocation(state.game);
   persist();
   render();
   toast(`Добро пожаловать на Кордон, ${character.name}.`);
-  setupAudio(state.settings);
 }
 
 function selectCharacter(id) {
@@ -174,15 +174,16 @@ function selectCharacter(id) {
   state.game=char.game;
   syncRealElapsed(state.game);
   state.ui.tab='location';
+  state.ui.radioPlaying=false;
   state.account.sessions=(state.account.sessions||0)+1;
   state.screen='game';
   persist();
   render();
-  setupAudio(state.settings);
 }
 
 function applyActionResult(result) {
   if (!result) return;
+  state.ui.radioPlaying=false;
   if (result.action==='map' || result.action==='tab-map') state.ui.tab='map';
   else if (result.action==='inventory') state.ui.tab='inventory';
   else if (result.action==='quests') state.ui.tab='quests';
@@ -234,8 +235,8 @@ root.addEventListener('click', (event) => {
     persist(); render(); return;
   }
   if (action==='finish-loadout') return finishLoadout();
-  if (action==='tab') { state.ui.tab=tab; state.game.dialogueNpcId=null; state.ui.modal=null; persist(); return render(); }
-  if (action==='tab-map') { state.ui.tab='map'; persist(); return render(); }
+  if (action==='tab') { state.ui.tab=tab; state.ui.radioPlaying=false; state.game.dialogueNpcId=null; state.ui.modal=null; persist(); return render(); }
+  if (action==='tab-map') { state.ui.tab='map'; state.ui.radioPlaying=false; persist(); return render(); }
   if (action==='inspect') { const text=describeLocation(state.game); addGameLog(text); render(); return; }
   if (action==='search') { advanceGame(state.game,10); const result=searchLocation(state.game); updateWeather(state.game); persist(); render(); toast(result.message,result.ok?'info':'warning'); return; }
   if (action==='scout') { const result=scoutLocation(state.game,id); toast(result.message,result.ok?'info':'warning'); return; }
@@ -297,13 +298,39 @@ root.addEventListener('click', (event) => {
     persist(); return;
   }
   if (action==='export-save') { persist(); exportSave(state); return; }
-  if (action==='preview-track') {
-    state.settings.soundEnabled=true;
-    playTrack(state.settings.selectedTrack); persist(); render(); toast('Воспроизведение фоновой дорожки.'); return;
+  if (action==='radio-play-track') {
+    state.settings.radioTrackId=id;
+    state.ui.tab='radio';
+    state.ui.radioPlaying=true;
+    persist(); render();
+    return;
   }
-  if (action==='pause-track') { stopAudio(); return; }
+  if (action==='radio-play-current') {
+    state.ui.radioPlaying=true;
+    persist(); render();
+    return;
+  }
+  if (action==='radio-prev' || action==='radio-next') {
+    const currentIndex=RADIO_TRACKS.findIndex(track=>track.id===state.settings.radioTrackId);
+    const offset=action==='radio-next'?1:-1;
+    const nextIndex=(Math.max(0,currentIndex)+offset+RADIO_TRACKS.length)%RADIO_TRACKS.length;
+    state.settings.radioTrackId=RADIO_TRACKS[nextIndex].id;
+    state.ui.radioPlaying=true;
+    persist(); render();
+    return;
+  }
+  if (action==='radio-stop') {
+    state.ui.radioPlaying=false;
+    persist(); render();
+    return;
+  }
+  if (action==='settings-open-radio') {
+    if (!state.game) { toast('Сначала выбери или создай персонажа.','warning'); return; }
+    state.screen='game'; state.ui.tab='radio'; state.ui.radioPlaying=false;
+    persist(); render(); return;
+  }
   if (action==='reset-all') { state.ui.modal='reset'; return render(); }
-  if (action==='confirm-reset') { localStorage.removeItem('cordon-pda-save-v1'); state=createInitialState(); previousScreen='menu'; stopAudio(); render(); toast('Прогресс сброшен.'); return; }
+  if (action==='confirm-reset') { localStorage.removeItem('cordon-pda-save-v1'); state=createInitialState(); previousScreen='menu'; render(); toast('Прогресс сброшен.'); return; }
 });
 
 root.addEventListener('input', (event) => {
@@ -315,10 +342,7 @@ root.addEventListener('input', (event) => {
     persist();
   }
   const setting=event.target.dataset.setting;
-  if (setting==='volume') {
-    state.settings.volume=Number(event.target.value);
-    setVolume(state.settings.volume); persist();
-  }
+  if (setting==='reducedMotion') { state.settings.reducedMotion=event.target.checked; persist(); document.body.classList.toggle('reduced-motion', !!state.settings.reducedMotion); }
 });
 
 root.addEventListener('change', async (event) => {
@@ -330,13 +354,9 @@ root.addEventListener('change', async (event) => {
     persist();
   }
   const setting=event.target.dataset.setting;
-  if (setting) {
-    const value=event.target.type==='checkbox'?event.target.checked:event.target.type==='range'?Number(event.target.value):event.target.value;
-    state.settings[setting]=value;
-    if (setting==='soundEnabled') toggleAudio(value);
-    if (setting==='ambientAutoplay' && value && state.settings.soundEnabled) playTrack(state.settings.selectedTrack);
-    if (setting==='volume') setVolume(value);
-    if (setting==='selectedTrack' && state.settings.soundEnabled) playTrack(value);
+  if (setting==='reducedMotion') {
+    state.settings.reducedMotion=event.target.checked;
+    document.body.classList.toggle('reduced-motion', !!state.settings.reducedMotion);
     persist();
   }
   if (event.target.id==='avatar-upload' && event.target.files?.[0]) {
@@ -410,5 +430,4 @@ setInterval(()=>{
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
   window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 }
-setupAudio(state.settings);
 render();

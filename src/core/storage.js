@@ -1,10 +1,7 @@
 const STORAGE_KEY = 'cordon-pda-save-v1';
 
 export const DEFAULT_SETTINGS = {
-  soundEnabled: true,
-  volume: 0.32,
-  selectedTrack: 'wind',
-  ambientAutoplay: false,
+  radioTrackId: 'firelake-dirge',
   reducedMotion: false
 };
 
@@ -18,7 +15,7 @@ export function createInitialState() {
     account: { sessions: 0, enemiesDefeated: 0, questsCompleted: 0, artifactsFound: 0, distanceTravelled: 0 },
     draft: { name:'', birthDate:'', height:'', weight:'', personality:'', biography:'', notes:'', faction:'loner', avatar:'' },
     loadout: { selected: {} },
-    ui: { tab:'location', modal:null, notification:'' },
+    ui: { tab:'location', modal:null, notification:'', radioPlaying:false },
     game: null
   };
 }
