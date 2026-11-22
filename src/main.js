@@ -2,7 +2,7 @@ import { loadState, saveState, createInitialState, exportSave, importSave } from
 import { ASSETS, FACTIONS, START_BUDGET, MAX_CARRY_KG, NPCS, ITEMS, LOCATIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS } from './data/catalog.js';
 import { renderMenu, renderAccount, renderCharacters, renderCreate, renderLoadout, renderGame, renderGameSettings, renderModal, esc } from './ui/views.js';
 import { canFitLoadout, getInventoryCost, getLoadoutWeight, addItem, getItem, getWeight, removeItem, useItem } from './systems/inventory.js';
-import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, simulateWorld, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest } from './systems/world.js';
+import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, simulateWorld, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, replyNpcFreeText } from './systems/world.js';
 import { playerAttack, defend, flee, beginWolfDogPack } from './systems/combat.js';
 import { createMusicEngine } from './systems/music.js';
 import { buyFromTrader, sellToTrader } from './systems/world.js';
@@ -131,8 +131,8 @@ function startRadio(stationId) {
   if (!queue.length) return;
   state.ui.music={mode:'radio',stationId:station.id,queue,index:0,trackId:queue[0],playing:true};
   state.settings.radioStationId=station.id;
-  state.ui.tab='radio';
-  state.ui.pdaOpen=true;
+  state.ui.tab='location';
+  state.ui.pdaOpen=false;
   musicEngine.play(trackById(queue[0]));
   persist(); render();
 }
@@ -274,13 +274,18 @@ function selectCharacter(id) {
 function applyActionResult(result) {
   if (!result) return;
   if (result.action==='map' || result.action==='tab-map') { state.ui.tab='map'; state.ui.pdaOpen=true; }
-  else if (result.action==='inventory') { state.ui.tab='inventory'; state.ui.pdaOpen=true; }
+  else if (result.action==='inventory') { state.ui.modal='inventory-panel'; state.ui.pdaOpen=false; }
   else if (result.action==='quests') { state.ui.tab='quests'; state.ui.pdaOpen=true; }
   else if (result.action==='stats') { state.ui.tab='stats'; state.ui.pdaOpen=true; }
   else if (result.action==='sleep') state.ui.modal='sleep';
   else if (result.action==='artifact') state.ui.modal=null;
   else if (result.action==='dialogue') state.game.dialogueNpcId=result.npcId;
+  else if (result.action==='explore-find') state.ui.modal='explore-find';
   else if (result.action==='combat') state.ui.tab='location';
+  if (state.ui.music?.mode==='radio') {
+    const station=RADIO_STATIONS.find(entry=>entry.id===state.ui.music.stationId);
+    if (station && station.locationId!==state.game?.locationId) { musicEngine.stop(); state.ui.music={...state.ui.music,playing:false}; }
+  }
   if (result.message) toast(result.message, result.encounter?'warning':'info');
   persist();
   render();
@@ -303,7 +308,7 @@ root.addEventListener('click', (event) => {
   if (action==='back-create') return setScreen('create');
   if (action==='back-characters') return setScreen('characters');
   if (action==='exit') { state.ui.modal='exit'; return render(); }
-  if (action==='close-modal') { state.ui.modal=null; return render(); }
+  if (action==='close-modal') { state.ui.modal=null; state.ui.exploreSpotId=null; return render(); }
   if (action==='close-dialogue') { state.game.dialogueNpcId=null; persist(); return render(); }
   if (action==='close-sleep') { state.ui.modal=null; return render(); }
   if (action==='close-artifact') { state.game.artifactHunt=null; persist(); return render(); }
@@ -325,14 +330,20 @@ root.addEventListener('click', (event) => {
     persist(); render(); return;
   }
   if (action==='finish-loadout') return finishLoadout();
-  if (action==='pda-toggle') { state.ui.pdaOpen=!state.ui.pdaOpen; if(state.ui.pdaOpen && !state.ui.tab) state.ui.tab='location'; persist(); return render(); }
-  if (action==='tab') { state.ui.pdaOpen=true; state.ui.tab=tab; if(tab==='radio'){ const localStation=RADIO_STATIONS.find(item=>item.locationId===state.game?.locationId); if(localStation) state.settings.radioStationId=localStation.id; } state.game.dialogueNpcId=null; state.ui.modal=null; persist(); return render(); }
-  if (action==='tab-map') { state.ui.pdaOpen=true; state.ui.tab='map'; persist(); return render(); }
+  if (action==='pda-toggle') { state.ui.pdaOpen=!state.ui.pdaOpen; if(state.ui.pdaOpen && !['location','map','stats','player','messages','quests','contacts'].includes(state.ui.tab)) state.ui.tab='location'; persist(); return render(); }
+  if (action==='inventory-open') { state.ui.modal='inventory-panel'; state.ui.pdaOpen=false; persist(); return render(); }
+  if (action==='explore-open') { state.ui.modal='explore-spots'; persist(); return render(); }
+  if (action==='explore-spot') { const result=startAreaSearch(state.game,id); if(result.ok&&result.options){state.ui.modal='explore-find';} else if(result.ok){state.ui.modal=null;} persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
+  if (action==='explore-pick') { const result=claimAreaFind(state.game,id); if(result.ok) state.ui.modal=null; persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
+  if (action==='tab') { const allowed=['location','map','stats','player','messages','quests','contacts']; if(!allowed.includes(tab)) return; state.ui.pdaOpen=true; state.ui.tab=tab; state.game.dialogueNpcId=null; state.ui.modal=null; persist(); return render(); }
+  if (action==='tab-map') { state.ui.pdaOpen=true; state.ui.tab='map'; state.ui.mapView=state.ui.mapView||'map'; persist(); return render(); }
+  if (action==='map-view') { const view=button.dataset.view; if(['map','places','tasks'].includes(view)){state.ui.mapView=view;persist();render();} return; }
   if (action==='inspect') { const text=describeLocation(state.game); addGameLog(text); render(); return; }
   if (action==='search') { advanceGame(state.game,10); const result=searchLocation(state.game); updateWeather(state.game); persist(); render(); toast(result.message,result.ok?'info':'warning'); return; }
   if (action==='scout') { const result=scoutLocation(state.game,id); toast(result.message,result.ok?'info':'warning'); return; }
   if (action==='travel') {
     const result=travelTo(state.game,id);
+    if(state.ui.music?.mode==='radio' && RADIO_STATIONS.find(s=>s.id===state.ui.music.stationId)?.locationId!==state.game.locationId){musicEngine.stop();state.ui.music={...state.ui.music,playing:false};}
     state.ui.tab='location';
     state.ui.pdaOpen=false;
     persist(); render(); toast(result.message,result.encounter?'warning':result.ok?'info':'warning'); return;
@@ -384,9 +395,11 @@ root.addEventListener('click', (event) => {
   }
   if (action==='dialogue-topic') {
     const answer=replyNpc(state.game,id,button.dataset.topic);
+    state.game.dialogueHistory ||= []; state.game.dialogueHistory.push({role:'npc',text:answer}); state.game.dialogueHistory=state.game.dialogueHistory.slice(-16);
     addGameLog(`${NPCS.find(n=>n.id===id)?.name||'Собеседник'}: ${answer}`);
     persist(); render(); return;
   }
+  if (action==='quest-accept-generic') { const result=acceptWorldQuest(state.game,id); persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
   if (action==='quest-accept') {
     const result=acceptSidorovichJob(state.game);
     persist(); render(); toast(result.message,result.ok?'success':'warning'); return;
@@ -413,11 +426,12 @@ root.addEventListener('click', (event) => {
   if (action==='location-open') { state.ui.mapLocationId=id; state.ui.modal='map-location'; return render(); }
   if (action==='map-modal-travel') {
     const result=travelTo(state.game,id);
+    if(state.ui.music?.mode==='radio' && RADIO_STATIONS.find(s=>s.id===state.ui.music.stationId)?.locationId!==state.game.locationId){musicEngine.stop();state.ui.music={...state.ui.music,playing:false};}
     state.ui.modal=null; state.ui.tab='location'; state.ui.pdaOpen=false; persist(); render();
     toast(result.message,result.encounter?'warning':result.ok?'info':'warning'); return;
   }
-  if (action==='trade-open') { state.ui.tradeNpcId=id; state.ui.tab='trade'; state.ui.pdaOpen=true; state.ui.modal=null; persist(); return render(); }
-  if (action==='trade-back') { state.ui.tradeNpcId=null; persist(); return render(); }
+  if (action==='trade-open') { state.ui.tradeNpcId=id; state.ui.pdaOpen=false; state.ui.modal='trade-panel'; persist(); return render(); }
+  if (action==='trade-back') { state.ui.tradeNpcId=null; state.ui.modal='trade-panel'; persist(); return render(); }
   if (action==='trade-buy') {
     const result=buyFromTrader(state.game,button.dataset.traderId,button.dataset.itemId);
     persist(); render(); toast(result.message,result.ok?'success':'warning'); return;
@@ -450,21 +464,14 @@ root.addEventListener('click', (event) => {
     state.settings.removedPlayerTrackIds=(state.settings.removedPlayerTrackIds||[]).filter(trackId=>trackId!==id);
     persist(); render(); toast('Композиция возвращена в личную подборку.','success'); return;
   }
-  if (action==='player-next' || action==='music-dock-next') {
+  if (action==='player-next') {
     if (state.ui.music?.mode==='player') advanceMusic(false,1);
     else toast('В радиорежиме очередь идёт автоматически без переключения песен.','info');
     return;
   }
   if (action==='player-prev') { if (state.ui.music?.mode==='player') advanceMusic(false,-1); else toast('Сначала выбери песню для личного плеера.','info'); return; }
   if (action==='player-toggle') { if(state.ui.music?.mode==='player') toggleMusic(); else toast('Сначала выбери песню для личного плеера.','info'); return; }
-  if (action==='music-dock-toggle') { toggleMusic(); return; }
-  if (action==='settings-open-radio') {
-    if (!state.game) { toast('Сначала выбери или создай персонажа.','warning'); return; }
-    state.screen='game'; state.ui.tab='radio'; state.ui.pdaOpen=true;
-    const station=RADIO_STATIONS.find(entry=>entry.locationId===state.game.locationId);
-    if (station) state.settings.radioStationId=station.id;
-    persist(); render(); return;
-  }
+  if (action==='settings-open-radio') { state.screen='game'; state.ui.tab='location'; state.ui.pdaOpen=false; persist(); render(); toast('Радио включается из карточки местной станции на базах.'); return; }
   if (action==='reset-all') { state.ui.modal='reset'; return render(); }
   if (action==='confirm-reset') { localStorage.removeItem('cordon-pda-save-v1'); state=createInitialState(); previousScreen='menu'; render(); toast('Прогресс сброшен.'); return; }
 });
@@ -518,6 +525,15 @@ root.addEventListener('change', async (event) => {
 });
 
 root.addEventListener('submit', (event) => {
+  if (event.target.id==='npc-dialogue-form') {
+    event.preventDefault();
+    const npcId=state.game?.dialogueNpcId;
+    const text=String(new FormData(event.target).get('message')||'').trim();
+    if (!npcId || !text) return;
+    const result=replyNpcFreeText(state.game,npcId,text);
+    persist(); render(); toast(result.message,result.ok?'info':'warning');
+    return;
+  }
   if (event.target.id==='character-form') {
     event.preventDefault();
     const form=new FormData(event.target);

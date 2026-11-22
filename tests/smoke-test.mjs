@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import { ASSETS, IMAGE_FALLBACKS, FACTIONS, ITEMS, LOCATIONS, NPCS, AVATAR_OPTIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS, START_BUDGET, MAX_CARRY_KG, STARTER_ITEM_IDS, ITEM_ACQUISITION } from '../src/data/catalog.js';
-import { createGame, travelTo, talkToNpc, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, replyNpc, getTravelMinutes } from '../src/systems/world.js';
+import { ASSETS, IMAGE_FALLBACKS, FACTIONS, ITEMS, LOCATIONS, EXPLORE_SPOTS, NPCS, AVATAR_OPTIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS, START_BUDGET, MAX_CARRY_KG, STARTER_ITEM_IDS, ITEM_ACQUISITION } from '../src/data/catalog.js';
+import { createGame, travelTo, talkToNpc, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, sitAtCampfire, replyNpc, replyNpcFreeText, getTravelMinutes } from '../src/systems/world.js';
 import { addItem, getWeight, canFitLoadout, countItem } from '../src/systems/inventory.js';
 import { beginEncounter, beginWolfDogPack, playerAttack } from '../src/systems/combat.js';
 import { processPlayerAction } from '../src/systems/action-engine.js';
@@ -15,6 +15,8 @@ assert.deepEqual([LOCATIONS.find(l=>l.id==='underpass').x,LOCATIONS.find(l=>l.id
 assert.deepEqual(LOCATIONS.find(l=>l.id==='anomaly-dump').hazards,['gravity'],'the secret camp contains the Funnel gravity anomaly');
 assert.equal(LOCATIONS.find(l=>l.id==='anomaly-dump').anomalyName,'Воронка');
 assert.ok(LOCATIONS.every(location=>!location.image),'location backgrounds must not use external images');
+assert.ok(LOCATIONS.every(location=>EXPLORE_SPOTS.some(spot=>spot.locationId===location.id)),'every marked Cordon sublocation should have at least one discoverable RP search spot');
+assert.ok(EXPLORE_SPOTS.every(spot=>(spot.loot||[]).every(id=>!['tail','flesh-eye','medusa','meat_chunk','gravi'].includes(id))),'mutant trophies and artifacts must never appear as ordinary room-search loot');
 assert.ok(ASSETS.map.endsWith('cordon-clean.webp'),'map must use the clean map provided by the user');
 assert.ok(getTravelMinutes('atp','stop') < getTravelMinutes('north-checkpoint','south-checkpoint'),'travel estimates must scale with real map distance');
 assert.equal(getTravelMinutes('atp','stop'),5,'very short marked-map walks should take about five minutes');
@@ -363,16 +365,19 @@ assert.ok(closedPdaHtml.includes('Текущая локация') || closedPdaHt
 uiState.ui.pdaOpen=true;
 assert.ok(renderGame(uiState).includes('aria-label="Разделы КПК"'),'opening the PDA should reveal tabs across the top');
 uiState.game.locationId='rookie-village';
-uiState.ui.tab='radio';
+uiState.ui.pdaOpen=false;
+uiState.ui.tab='location';
 const radioHtml=renderGame(uiState);
-assert.ok(radioHtml.includes('Радио Кордон'));
+assert.ok(radioHtml.includes('Местное радио'),'local base radio must appear in the location scene without opening the PDA');
+assert.ok(radioHtml.includes('data-action="radio-base-open"'));
 assert.ok(!radioHtml.includes('data-action="radio-play-track"'),'radio must not allow selecting individual tracks');
-assert.ok(radioHtml.includes('случайный эфир'));
+assert.ok(!radioHtml.includes('music-dock'),'the bottom music dock must be removed');
 const remoteRadioState={...uiState,game:{...uiState.game,locationId:'elevator'}};
 const remoteRadioHtml=renderGame(remoteRadioState);
-assert.ok(remoteRadioHtml.includes('нет радиопередатчика'));
+assert.ok(!remoteRadioHtml.includes('Местное радио'),'a remote location must not expose a base station');
 assert.ok(!remoteRadioHtml.includes('Очередь станции'),'remote locations must not expose another base playlist');
 uiState.settings.removedPlayerTrackIds=['track-001'];
+uiState.ui.pdaOpen=true;
 uiState.ui.tab='player';
 const playerHtml=renderGame(uiState);
 assert.ok(playerHtml.includes('Моя подборка'));
@@ -385,21 +390,80 @@ assert.ok(playerHtml.includes('Песня идущего домой'),'personal 
 uiState.ui.tab='trade';
 uiState.ui.tradeNpcId='sidorovich';
 uiState.game.locationId='sidorovich-bunker';
-const tradeHtml=renderGame(uiState);
+uiState.ui.modal='trade-panel';
+const tradeHtml=renderModal(uiState);
 assert.ok(tradeHtml.includes('Товар торговца') && tradeHtml.includes('Продать торговцу'));
+assert.ok(!renderGame(uiState).includes('Раздел торговли'),'trade must not be part of PDA navigation');
+uiState.ui.modal=null;
 uiState.ui.tab='map';
+uiState.ui.pdaOpen=true;
 uiState.ui.tradeNpcId=null;
+uiState.ui.mapView='map';
 const mapHtml=renderGame(uiState);
 assert.ok(mapHtml.includes('cordon-clean.webp'),'the clean user map must render as the PDA map base layer');
 assert.ok(mapHtml.includes('data-action="location-open"'));
+assert.ok(mapHtml.includes('data-action="map-view"'),'map tab should provide the three-mode map/list/objectives switch');
+uiState.ui.mapView='places';
+assert.ok(renderGame(uiState).includes('Все отмеченные места'),'the location directory should be available as a separate map view');
+uiState.ui.mapView='tasks';
+assert.ok(renderGame(uiState).includes('Цели активных заданий'),'the objectives should have a dedicated map view');
+uiState.ui.mapView='map';
 uiState.ui.modal='map-location';
 uiState.ui.mapLocationId='anomaly-dump';
 const mapModal=renderModal(uiState);
-assert.ok(mapModal.includes('Тайный лагерь') && mapModal.includes('Воронка') && mapModal.includes('ФОТОГРАФИЯ ПОДЛОКАЦИИ'));
+assert.ok(mapModal.includes('Тайный лагерь') && mapModal.includes('Воронка') && mapModal.includes('ВИЗУАЛЬНЫЙ ОРИЕНТИР'));
 uiState.ui.modal='avatars';
 const avatarModal=renderModal(uiState);
 assert.ok(avatarModal.includes('Сидорович') && avatarModal.includes('Волк') && avatarModal.includes('Кефир') && avatarModal.includes('Дмитрий Дзержинский'));
 uiState.ui.tab='stats';
 const statsHtml=renderGame(uiState);
 assert.ok(statsHtml.includes('profile-edit-form') && statsHtml.includes('Выбрать значок'),'PDA statistics must provide editable character dossier');
-console.log('Smoke tests passed: quests, radio, map, profile editor, AKSU/ammo, artifacts, trade, combat and previous systems.');
+// PDA tabs keep inventory/trade/radio out; these remain location or independent overlays.
+const tabState={...uiState,ui:{...uiState.ui,pdaOpen:true,tab:'location',modal:null,mapView:'map'}};
+const tabMarkup=renderGame(tabState);
+assert.ok(!tabMarkup.includes('data-tab="inventory"')&&!tabMarkup.includes('data-tab="trade"')&&!tabMarkup.includes('data-tab="radio"'));
+assert.ok(!tabMarkup.includes('music-dock'));
+const contactsMarkup=renderGame({...tabState,ui:{...tabState.ui,tab:'contacts'}});
+assert.ok(!contactsMarkup.includes('data-action="trade-open"'),'contacts tab should not expose trade inside the PDA');
+
+// Quests are hidden from the quest list until accepted and then show progress.
+const questVisibilityGame=createGame(character,[],START_BUDGET);
+const hiddenQuest=questVisibilityGame.quests.find(q=>q.id!=='wolf-dog-pack');
+const questVisibilityState={screen:'game',characters:[character],activeCharacterId:'smoke',settings:{reducedMotion:false},ui:{tab:'quests',pdaOpen:true,mapView:'map',modal:null,music:{mode:null,stationId:null,trackId:null,queue:[],index:0,playing:false}},game:questVisibilityGame};
+assert.ok(!renderGame(questVisibilityState).includes(hiddenQuest.title),'unaccepted jobs must stay out of the quest log');
+assert.equal(acceptWorldQuest(questVisibilityGame,hiddenQuest.id).ok,true);
+assert.ok(renderGame(questVisibilityState).includes(hiddenQuest.title),'an accepted job must appear in the quest log');
+
+// Explore interiors, choose a single item, and campfire RP actions work in their own locations.
+const exploreTestGame=createGame(character,[],START_BUDGET);
+const explored= startAreaSearch(exploreTestGame,'village-house');
+assert.equal(explored.ok,true);
+assert.ok(explored.options.length>0);
+assert.equal(claimAreaFind(exploreTestGame,explored.options[0].id).ok,true);
+assert.equal(exploreTestGame.pendingDiscovery,null);
+const housePhraseGame=createGame(character,[],START_BUDGET);
+const housePhrase=processPlayerAction(housePhraseGame,'изучил дом');
+assert.equal(housePhrase.action,'explore-find','free text should recognise inflected commands like изучил дом');
+const basementPhraseGame=createGame(character,[],START_BUDGET); basementPhraseGame.locationId='sidorovich-bunker';
+assert.equal(processPlayerAction(basementPhraseGame,'обыскал подвал').action,'explore-find','search should resolve a basement alias in the current sublocation');
+
+const fireMessage=processPlayerAction(exploreTestGame,'сел у костра');
+assert.ok(fireMessage.message.includes('костра') || fireMessage.message.includes('костёр'),'campfire RP action should be recognized');
+assert.ok(exploreTestGame.player.stress<0 || exploreTestGame.player.stamina>=100 || exploreTestGame.log.some(entry=>entry.text.includes('присел у костра')),'campfire action should affect character/rest log');
+
+// The map marker modal includes an active Wolf task only after the task has been accepted.
+const wolfMapGame=createGame(character,[],START_BUDGET);
+acceptWolfDogQuest(wolfMapGame);
+const wolfMapState={...questVisibilityState,game:wolfMapGame,ui:{...questVisibilityState.ui,modal:'map-location',mapLocationId:'trailer'}};
+const wolfTrailerModal=renderModal(wolfMapState);
+assert.ok(wolfTrailerModal.includes('Собаки у вагончика') && wolfTrailerModal.includes('0/5'));
+const conversationGame=createGame(character,[],START_BUDGET);
+conversationGame.locationId='rookie-village';
+talkToNpc(conversationGame,'wolf');
+const conversationReply=replyNpcFreeText(conversationGame,'wolf','Что случилось возле вагончика и почему собаки нападают на новичков?');
+assert.equal(conversationReply.ok,true);
+assert.ok(conversationGame.dialogueHistory.some(entry=>entry.role==='player' && entry.text.includes('вагончика')),'full-text NPC conversation should preserve the player message in the chat');
+assert.ok(conversationGame.dialogueHistory.at(-1).role==='npc','NPC response should be appended after the player message');
+
+
+console.log('Smoke tests passed: PDA/map modes, quest visibility/progress, local radio, inventory/trade overlays, RP exploration, campfire rest, Wolf quest, profile, combat and existing systems.');

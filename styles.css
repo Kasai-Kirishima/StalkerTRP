@@ -5,10 +5,7 @@
 @media(max-width:760px){.screen-wrap{width:calc(100% - 26px);padding:22px 0 35px}.screen-heading{align-items:flex-start}.screen-heading p{font-size:13px}.account-grid{grid-template-columns:repeat(2,1fr)}.pda-form{padding:15px;border-width:7px}.pda-form-layout{grid-template-columns:130px 1fr;gap:14px}.photo-frame{width:112px;height:135px}.faction-choice{padding:8px;gap:6px}.faction-choice small{font-size:10px}.pda-footer{align-items:flex-start;flex-direction:column}.pda-footer .button{width:100%}.loadout-summary{grid-template-columns:repeat(2,1fr)}.shop-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.shop-item{grid-template-columns:48px minmax(0,1fr);}.shop-image{height:50px}.shop-controls{grid-column:1/-1;justify-content:flex-end}.game-shell{grid-template-columns:78px minmax(0,1fr)}.game-sidebar{padding:10px 5px}.game-brand{align-items:center;text-align:center;padding:4px 0 13px}.game-brand>span{font-size:23px}.game-brand b{font-size:10px}.game-brand small{font-size:7px}.nav-tab{justify-content:center;flex-direction:column;gap:4px;padding:9px 2px}.nav-tab>span{font-size:18px}.nav-tab b{font-size:9px}.sidebar-footer{align-items:center;padding:10px 0}.sidebar-footer>small{display:none}.signal span{display:none}.sidebar-exit{font-size:9px}.game-topbar{height:auto;min-height:62px;flex-wrap:wrap;gap:8px;padding:8px 10px}.topbar-player{min-width:0;flex:1}.topbar-player .avatar-wrap{width:34px;height:34px}.topbar-player b{font-size:12px}.topbar-player small{font-size:9px}.topbar-status{margin-left:0;order:3;width:100%;justify-content:space-between;gap:6px;font-size:9px}.topbar-buttons{margin-left:auto}.game-content{padding:11px 10px 16px}.location-hero{min-height:185px}.location-title{padding:14px}.location-title p{font-size:12px}.location-body{grid-template-columns:1fr}.location-side{display:grid;grid-template-columns:1fr 1fr;gap:8px}.side-panel{margin:0;padding:10px}.action-grid{grid-template-columns:repeat(2,1fr)}.action-tile{min-height:52px;font-size:12px}.action-composer{padding:8px;gap:6px;min-height:54px}.action-composer input{padding:9px;font-size:12px}.send-action{padding:9px 10px;font-size:11px}.map-frame{min-height:245px}.map-pin{font-size:8px;padding:3px 4px;max-width:105px}.neighbor-grid{grid-template-columns:repeat(2,1fr)}.inventory-grid{grid-template-columns:repeat(6,minmax(0,1fr));grid-auto-rows:52px;gap:5px;padding:7px}.inventory-item{grid-column:span min(2,var(--w,1));padding:3px}.contact-grid{grid-template-columns:1fr}.squad-list{grid-template-columns:1fr}.stats-grid{grid-template-columns:repeat(2,1fr)}.settings-layout{grid-template-columns:1fr}.settings-layout>.panel:last-child{grid-column:auto}.tab-heading{align-items:flex-start}.tab-heading h2{font-size:25px}.quest-card{gap:8px;padding:9px}.quest-main p{font-size:11px}.quest-title-row{align-items:flex-start;flex-direction:column;gap:4px}.map-legend-row{font-size:9px}.inventory-footer{align-items:flex-start;gap:10px;flex-direction:column}}
 @media(max-width:540px){.menu-content{margin-left:22px}.menu-stamp{display:none}.menu-bottom{margin-top:38px;gap:8px}.screen-heading{gap:10px}.screen-heading .button{padding:8px 10px;font-size:11px;white-space:nowrap}.character-card{flex-wrap:wrap}.character-card>.avatar-wrap{width:48px;height:48px}.character-actions{width:100%;justify-content:flex-end}.create-strip{align-items:flex-start;flex-direction:column}.pda-form-layout{grid-template-columns:1fr}.pda-photo-column{display:grid;grid-template-columns:100px 1fr;align-items:center;justify-items:start}.photo-frame{grid-row:span 3;width:88px;height:100px}.pda-photo-column>b{display:none}.pda-photo-column .button{width:100%;justify-content:center}.field-row.three{grid-template-columns:1fr 1fr}.field-row.three label:first-child{grid-column:span 2}.faction-options{grid-template-columns:1fr}.faction-choice{min-height:58px}.loadout-summary b{font-size:17px}.shop-grid{grid-template-columns:1fr}.loadout-bottom{align-items:stretch;flex-direction:column}.loadout-bottom .button{width:100%}.game-shell{grid-template-columns:1fr;grid-template-rows:auto 1fr}.game-sidebar{grid-row:2;position:sticky;bottom:0;z-index:8;flex-direction:row;padding:4px 5px;border-right:0;border-top:1px solid #4c583e;min-height:58px}.game-brand,.sidebar-footer{display:none}.game-nav{width:100%;display:flex;justify-content:space-around;padding:0;gap:1px}.nav-tab{flex:1;padding:5px 1px}.nav-tab b{font-size:8px}.game-main{grid-row:1;min-height:calc(100vh - 58px)}.game-content{padding-bottom:12px}.game-topbar{min-height:65px}.location-side{grid-template-columns:1fr}.tab-heading{gap:8px}.tab-heading p{font-size:11px}.tab-heading .avatar-wrap{width:45px;height:45px}.weight-box{width:105px}.weight-box b{font-size:16px}.inventory-grid{grid-auto-rows:48px}.inventory-item-actions .button{font-size:9px;padding:3px}.bio-grid{grid-template-columns:105px 1fr}.combat-actions{flex-direction:column}.avatar-choice-grid{grid-template-columns:repeat(3,1fr)}#orientation-hint{position:fixed;top:7px;left:50%;transform:translateX(-50%);z-index:30;display:none;align-items:center;gap:7px;padding:7px 9px;background:rgba(17,23,15,.92);border:1px solid #707d4b;box-shadow:0 3px 14px #000;color:#dce4b4;max-width:calc(100% - 18px);font-size:10px;white-space:nowrap}#orientation-hint span{font-size:15px}#orientation-hint small{display:none}@media(orientation:portrait){#orientation-hint{display:flex}}}
 @media(orientation:portrait) and (max-width:760px){.game-shell{min-height:100dvh}.game-content{overflow:visible}.game-main{min-height:calc(100dvh - 58px)}}
-
 .neighbor-card{padding:0;overflow:hidden;display:flex;flex-direction:column}.neighbor-main{width:100%;display:grid;gap:4px;text-align:left;background:transparent;border:0;color:inherit;padding:10px}.neighbor-main>span{font-size:18px;color:var(--acid)}.neighbor-main b{font-size:13px}.neighbor-main small{font-size:10px}.neighbor-scout{border:0;border-top:1px solid #414d38;background:#20291e;color:#b6c782;padding:7px 8px;font-size:10px;text-align:left}.neighbor-scout:hover{background:#303b29}
-
-
 /* External music radio */
 .radio-status{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border:1px solid #4a563d;background:#171e16;color:#aeb89a;font:10px 'Share Tech Mono',monospace;letter-spacing:.1em;white-space:nowrap}
 .radio-status i{width:7px;height:7px;border-radius:50%;background:#727b61;display:inline-block}
@@ -44,7 +41,6 @@
 .radio-track-play,.radio-track-link{width:30px;height:30px;display:grid;place-items:center;background:#293521;border:1px solid #566444;color:#d6e39e;text-decoration:none;font-size:13px}
 .radio-track-play:hover,.radio-track-link:hover{background:#39482d;border-color:#a3b566}
 .radio-disclaimer{margin-top:10px}
-
 /* Full remote-avatar picker */
 .avatar-modal{width:min(780px,100%)}
 .avatar-group{margin-top:17px}
@@ -56,7 +52,6 @@
 .avatar-choice-label{font-size:10px;color:#c5cfb5;line-height:1.2;min-height:22px;display:grid;place-items:center;text-align:center}
 @media(max-width:900px){.radio-layout{grid-template-columns:1fr}.radio-track-list{max-height:360px}}
 @media(max-width:540px){.radio-console,.radio-playlist{padding:10px}.radio-screen,.radio-iframe,.radio-idle{min-height:180px}.radio-track{grid-template-columns:24px minmax(0,1fr) 30px 26px;gap:5px;padding:6px}.radio-track-play,.radio-track-link{width:26px;height:28px}.radio-now-playing h3{font-size:17px}.radio-controls .button{flex:1}.avatar-modal{padding:16px}.avatar-choice-grid{grid-template-columns:repeat(3,minmax(0,1fr))}.avatar-choice-grid .avatar-wrap{height:70px}}
-
 /* Remote image fallbacks and faction base radio stations */
 .location-terrain-mark{position:absolute;right:6%;top:12%;font-size:clamp(70px,14vw,150px);line-height:1;color:rgba(195,205,135,.08);text-shadow:0 0 40px rgba(180,190,120,.10);transform:rotate(-12deg);pointer-events:none}
 .base-radio-panel{border-color:#65734a;background:linear-gradient(145deg,rgba(43,54,32,.95),rgba(20,26,18,.97))}
@@ -67,7 +62,6 @@
 .radio-station-choice small{font:10px 'Share Tech Mono',monospace;color:#98a77a}
 .radio-station-choice.active{border-color:#c3d17e;background:linear-gradient(145deg,#39472a,#1a2418);box-shadow:inset 0 0 0 1px rgba(195,209,126,.14)}
 @media(max-width:650px){.radio-stations{grid-template-columns:1fr}.radio-station-choice{padding:9px 11px}}
-
 /* v0.4 map pins: small translucent grey circles over the supplied clean map */
 .map-frame{position:relative;width:min(100%,500px);height:auto;min-height:0;aspect-ratio:1/2;margin:0 auto 18px;overflow:hidden;border:1px solid #59634c;background:#0b100b;box-shadow:0 12px 30px #0008}
 .map-frame>img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;filter:saturate(.78) contrast(1.02)}
@@ -88,14 +82,7 @@
 .npc-row-wrap .npc-row{flex:1;min-width:0;border-bottom:0}
 .npc-row-wrap>.button{margin-right:6px}
 .contact-actions{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
-
 /* Background player and library */
-.music-dock{display:flex;align-items:center;gap:9px;min-height:48px;padding:7px 10px;margin:8px 10px;background:linear-gradient(100deg,#20291b,#111710);border:1px solid #566344;box-shadow:0 3px 12px #0005}
-.music-dock-icon{font-size:21px;color:#cbd883}
-.music-dock-text{display:grid;gap:2px;flex:1;min-width:0}
-.music-dock-text b{font-size:12px;color:#e1e9cc;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.music-dock-text small{font-size:10px;color:#9aa88a}
-.music-dock-open{padding:5px 8px;background:#293521;border:1px solid #566444;color:#cbdc9c;font-size:10px}
 .player-now{margin-top:0;background:linear-gradient(120deg,#303e27,#151c13);border-color:#71814e}
 .player-now h3{margin:6px 0;font-size:22px;color:#e1e9bf}
 .player-now p{color:#b3c19b;margin:0 0 10px}
@@ -106,7 +93,6 @@
 .player-track.selected{border-color:#94a85b;background:#222d1c}
 .player-track .button{white-space:nowrap}
 .player-track .radio-track-meta b{font-size:12px}
-
 /* Functional trade interface */
 .trade-merchant-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .trade-merchant{display:flex;align-items:center;gap:12px;text-align:left;color:#e1e8cc;cursor:pointer;margin:0;padding:13px}
@@ -129,15 +115,11 @@
 .trade-info strong{font:11px 'Share Tech Mono',monospace;color:#d1dc8d}
 .trade-row>.button{padding:6px 8px;white-space:nowrap}
 @media(max-width:900px){.trade-columns{grid-template-columns:1fr}.trade-merchant-grid{grid-template-columns:1fr}}
-@media(max-width:540px){.map-frame{width:min(100%,420px);aspect-ratio:1/2;min-height:0}.map-pin{width:30px;height:30px;min-width:30px;min-height:30px}.map-pin.current{width:34px;height:34px;min-width:34px;min-height:34px}.trade-topline{flex-wrap:wrap}.trade-topline>span{order:4;width:100%}.trade-row{grid-template-columns:38px minmax(0,1fr) auto;gap:6px}.trade-image{width:38px;height:38px}.trade-info b{font-size:11px}.trade-row>.button{font-size:10px;padding:5px 6px}.music-dock{margin:6px;padding:6px}.music-dock .button{padding:5px 7px}.music-dock-open{font-size:9px;padding:5px}.player-track{grid-template-columns:24px minmax(0,1fr) 48px;padding:6px;gap:5px}}
-
 .dialogue-quest-actions{display:grid;gap:10px;margin-top:14px}.quest-mini{padding:12px;border:1px solid var(--line);border-radius:10px;background:rgba(0,0,0,.16);display:grid;gap:6px}.quest-mini small{color:var(--muted);line-height:1.45}.quest-card.active{border-color:rgba(190,170,92,.5)}
-
 /* Offline visual placeholders: no remote artwork outside the main menu. */
 .faction-icon-symbol{font-size:25px;line-height:1;display:grid;place-items:center;width:28px;height:28px}
 .avatar-wrap{background:radial-gradient(circle at 50% 35%,#4a5638,#222b20 72%)}
 .item-emoji{display:inline-grid;place-items:center;min-width:30px;min-height:26px;font-size:22px;color:var(--acid)}
-
 /* PDA access flow: the world view stays focused until the device is opened. */
 .game-shell{display:block;min-height:100vh;background:#10140f}
 .game-main{width:100%;min-height:100vh}
@@ -182,10 +164,7 @@
   .game-nav .nav-tab{min-width:76px;padding:7px 6px}
   .nav-tab b{font-size:9px}
 }
-
-
 .profile-edit-form{margin-top:16px}.profile-edit-form .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.profile-edit-form label{display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:.85rem}.profile-edit-form input,.profile-edit-form textarea{width:100%;min-width:0;background:rgba(0,0,0,.24);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:10px;font:inherit}.profile-avatar-edit{display:flex;align-items:center;gap:12px;margin-top:14px}.profile-edit-form .form-actions{display:flex;justify-content:flex-end;margin-top:14px}@media(max-width:600px){.profile-edit-form .form-grid{grid-template-columns:1fr}}
-
 /* v1.2 fixes: explicit map fallback visibility and a true full-screen PDA page. */
 .map-frame .map-fallback[hidden]{display:none!important}
 .map-frame>img{z-index:0;object-fit:fill!important;visibility:visible!important;opacity:1!important}
@@ -204,10 +183,190 @@
 .pda-fullscreen-tabs .game-nav{max-width:100%;padding:0 0 3px}
 .pda-fullscreen-content{flex:1;min-height:0;overflow:auto;padding:14px clamp(10px,2vw,26px) 24px;overscroll-behavior:contain}
 .pda-fullscreen-content .tab-page{width:min(1300px,100%);margin:0 auto}
-.pda-fullscreen-content .music-dock{position:sticky;bottom:0;z-index:6;width:min(1300px,100%);margin:14px auto 0;box-shadow:0 -8px 20px #0008}
 .pda-fullscreen-page .combat-overlay,.pda-fullscreen-page .modal-shade{z-index:1010}
 .wolf-dogs-panel{border-color:#75594a}
 .wolf-dogs-panel .panel-title span{color:#d6a17a}
 .quest-progress{display:flex;justify-content:space-between;gap:12px;max-width:260px;padding:7px 9px;margin-top:6px;background:#192117;border:1px solid #47543a;color:#b9c58c;font-size:11px}
 .quest-progress b{font:12px 'Share Tech Mono',monospace}
 @media(max-width:700px){.pda-fullscreen-header{flex-wrap:wrap;gap:8px;padding:9px}.pda-device-mark{font-size:11px}.pda-device-status{order:3;flex:1}.pda-close-button{font-size:10px;padding:7px 9px}.pda-fullscreen-tabs{padding:7px}.pda-fullscreen-content{padding:10px 8px 18px}}
+/* v1.5 usability pass: cleaner map workspace, separate bag/trade screens and RP dialogue */
+.map-page{width:min(1500px,100%);margin:0 auto}
+.map-toolbar{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin:0 0 15px;padding:14px 16px;background:linear-gradient(110deg,#202a1c,#121811);border:1px solid #46543a}
+.map-toolbar h2{margin:3px 0 5px;font-size:clamp(23px,3vw,31px)}
+.map-toolbar p{margin:0;color:#a7b397;font-size:12px;max-width:620px;line-height:1.45}
+.map-toolbar-status{min-width:180px;display:grid;grid-template-columns:14px 1fr;column-gap:8px;align-items:center;padding:8px 11px;background:#10170f;border:1px solid #596742}
+.map-toolbar-status b{font-size:12px;color:#e2e8cd}
+.map-toolbar-status small{grid-column:2;color:#9ca987;font-size:10px}
+.map-legend-dot,.map-key-dot{display:inline-block;width:11px;height:11px;border-radius:50%;background:#8e968a;border:1px solid #d8dec9;box-shadow:0 1px 4px #000}
+.map-legend-dot.current,.map-key-dot.current{background:#d4df79;border:2px solid #f0f3c3;box-shadow:0 0 0 3px #d4df7930}
+.map-workspace{display:grid;grid-template-columns:minmax(340px, min(43vw,470px)) minmax(280px,1fr);gap:14px;align-items:start}
+.map-map-column{min-width:0;padding:10px;background:#111710;border:1px solid #46533a;box-shadow:0 10px 24px #0005}
+.map-frame-large{width:100%;max-width:470px;aspect-ratio:1/2;min-height:520px;margin:0 auto 9px;border-color:#66734d;background:#0b100b}
+.map-frame-large>img{object-fit:fill!important}
+.map-frame-large .map-pins{pointer-events:none}
+.map-frame-large .map-pin{pointer-events:auto;width:34px;height:34px;min-width:34px;min-height:34px;background:rgba(120,130,124,.57);border:1px solid rgba(235,241,225,.82);box-shadow:0 1px 7px #000b, inset 0 0 0 1px #fff2}
+.map-frame-large .map-pin .map-pin-title{display:none;position:absolute;left:50%;bottom:calc(100% + 7px);transform:translateX(-50%);white-space:nowrap;padding:5px 8px;background:#10170ff2;border:1px solid #849264;color:#e4e9d0;font:10px 'Share Tech Mono',monospace;pointer-events:none;box-shadow:0 3px 10px #0009}
+.map-frame-large .map-pin:hover .map-pin-title,.map-frame-large .map-pin:focus-visible .map-pin-title{display:block}
+.map-frame-large .map-pin.current{width:39px;height:39px;min-width:39px;min-height:39px;background:#d2dc7caa;border:2px solid #f0f3c6}
+.map-frame-large .map-pin.quest-target:not(.current){border:2px solid #d8ad61;background:#a77a35a8;box-shadow:0 0 0 4px #d8ad6128,0 0 12px #d8ad6180}
+.map-key{display:flex;justify-content:center;gap:18px;flex-wrap:wrap;padding:7px 5px 2px;color:#aab596;font-size:10px}
+.map-key span{display:flex;align-items:center;gap:6px}
+.map-key-dot{width:10px;height:10px}
+.map-key-dot.reachable{background:#b6c3aa}
+.map-key-dot.quest{background:#a77a35;border:2px solid #e4bd78}
+.map-side-rail{display:grid;gap:10px;min-width:0;max-height:calc(82vh + 20px);overflow:auto;padding-right:3px;scrollbar-color:#65754a #151c14;scrollbar-width:thin}
+.map-rail-card{padding:12px;background:linear-gradient(145deg,#1b2418,#121811);border:1px solid #46533a;min-width:0}
+.map-current-card{border-color:#71834f;background:linear-gradient(145deg,#2c3822,#151d13)}
+.map-rail-card h3{margin:4px 0 7px;font-size:17px;color:#e4e9d3}
+.map-current-card p{font-size:11px;color:#aeb99d;line-height:1.5;margin:0}
+.map-current-stats{display:flex;gap:12px;flex-wrap:wrap;padding-top:10px;margin-top:10px;border-top:1px solid #65704a;color:#aab88e;font-size:10px}
+.map-current-stats span{display:flex;gap:5px;align-items:center}
+.map-current-stats b{color:#e4e9cd;font:11px 'Share Tech Mono',monospace}
+.map-rail-heading{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px}
+.map-rail-heading h3{font-size:13px;margin:0;letter-spacing:.03em}
+.map-rail-heading>span{font:10px 'Share Tech Mono',monospace;color:#c8d28b;padding:3px 6px;background:#303b25;border:1px solid #52613d}
+.map-route-list{display:grid;gap:5px}
+.map-route-row{display:grid;grid-template-columns:minmax(0,1fr) 36px;align-items:stretch;gap:5px;padding:5px;background:#111810;border:1px solid #34412d}
+.map-route-info{display:grid;gap:3px;text-align:left;min-width:0;padding:5px 7px;background:transparent;border:0;color:#dbe3c9;cursor:pointer}
+.map-route-info b{font-size:11px;overflow-wrap:anywhere}
+.map-route-info small{font:10px 'Share Tech Mono',monospace;color:#9ca982}
+.map-route-go{border:1px solid #596d40;background:#283520;color:#d5e2a0;font-size:17px;cursor:pointer}
+.map-route-go:hover{background:#3a4b2c}
+.map-objective-row{display:flex;align-items:flex-start;gap:9px;width:100%;padding:9px 6px;text-align:left;color:#dce4cb;background:transparent;border:0;border-top:1px solid #35422e;cursor:pointer}
+.map-objective-row>span:nth-child(2){display:grid;gap:4px;min-width:0}
+.map-objective-row b{font-size:11px}
+.map-objective-row small,.map-objective-row em{font-size:10px;color:#a2af8b;font-style:normal}
+.objective-mark{color:#d8ad61}
+.map-rail-hint{margin:0;padding:8px 10px;color:#98a586;font-size:10px;line-height:1.5;background:#151d13;border-left:2px solid #778752}
+.map-location-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.map-location-head h2{margin:3px 0 4px}
+.map-location-head small{font-size:10px;color:#9eaa8b}
+.map-location-flag{flex:0 0 auto;padding:6px 8px;border:1px solid #68764a;background:#27321f;color:#d8e1b4;font:9px 'Share Tech Mono',monospace;text-align:center;max-width:145px}
+.map-location-art{height:170px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:7px;margin:14px 0;padding:15px;border:1px solid #566541;background:linear-gradient(145deg,#35412b 0%,#1c271a 52%,#10170f 100%);color:#cfda9d;position:relative;overflow:hidden}
+.map-location-art:before,.map-location-art:after{content:"";position:absolute;left:-10%;right:-10%;height:42%;border-top:1px solid #82906440;border-radius:50%;transform:rotate(-8deg);pointer-events:none}
+.map-location-art:before{top:20%}.map-location-art:after{bottom:-7%;transform:rotate(7deg)}
+.map-location-art span{font-size:42px;line-height:1;text-shadow:0 0 24px #d3e28d60;z-index:1}
+.map-location-art b,.map-location-art small{z-index:1;text-shadow:0 2px 5px #000}
+.map-location-art b{font:12px 'Share Tech Mono',monospace;letter-spacing:.14em}
+.map-location-art small{font-size:9px;color:#a9b58c}
+.map-related-quests{margin:12px 0;padding:11px;border:1px solid #8b7045;background:#2c271b}
+.map-related-quests article{padding-top:8px;margin-top:8px;border-top:1px solid #675436}
+.map-related-quests b{font-size:12px;color:#f0dfb7}
+.map-related-quests p{font-size:11px;color:#d1c5a5;line-height:1.45;margin:6px 0}
+.map-related-quests small{font-size:10px;color:#c3ab7b}
+/* Bag uses a visible 8×6 grid, with item footprints matching their dimensions. */
+.inventory-guide{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:9px 11px;margin:0 0 10px;background:#141b12;border:1px solid #3d4a33;color:#aab596;font-size:10px}
+.inventory-guide span{display:flex;align-items:center;gap:5px}
+.inventory-guide small{margin-left:auto}
+.guide-square{display:inline-block;width:11px;height:11px;border:1px solid #9aa778;background:#3b4a2e}
+.guide-square.two{width:21px}.guide-square.four{width:21px;height:21px}
+.inventory-grid-clear{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));grid-auto-rows:clamp(62px,7.2vw,84px);gap:5px;padding:9px;background-color:#10170f;background-image:linear-gradient(#35422c 1px,transparent 1px),linear-gradient(90deg,#35422c 1px,transparent 1px);background-size:calc((100% - 18px)/8 + .625px) calc(clamp(62px,7.2vw,84px) + 5px);border:1px solid #536344;box-shadow:inset 0 0 20px #0008}
+.inventory-item-clear{display:flex;flex-direction:column;align-items:stretch;min-width:0;min-height:0;overflow:hidden;padding:5px;background:linear-gradient(145deg,#273321ed,#141b12f5);border:1px solid #65734b;box-shadow:0 2px 5px #0008;gap:2px}
+.inventory-item-clear .inventory-item-top{display:flex;align-items:center;justify-content:space-between;gap:4px;color:#9eaa83;font-size:8px;line-height:1.1}
+.inventory-item-clear .inventory-item-top b{color:#e4e9d1;font:9px 'Share Tech Mono',monospace;white-space:nowrap}
+.inventory-item-clear .inventory-item-image{display:grid;place-items:center;flex:1;min-height:18px;background:#11170db0;border:1px solid #394530}
+.inventory-item-clear .inventory-item-image .item-emoji{font-size:clamp(16px,2.4vw,26px)}
+.inventory-item-clear .inventory-item-name{font-size:clamp(8px,.85vw,11px);line-height:1.15;color:#e2e8d2;overflow-wrap:anywhere}
+.inventory-item-clear>small{font-size:8px;line-height:1.1;color:#a6b28e}
+.inventory-item-clear .inventory-item-actions{display:flex;gap:3px;flex-wrap:wrap}
+.inventory-item-clear .inventory-item-actions .button{font-size:8px;padding:3px 5px;min-height:20px}
+/* Inventory and merchant are independent panels, not PDA tabs. */
+.management-shade{z-index:1200;padding:12px;align-items:stretch}
+.management-modal{position:relative;width:min(1260px,100%);max-height:calc(100dvh - 24px);overflow:auto;padding:clamp(14px,2vw,24px);margin:auto;background:#10170f;border:1px solid #65764b;box-shadow:0 18px 60px #000c}
+.management-modal>.tab-page{width:100%;margin:0 auto}
+.management-modal>.modal-close{position:sticky;float:right;top:0;z-index:5;margin:-5px -5px 2px 10px}
+.explore-spots-modal,.explore-find-modal{width:min(680px,100%);max-height:calc(100dvh - 32px);overflow:auto}
+.explore-spot-list,.explore-find-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}
+.explore-spot-choice,.explore-find-choice{display:grid;grid-template-columns:36px minmax(0,1fr);gap:6px 9px;align-items:center;padding:11px;text-align:left;color:#e1e9d1;background:linear-gradient(145deg,#222d1d,#121811);border:1px solid #46543a;cursor:pointer}
+.explore-spot-choice>span,.explore-find-choice>span{grid-row:span 3;display:grid;place-items:center;width:34px;height:34px;background:#10170e;border:1px solid #596b41;color:#d1de92;font-size:20px}
+.explore-spot-choice b,.explore-find-choice b{font-size:12px}
+.explore-spot-choice small,.explore-find-choice small{font-size:10px;line-height:1.4;color:#9fac8d}
+.explore-spot-choice i,.explore-find-choice i{font-style:normal;font-size:10px;color:#d4df91}
+.explore-spot-choice:hover,.explore-find-choice:hover{border-color:#9aaa61;background:#2b3822}
+.base-radio-now{display:grid;gap:3px;margin:8px 0 2px;padding:8px 9px;background:#11170f;border:1px solid #46533a}
+.base-radio-now small{font:9px 'Share Tech Mono',monospace;color:#9eaa7d}
+.base-radio-now b{font-size:12px;color:#e5ebcf}
+.base-radio-now span{font-size:10px;color:#a5b293}
+/* Text-first conversations with short contextual chat history. */
+.dialogue-modal{width:min(680px,100%);max-height:calc(100dvh - 28px);overflow:auto}
+.dialogue-history{display:grid;gap:7px;max-height:270px;overflow:auto;margin:12px 0;padding:9px;background:#0e140d;border:1px solid #39472f;scrollbar-color:#5e7046 #121811}
+.dialogue-line{max-width:94%;padding:8px 10px;border:1px solid #3c4a32;background:#1a2317}
+.dialogue-line small{font:9px 'Share Tech Mono',monospace;color:#aabd7c}
+.dialogue-line p{margin:4px 0 0;color:#d8e0ca;font-size:12px;line-height:1.5;white-space:pre-wrap}
+.dialogue-line.player-line{justify-self:end;border-color:#65734b;background:#26321e}
+.dialogue-line.player-line small{color:#d0dc8e}
+.dialogue-topics{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:10px 0}
+.dialogue-topics>b{width:100%;font-size:10px;color:#a5b18b}
+.dialogue-text-form{display:grid;gap:7px;margin-top:12px;padding:10px;background:#151d13;border:1px solid #45533a}
+.dialogue-text-form>label{font-size:10px;color:#cad5a9;font-weight:700}
+.dialogue-text-form textarea{width:100%;resize:vertical;min-height:64px;padding:9px;background:#0d130c;border:1px solid #54643e;color:#e3e9d7;font:12px/1.5 inherit}
+.dialogue-send-row{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.dialogue-send-row small{font-size:9px;color:#96a383;line-height:1.35}
+@media(max-width:900px){
+ .map-workspace{grid-template-columns:minmax(260px,42%) minmax(0,1fr);gap:9px}
+ .map-frame-large{min-height:470px}
+ .map-side-rail{max-height:74vh}
+ .map-toolbar{align-items:flex-start}
+ .management-modal .inventory-grid-clear{grid-auto-rows:64px}
+}
+@media(max-width:650px){
+ .map-toolbar{flex-direction:column;align-items:stretch;padding:11px}
+ .map-toolbar-status{min-width:0}
+ .map-workspace{grid-template-columns:1fr}
+ .map-map-column{padding:7px}
+ .map-frame-large{width:min(100%,390px);min-height:0;aspect-ratio:1/2}
+ .map-side-rail{max-height:none;overflow:visible;padding:0}
+ .map-key{gap:10px;font-size:9px}
+ .map-location-head{flex-direction:column}
+ .map-location-flag{max-width:none}
+ .explore-spot-list,.explore-find-options{grid-template-columns:1fr}
+ .inventory-grid-clear{grid-auto-rows:57px;gap:4px;padding:6px;background-size:calc((100% - 12px)/8 + .5px) 61px}
+ .inventory-item-clear{padding:3px;gap:1px}
+ .inventory-item-clear .inventory-item-top{font-size:7px}
+ .inventory-item-clear .inventory-item-top b{font-size:7px}
+ .inventory-item-clear .inventory-item-name{font-size:7px}
+ .inventory-item-clear>small{font-size:7px}
+ .inventory-item-clear .inventory-item-actions .button{font-size:7px;padding:2px 3px;min-height:17px}
+ .inventory-guide{gap:8px;font-size:9px}
+ .inventory-guide small{width:100%;margin:0}
+ .management-shade{padding:5px}
+ .management-modal{max-height:calc(100dvh - 10px);padding:10px}
+ .dialogue-history{max-height:220px}
+ .dialogue-modal{padding:16px}
+ .dialogue-send-row{align-items:stretch;flex-direction:column}
+}
+/* v1.5 map usability: switch between a clean map, location directory and active objectives. */
+.map-mode-switch{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px;padding:6px;background:#111810;border:1px solid #3f4b34}
+.map-mode-button{display:flex;align-items:center;justify-content:center;gap:7px;min-height:40px;padding:8px 14px;background:#1a2417;border:1px solid #3d4b31;color:#b9c5a6;font-size:11px;font-weight:700;cursor:pointer}
+.map-mode-button span{font-size:15px;color:#c5d38d}
+.map-mode-button.active{background:#3b4b2d;border-color:#95a96a;color:#f1f3df;box-shadow:inset 0 0 0 1px #b9cc8040}
+.map-mode-button:focus-visible,.map-pin:focus-visible,.map-directory-main:focus-visible{outline:2px solid #e1e89b;outline-offset:2px}
+.map-directory{padding:14px;background:#111810;border:1px solid #46533a}
+.map-directory-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}
+.map-directory-head h3{margin:3px 0 5px;color:#e3e9d4;font-size:18px}
+.map-directory-head p{margin:0;color:#9fab8d;font-size:11px;line-height:1.45}
+.map-directory-head>span{flex:0 0 auto;padding:6px 9px;background:#29351f;border:1px solid #536542;color:#d5dfaa;font:11px 'Share Tech Mono',monospace}
+.map-directory-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.map-directory-card{min-width:0;padding:10px;background:linear-gradient(145deg,#202a1c,#131a12);border:1px solid #3f4d34}
+.map-directory-card.here{border-color:#a0b76d;box-shadow:inset 0 0 0 1px #a0b76d30}
+.map-directory-card.quest-target{border-left:3px solid #b18b4d}
+.map-directory-main{display:flex;align-items:center;gap:9px;width:100%;padding:0;background:none;border:0;text-align:left;color:#e2e9d4;cursor:pointer}
+.map-directory-icon{display:grid;place-items:center;width:28px;height:28px;flex:0 0 28px;border:1px solid #788956;background:#273520;color:#d5e39b;font-size:13px;border-radius:50%}
+.map-directory-main span:last-child{display:grid;gap:3px;min-width:0}
+.map-directory-main b{font-size:12px;overflow-wrap:anywhere}
+.map-directory-main small{font:9px 'Share Tech Mono',monospace;color:#a6b28f}
+.map-directory-card p{min-height:37px;margin:9px 0;color:#a6b295;font-size:10px;line-height:1.45}
+.map-directory-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-top:7px;border-top:1px solid #384430;color:#b7c38f;font-size:9px}
+.map-objectives-page{padding:14px;background:#111810;border:1px solid #46533a}
+.map-objective-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.map-objective-card{padding:12px;background:linear-gradient(145deg,#2b281c,#171911);border:1px solid #78613d}
+.map-objective-card-top{display:flex;justify-content:space-between;gap:8px;color:#d0b477;font:9px 'Share Tech Mono',monospace}
+.map-objective-card h4{margin:8px 0 5px;color:#eee4ca;font-size:14px}
+.map-objective-card p{margin:0 0 10px;color:#c2b89d;font-size:11px;line-height:1.45}
+.map-objective-destination{display:flex;justify-content:space-between;gap:8px;padding:8px;margin-bottom:8px;background:#171a12;border:1px solid #51452e;font-size:10px;color:#b8ad91}
+.map-objective-destination b{color:#f0dfb8}
+.map-frame-large .map-pin{width:40px;height:40px;min-width:40px;min-height:40px}
+.map-frame-large .map-pin.current{width:44px;height:44px;min-width:44px;min-height:44px}
+.map-directory-card .button{white-space:nowrap}
+@media(max-width:800px){.map-directory-grid,.map-objective-grid{grid-template-columns:1fr}.map-directory-card p{min-height:0}}
+@media(max-width:540px){.map-mode-switch{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;padding:4px}.map-mode-button{flex-direction:column;gap:3px;padding:7px 3px;font-size:9px;min-height:54px}.map-directory{padding:9px}.map-directory-head{align-items:flex-start}.map-directory-head h3{font-size:15px}.map-frame-large .map-pin{width:38px;height:38px;min-width:38px;min-height:38px}.map-frame-large .map-pin.current{width:42px;height:42px;min-width:42px;min-height:42px}}

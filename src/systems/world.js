@@ -1,4 +1,4 @@
-import { LOCATIONS, FACTIONS, SQUADS, ITEMS, QUESTS, NPCS } from '../data/catalog.js';
+import { LOCATIONS, FACTIONS, SQUADS, ITEMS, QUESTS, NPCS, EXPLORE_SPOTS } from '../data/catalog.js';
 import { advanceTime, createClock, getGameDateTime, syncRealElapsed } from './game-clock.js';
 import { addItem, getItem, removeItem, countItem } from './inventory.js';
 import { rememberEntity } from './russian-language.js';
@@ -99,11 +99,14 @@ export function createGame(character, starterInventory = [], money = 0) {
     ammoRounds:{ ammo9x18:countItem(starterInventory,'ammo9x18')*12, ammo9x19:countItem(starterInventory,'ammo9x19')*12, ammo545:countItem(starterInventory,'ammo545')*30, shells:countItem(starterInventory,'shells')*8 },
     boltsRemaining:countItem(starterInventory,'boltpack')*10,
     locationId:faction?.spawn || 'rookie-village',
-    quests:QUESTS.map(quest => ({ ...quest, status:'available' })),
+    quests:QUESTS.map(quest => ({ ...quest, status:'available', progress:0 })),
     sidorovichJobs:{ active:null, cooldownUntil:0, completed:{ tails:0, collector:0, medusa:0 } },
     wolfDogQuest:null,
     log:[{ type:'system', text:`15 апреля. Ты прибыл на Кордон. Место старта: ${getLocation(faction?.spawn)?.name || 'Деревня новичков'}.` }],
     searchedAt:{},
+    searchedAreas:{},
+    pendingDiscovery:null,
+    dialogueHistory:[],
     lootRespawnMinutes:180,
     squads:SQUADS.map(squad => ({ ...squad })),
     ...(() => { const traders=createTraderRecords(); return { traders:traders.fixed, randomTraders:traders.random }; })(),
@@ -143,7 +146,7 @@ export function grantReputation(game, amount) {
 }
 
 export function progressQuest(game, condition) {
-  const quest = game.quests.find(entry => entry.condition === condition && entry.status === 'available');
+  const quest = game.quests.find(entry => entry.condition === condition && entry.status === 'active');
   if (!quest) return null;
   quest.status = 'completed';
   game.money += quest.reward;
@@ -151,6 +154,18 @@ export function progressQuest(game, condition) {
   grantReputation(game, 5);
   addLog(game, `Задание «${quest.title}» выполнено. Получено ${quest.reward} RU и +5 рейтинга.`);
   return quest;
+}
+
+export function acceptWorldQuest(game, questId) {
+  const quest=game.quests?.find(entry=>entry.id===questId);
+  if (!quest) return {ok:false,message:'Такого задания нет.'};
+  if (quest.status!=='available') return {ok:false,message:'Это задание уже взято или завершено.'};
+  if (quest.id==='wolf-dog-pack') return acceptWolfDogQuest(game);
+  quest.status='active';
+  quest.progress=0;
+  quest.acceptedAt=game.clock.worldMinutes;
+  addLog(game,`Принято задание «${quest.title}».`,'player');
+  return {ok:true,quest,message:`Задание «${quest.title}» добавлено в КПК. ${quest.text}`};
 }
 
 function tickVitals(game, minutes) {
@@ -247,6 +262,73 @@ export function searchLocation(game, { corpse=false } = {}) {
   addLog(game, message);
   if (location.id === 'stop') progressQuest(game, 'search:stop');
   return { ok:true, message };
+}
+
+
+export function getExploreSpots(locationId) {
+  return EXPLORE_SPOTS.filter(spot=>spot.locationId===locationId);
+}
+
+export function startAreaSearch(game, spotId) {
+  const spot=EXPLORE_SPOTS.find(entry=>entry.id===spotId);
+  if (!spot) return {ok:false,message:'Неизвестное место для исследования.'};
+  if (spot.locationId!==game.locationId) return {ok:false,message:'Это место находится в другой локации.'};
+  if (spot.kind==='campfire') return sitAtCampfire(game,spotId);
+  game.searchedAreas ||= {};
+  const now=game.clock.worldMinutes;
+  const last=game.searchedAreas[spotId];
+  const cooldown=180;
+  if (last!==undefined && now-last<cooldown) {
+    const hours=Math.ceil((cooldown-(now-last))/60);
+    return {ok:false,message:`Ты уже внимательно осматривал это место. Повторно проверить его можно примерно через ${hours} ч.`};
+  }
+  const pool=[...new Set(spot.loot||[])].filter(id=>getItem(id));
+  if (!pool.length) return {ok:false,message:'Здесь больше нечего искать.'};
+  const shuffled=pool.sort(()=>Math.random()-.5);
+  const options=shuffled.slice(0,Math.min(4,shuffled.length)).map(id=>({id,name:getItem(id).name,description:getItem(id).desc||'Старая находка.'}));
+  game.pendingDiscovery={spotId,options,createdAt:now};
+  advanceGame(game,6);
+  addLog(game,`Ты исследуешь: ${spot.name}. Нашёл несколько вещей, которые можно проверить.`);
+  return {ok:true,spot,options,message:`Ты внимательно осмотрел: ${spot.name}. Среди мусора и старых вещей заметны несколько находок. Выбери, что забрать.`};
+}
+
+export function claimAreaFind(game, itemId) {
+  const pending=game.pendingDiscovery;
+  if (!pending) return {ok:false,message:'Сейчас нет незавершённого осмотра.'};
+  const choice=pending.options.find(entry=>entry.id===itemId);
+  if (!choice) return {ok:false,message:'Такой находки в этом месте нет.'};
+  const result=addItem(game.inventory,itemId,1);
+  if (!result.ok) return {ok:false,message:`Не удалось забрать находку: ${result.reason}`};
+  if (['ammo9x18','ammo9x19','ammo545','shells'].includes(itemId)) {
+    const capacity=itemId==='shells'?8:itemId==='ammo545'?30:12;
+    game.ammoRounds ||= {};
+    game.ammoRounds[itemId]=(game.ammoRounds[itemId]||0)+capacity;
+  }
+  if (itemId==='boltpack') game.boltsRemaining=(game.boltsRemaining||0)+10;
+  game.searchedAreas ||= {};
+  game.searchedAreas[pending.spotId]=game.clock.worldMinutes;
+  game.lastMentionedItemId=itemId;
+  game.pendingDiscovery=null;
+  addLog(game,`Найдено: ${choice.name}.`);
+  return {ok:true,message:`Ты забрал: ${choice.name}. Остальные вещи остались на месте.`};
+}
+
+export function sitAtCampfire(game, spotId=null) {
+  const spot=spotId ? EXPLORE_SPOTS.find(entry=>entry.id===spotId) : EXPLORE_SPOTS.find(entry=>entry.locationId===game.locationId && entry.kind==='campfire');
+  if (!spot || spot.locationId!==game.locationId || spot.kind!=='campfire') return {ok:false,message:'В этой локации нет подходящего костра.'};
+  if (game.activeEncounter) return {ok:false,message:'Во время боя нельзя спокойно сидеть у костра.'};
+  advanceGame(game,15);
+  game.player.stress=Math.max(0,(game.player.stress||0)-8);
+  game.player.stamina=Math.min(100,(game.player.stamina||0)+6);
+  const ambience=[
+    'Пламя потрескивает, искры поднимаются в холодный воздух. Несколько минут ты просто смотришь на огонь.',
+    'Рядом переговариваются сталкеры. Разговоры затихают, когда ветер приносит из темноты далёкий лай.',
+    'Ты устраиваешься поудобнее и греешь руки. На короткое время Зона кажется почти спокойной.',
+    'Кто-то подкладывает в костёр сухую доску. Дым стелется над землёй, а разговоры идут вполголоса.'
+  ];
+  const message=`Ты присел у костра. ${pick(ambience)} Немного удалось перевести дух.`;
+  addLog(game,message,'player');
+  return {ok:true,message};
 }
 
 export function travelTo(game, destinationId) {
@@ -392,6 +474,7 @@ export function talkToNpc(game, npcId) {
   game.dialogueNpcId = npcId;
   game.dialogueTopic = null;
   game.dialogueReply = '';
+  game.dialogueHistory=[{role:'npc',text:npc.greeting||'Чего хотел, сталкер?'}];
   rememberEntity(game, npc, 'npc');
   const jobs=getSidorovichJobState(game);
   if (npcId==='sidorovich' && jobs.active?.type==='collector' && jobs.active.targetNpcId) { /* player returned to the quest giver */ }
@@ -430,6 +513,55 @@ export function replyNpc(game, npcId, topic) {
   answer = mapped ? npc.lines[mapped] : `${npc.name} смотрит на тебя с недоверием. «Сейчас мне нечего добавить. Сначала разберись с делом».`;
   game.dialogueReply=answer;
   return answer;
+}
+
+export function replyNpcFreeText(game,npcId,rawText) {
+  const npc=getDialogueNpc(game,npcId);
+  const text=String(rawText||'').toLowerCase().replaceAll('ё','е').replace(/[«»„“”"']/g,' ').replace(/[^а-яa-z0-9 -]/g,' ').replace(/\s+/g,' ').trim();
+  if (!npc || npc.location!==game.locationId) return {ok:false,message:'Собеседник сейчас не находится рядом.'};
+  if (!text) return {ok:false,message:'Напиши, что хочешь сказать.'};
+  let answer='';
+  const includes=(...roots)=>roots.some(root=>text.includes(root));
+  if (includes('работ','задан','квест','поруч','помощ','дело','подработ')) {
+    game.dialogueTopic='работа';
+    answer=replyNpc(game,npcId,'работа');
+  } else if (includes('привет','здравств','добрый день','здорово','салют')) {
+    answer=pick(npcId==='sidorovich'?['Ну, здравствуй. Не стой на пороге, говори, что нужно.','И тебе не хворать. Только без пустых разговоров.']:npcId==='wolf'?['Здорово, сталкер. Как дорога?','Привет. Рад, что вернулся целым.']:['Здорово. Что хотел?','Слышу тебя. Говори.']);
+  } else if (includes('спасибо','благодар','выручил','выручили')) {
+    answer=pick(['Да ладно, не стоит. Главное — сам не подставляйся.','Бывает. В Зоне ещё пригодится взаимовыручка.','Не за что. Смотри в оба и береги голову.']);
+  } else if (includes('пока','прощай','увидимся','до встречи','бывай')) {
+    answer=pick(['Давай. И не задерживайся на открытом месте.','Бывай, сталкер. Ещё пересечёмся.','Удачи. Смотри, чтобы Зона не поймала тебя врасплох.']);
+  } else if (includes('кто ты','как тебя зовут','расскажи о себе','твое имя')) {
+    answer=`Я ${npc.name}. ${npc.role||'Местный'} на Кордоне. ${npc.greeting||'Делаю своё дело и не лезу куда не просят.'}`;
+  } else if (includes('где','куда','как пройти','путь','дорог','направлен')) {
+    const place=LOCATIONS.find(entry=>entry.name.toLowerCase().split(/\s+/).some(word=>word.length>3 && text.includes(word)));
+    answer=place?`${place.name}: ${place.desc} Отсюда прямой переход ${getLocation(game.locationId)?.neighbors?.includes(place.id)?'есть':'не подтверждён'}. Посмотри маршрут на карте КПК.`:`Сейчас ты в районе «${getLocation(game.locationId)?.name}». Открой карту — там отмечены соседние переходы. По незнакомой дороге лучше не срезать.`;
+  } else if (includes('мутант','собак','псевд','плот','кровосос','кабан','чудовищ')) {
+    answer=npcId==='wolf'?'Обычные слепые псы чаще держатся стаей. Не дай им окружить себя и не трать все патроны сразу.':npcId==='sidorovich'?'За мутантов платят, если принесёшь целый и нужный материал. Но не путай обычную добычу с тем, что нужно учёным.':'Мутанты здесь не для того, чтобы их изучать вблизи. Держи оружие готовым и не шуми без причины.';
+  } else if (includes('аномал','радиац','воронк','артефакт','медуз','грави','ломот')) {
+    answer=npcId==='sidorovich'?'Сначала детектор и болты. Не суйся в неизвестное поле наугад. Артефакт может стоить денег, но здоровье дороже.':'Аномалии не предупреждают дважды. Смотри на мусор в воздухе, слушай детектор и держись подальше от странных вспышек.';
+  } else if (includes('торгов','купить','продать','цена','товар','патрон','оружие','снаряж')) {
+    if (npc.trader) answer='Можешь посмотреть мой товар и своё снаряжение в торговом окне. Цены указаны рядом с каждой вещью.';
+    else answer=npcId==='wolf'?'За покупками иди к Сидоровичу. Я тут слежу, чтобы новички не влипали в неприятности.':'Торговля — не ко мне. Поговори со снабженцем или местным торговцем.';
+  } else if (includes('слух','слышал','новост','что происходит','обстановка','опасно')) {
+    const rumor=npc.lines?.rumors||npc.lines?.situation||npc.lines?.advice||'Пока ничего определённого не слышал. На Кордоне обстановка меняется быстро.';
+    answer=rumor;
+  } else if (includes('зон','кордон','чернобыл','припят','выброс','катастроф')) {
+    answer=npcId==='sidorovich'?'Большая земля думает, что знает о Зоне всё. А я каждый день вижу, как она меняется. Не верь каждому слуху и не суй нос туда, где не понимаешь, что происходит.':'Кордон только кажется спокойным. Дальше будет опаснее. Привыкай смотреть по сторонам и не ходить один без причины.';
+  } else if (includes('долг','должник','сидорович')) {
+    answer=npcId==='sidorovich'?'Долги забывать не советую. Если поручил тебе напомнить кому-то — сначала найди человека, поговори с ним, а потом возвращайся ко мне.':'С Сидоровичем лучше рассчитываться вовремя. Он помнит каждую копейку.';
+  } else if (includes('почему','зачем','как думаешь','что думаешь','считаешь')) {
+    answer=pick(['Сложно сказать наверняка. На Кордоне мало кто знает всю картину.','Я бы не спешил с выводами. Сначала собери факты, потом решай.','У каждого своя правда. Посмотри, кому выгодно то, о чём ты спрашиваешь.']);
+  } else {
+    const fallback=npcId==='sidorovich'?['Хм. Понимаю, о чём ты, но давай ближе к делу. Тебе нужны припасы, работа или информация?','Не люблю гадать. Скажи конкретнее: про Зону, товар или поручения?']:npcId==='wolf'?['Понял тебя. Но на Кордоне лучше говорить прямо — что именно случилось?','Слушаю. Хочешь совет, помощь или просто поделиться новостями?']:['Я тебя услышал. Только давай без загадок — что именно ты хочешь узнать?','Может быть. Скажи чуть подробнее, тогда отвечу по делу.'];
+    answer=pick(fallback);
+  }
+  game.dialogueReply=answer;
+  game.dialogueHistory ||= [];
+  game.dialogueHistory.push({role:'player',text:String(rawText).slice(0,500)},{role:'npc',text:answer});
+  game.dialogueHistory=game.dialogueHistory.slice(-16);
+  addLog(game,`${npc.name}: ${answer}`);
+  return {ok:true,message:answer};
 }
 
 export function getAvailableTraders(game, locationId=game.locationId) {
