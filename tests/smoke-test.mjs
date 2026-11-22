@@ -2,13 +2,21 @@ import assert from 'node:assert/strict';
 import { ASSETS, IMAGE_FALLBACKS, FACTIONS, ITEMS, LOCATIONS, EXPLORE_SPOTS, NPCS, AVATAR_OPTIONS, NPC_APPEARANCES, START_BUDGET, MAX_CARRY_KG, STARTER_ITEM_IDS, STARTER_LOADOUT_BY_FACTION, ITEM_ACQUISITION } from '../src/data/catalog.js';
 import { createGame, travelTo, talkToNpc, getAvailableStalkers, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, sitAtCampfire, replyNpc, replyNpcFreeText, getTravelMinutes, getExploreSpots, advanceGame, takeShelter, leaveShelter, openStorage, getActiveLootItems, breakContainer, registerCorpseLoot, getFactionRelation, nameSecretAnomaly, turnInSecretAnomalyQuest, turnInPudelQuest, claimAtpRescueReward, beginAtpRescue, useTrampoline, simulateWorld, useVortex, escapeVortex, useCarousel, escapeCarousel } from '../src/systems/world.js';
 import { addItem, getWeight, canFitLoadout, countItem, useItem, transferItem } from '../src/systems/inventory.js';
-import { beginEncounter, beginWolfDogPack, playerAttack } from '../src/systems/combat.js';
+import { beginEncounter, beginWolfDogPack, playerAttack, getBestWeapon } from '../src/systems/combat.js';
 import { processPlayerAction } from '../src/systems/action-engine.js';
+import { generateDialogueReply } from '../src/systems/dialogue-engine.js';
 import { rememberEntity, stemRussianWord, containsReferencePronoun, genderedSubject } from '../src/systems/russian-language.js';
 import { renderMenu, renderCreate, renderLoadout, renderGame, renderModal, renderGameSettings } from '../src/ui/views.js';
 const fs = await import('node:fs');
 
 assert.equal(FACTIONS.length,3);
+// Imported item, weapon, mutant and PDA images must exist locally and survive offline.
+const requiredArtwork=[ASSETS.pdaTexture,...Object.values(ASSETS.itemImages||{}),...Object.values(ASSETS.weaponImages||{}),...Object.values(ASSETS.mutants||{}).flat()];
+for(const artwork of requiredArtwork) assert.ok(fs.existsSync(new URL(artwork)),`local artwork should exist: ${artwork}`);
+assert.ok(ASSETS.mutants.blindDog.every(src=>decodeURIComponent(new URL(src).pathname).includes('/slepoipes')),'blind-dog assets should use the exact imported filenames');
+assert.ok(!ITEMS.some(item=>/янтарь/i.test(item.name)),'processed cheese «Янтарь» must not exist as an item');
+assert.ok(!NPCS.some(npc=>(npc.stockIds||[]).some(id=>/янтарь/i.test(id))),'processed cheese must not appear in trader stock');
+
 // Survival needs increase over game time and can be managed through free-text RP.
 const needsGame=createGame({name:'Проверка нужд',faction:'loner'},[],START_BUDGET);
 needsGame.clock.lastRealTime=Date.now();
@@ -92,6 +100,7 @@ assert.ok([...Object.values(ASSETS.npcPortraits).flatMap(value=>Array.isArray(va
 assert.ok(LOCATIONS.every(location=>getExploreSpots(location.id).length>=3),'each location should expose at least three RP areas including the exterior');
 const activeVisualSources=['src/data/catalog.js','src/ui/views.js','src/systems/world.js','src/systems/combat.js','styles.css'].map(file=>fs.readFileSync(new URL(`../${file}`,import.meta.url),'utf8')).join('\n');
 const costumeFitCss=fs.readFileSync(new URL('../styles.css',import.meta.url),'utf8');
+assert.ok(!/\@import\s+url\(['\"]?https?:/i.test(costumeFitCss),'the visual style must not depend on remote fonts or a network connection');
 assert.match(costumeFitCss,/\.armor-inventory-item \.inventory-item-image \.armor-art-image\{[^}]*object-fit:contain;[^}]*object-position:center center;[^}]*transform:none/s,'tall costume art should fit without vertical cropping or stretching');
 assert.match(costumeFitCss,/\.armor-inventory-item \.inventory-item-image\{[^}]*padding:/s,'armor image frame should retain a small safe margin around the silhouette');
 for (const image of ['kozankaicon.webp','zaraicon.webp','berilicon.webp','pz-5icon.webp','debyticon.webp','kosyhaicon.webp','kozanplashicon.webp']) assert.ok(fs.statSync(new URL(`../assets/images/armor/${image}`,import.meta.url)).size>1000,`trimmed costume image ${image} must be included`);
@@ -132,12 +141,24 @@ for (const faction of FACTIONS) {
 }
 
 // Starter economy supports a practical multi-item kit and distinct leather jacket/cosukha art.
-assert.equal(START_BUDGET,5200,'starting budget should leave enough room for beginner gear and a small reserve');
+assert.equal(START_BUDGET,5000,'starting budget should allow one practical faction kit without funding an advanced loadout');
+assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=270"),'service worker registration URL should refresh with the release');
+const serviceWorkerSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8');
+assert.ok(serviceWorkerSource.includes('cordon-pda-v2700-rp-pda-artwork'),'service worker cache name should change for the current release');
+const swUrl=new URL('../sw.js',import.meta.url);
+const precachePaths=[...serviceWorkerSource.matchAll(/\"(\.\/[^\"]+)\"/g)].map(match=>match[1]);
+assert.ok(precachePaths.length>=150,'the offline shell should include the expanded artwork bundle');
+for(const path of precachePaths) assert.ok(fs.existsSync(new URL(path,swUrl)),`every offline cache entry must exist: ${path}`);
+for(const artwork of requiredArtwork) { const path=decodeURIComponent(new URL(artwork).pathname).replaceAll('\\','/'); const relative=path.slice(path.lastIndexOf('/project/')+9); assert.ok(serviceWorkerSource.includes(`./${relative}`),`offline cache should include ${relative}`); }
 assert.ok(ASSETS.armor.leather.includes('kozankaicon.webp'),'Кожанка must use the Kozanka leather jacket artwork');
 assert.ok(ASSETS.armor.biker.includes('kosyhaicon.webp'),'Косуха must use its own Kosyha artwork');
 const kitFit=canFitLoadout({bread:1},'water',1,START_BUDGET);
 assert.equal(kitFit.ok,true,'several different starter goods should be selectable together');
 assert.equal(canFitLoadout({bread:1},'bread',1,START_BUDGET).ok,true,'basic food quantities may exceed one item');
+assert.equal(canFitLoadout({pm:1},'sawedoff',1,START_BUDGET).ok,false,'the starter kit should contain only one firearm');
+assert.equal(canFitLoadout({leather:1},'kozanka',1,START_BUDGET).ok,false,'the starter kit should contain only one suit');
+assert.equal(canFitLoadout({'mask-loner-basic':1},'mask-bandit-basic',1,START_BUDGET).ok,false,'the starter kit should contain only one gas mask');
+assert.equal(canFitLoadout({},'rgd5',1,START_BUDGET).ok,false,'grenades are not beginner starter equipment');
 
 // Starter armour and a basic faction-matched gas mask are available at character creation.
 for (const faction of FACTIONS) {
@@ -154,6 +175,22 @@ for (const faction of FACTIONS) {
     }
   }
 }
+
+// Each faction can afford a proper beginner kit: best allowed suit, faction mask, one sidearm, ammo, medical aid and food/water.
+for (const faction of FACTIONS) {
+  const profile=STARTER_LOADOUT_BY_FACTION[faction.id];
+  const bestSuit=[...profile.armor].sort((a,b)=>ITEMS.find(item=>item.id===b).price-ITEMS.find(item=>item.id===a).price)[0];
+  const basicKit=[bestSuit,profile.mask[0],'pm','ammo9x18','bandage','bread','water'];
+  let selectedKit={};
+  for (const id of basicKit) {
+    const fitted=canFitLoadout(selectedKit,id,1,START_BUDGET);
+    assert.equal(fitted.ok,true,`${faction.id} basic beginner kit should fit the starting budget (${id})`);
+    selectedKit=fitted.selected;
+  }
+  assert.ok(Object.entries(selectedKit).every(([id,qty])=>qty<=2),`${faction.id} basic kit quantities should stay modest`);
+}
+assert.ok(ITEMS.every(item=>Number.isFinite(item.price)&&item.price>0),'every tradable item should have a positive base price');
+assert.ok(NPCS.filter(npc=>npc.trader).every(npc=>npc.priceMultiplier>=1.14&&npc.priceMultiplier<=1.18&&npc.buyMultiplier>=.39&&npc.buyMultiplier<=.42),'fixed traders should use controlled markups and buyback rates');
 
 // Each new game spawns ten randomized villagers, soldiers on the checkpoints and bandits at ATP.
 const populationOne=createGame({name:'Население 1',faction:'loner'},[],START_BUDGET);
@@ -287,7 +324,7 @@ assert.equal(travelTo(wolfQuestGame,'rookie-village').ok,true);
 assert.equal(talkToNpc(wolfQuestGame,'wolf').ok,true);
 const cashBeforeWolf=wolfQuestGame.money;
 assert.equal(turnInWolfDogQuest(wolfQuestGame).ok,true);
-assert.equal(wolfQuestGame.money,cashBeforeWolf+450);
+assert.equal(wolfQuestGame.money,cashBeforeWolf+850);
 assert.equal(wolfQuestGame.wolfDogQuest.status,'completed');
 Math.random=randomBeforeWolf;
 
@@ -311,7 +348,11 @@ assert.equal(sellToTrader(shopGame,'sidorovich','flesh-eye',1).ok,true);
 assert.ok(!getAvailableTraders(shopGame,'sidorovich-bunker').find(t=>t.id==='sidorovich').stock.some(entry=>entry.id==='flesh-eye'),'mutant trophies may be sold but must not be placed back on sale');
 const legacyStockGame=createGame({name:'Старое сохранение',faction:'loner'},[],START_BUDGET);
 legacyStockGame.traders.find(t=>t.id==='sidorovich').stock.push({id:'tail',qty:2,price:400},{id:'medusa',qty:1,price:650});
+legacyStockGame.economyVersion=0;
+legacyStockGame.traders.find(t=>t.id==='sidorovich').stock.find(entry=>entry.id==='bread').price=1;
 const migratedSidorovich=getAvailableTraders(legacyStockGame,'sidorovich-bunker').find(t=>t.id==='sidorovich');
+assert.ok(migratedSidorovich.stock.find(entry=>entry.id==='bread').price>1,'old saves should receive new trader prices without losing stock');
+assert.equal(legacyStockGame.economyVersion,3,'old saves should be marked with the current economy version');
 assert.ok(migratedSidorovich.stock.every(entry=>!['tail','flesh-eye','medusa','meat_chunk','gravi'].includes(entry.id)),'legacy saves must be migrated off mutant/artifact sale stock');
 
 // Trader locations: Shnurok on ATP, military quartermaster at southern checkpoint.
@@ -457,29 +498,40 @@ const exploreGame=createGame({name:'Язык',faction:'loner'},[],START_BUDGET);
 assert.ok(processPlayerAction(exploreGame,'поищи припасы').message.length>0,'search command with пoищи should be recognized');
 
 // Combat still falls back to a melee weapon when a firearm has no rounds.
-addItem(game.inventory,'knife',1);
-addItem(game.inventory,'pm',1);
-beginEncounter(game,'bandit');
-const combatHtml=renderGame({screen:'game',characters:[character],activeCharacterId:'smoke',settings:{},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:'local',queue:[],index:0,playing:false}},game});
+// Use an isolated encounter here: earlier travel checks may legitimately start a random fight.
+const combatVisualGame=createGame(character,[],START_BUDGET);
+addItem(combatVisualGame.inventory,'knife',1);
+addItem(combatVisualGame.inventory,'pm',1);
+addItem(combatVisualGame.inventory,'ammo9x18',1);
+combatVisualGame.equippedWeaponId='pm';
+beginEncounter(combatVisualGame,'bandit');
+const combatHtml=renderGame({screen:'game',characters:[character],activeCharacterId:'smoke',settings:{},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:'local',queue:[],index:0,playing:false}},game:combatVisualGame});
 assert.ok(combatHtml.includes('enemy-portrait-art') && combatHtml.includes('enemy-body-art') && combatHtml.includes('enemy-faction-row'),'combat should show separate portrait, full-body appearance and faction insignia');
-const attack=playerAttack(game);
+assert.ok(combatHtml.includes('data-action="combat-attack"') && combatHtml.includes('data-action="combat-reload"'),'combat HUD should expose attack and reload actions only during an encounter');
+assert.ok(combatHtml.includes('first-person-weapon right') && combatHtml.includes('assets/items/pm.webp'),'equipped weapons should render as inward-facing first-person hand sprites');
+assert.equal(getBestWeapon(combatVisualGame.inventory,combatVisualGame)?.id,'pm','ammo stacks in the backpack must initialize a firearm magazine');
+assert.ok((combatVisualGame.weaponMagazines?.pm||0)>0,'a purchased/found ammo stack must put rounds in the selected weapon magazine');
+combatVisualGame.equippedWeaponId='knife';
+const attack=playerAttack(combatVisualGame);
 assert.ok(attack.message.includes('Нож'));
 
 const uiState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false},account:{},draft:{name:'',birthDate:'',height:'',weight:'',personality:'',biography:'',notes:'',faction:'loner',avatar:''},loadout:{selected:{}},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game};
 assert.ok(renderMenu(uiState).includes('Играть'));
 assert.ok(renderMenu(uiState).includes('fonderevnanovickov'),'menu should reference a local background');
 const createHtml=renderCreate(uiState);
-assert.ok(createHtml.includes('open-avatars') && createHtml.includes('ПРИНАДЛЕЖНОСТЬ К ГРУППИРОВКЕ'));
+assert.ok(createHtml.includes('open-avatars') && createHtml.includes('open-appearances') && createHtml.includes('appearance-upload') && createHtml.includes('ПРИНАДЛЕЖНОСТЬ К ГРУППИРОВКЕ'),'portrait and full-body appearance should be independently selectable and uploadable');
 assert.ok(createHtml.includes('pda-screen-wrap') && createHtml.includes('kpkfon.webp'),'character creation must use the provided PDA housing');
 assert.ok(!createHtml.includes('faction-insignia') && !createHtml.includes('rank-insignia') && !createHtml.includes('⚑'),'faction selection must not show an extra flag/badge below faction names');
 assert.ok(createHtml.includes('Стартовую локацию') || createHtml.includes('стартовую локацию'),'faction selection should explain its effect without extra badges');
 assert.ok(renderLoadout(uiState).includes('СТАРТОВАЯ ПОДБОРКА'));
 assert.ok(renderLoadout(uiState).includes('Плащ') && renderLoadout(uiState).includes('до 3 шт.'),'beginner characters should be able to choose a faction-allowed cloak and several basic supplies');
 for (const hidden of ['АКСУ','Пачка патронов 5.45×39','Хвост слепого пса','Глаз плоти','Медуза','Ломоть мяса','Грави','Заря']) assert.ok(!renderLoadout(uiState).includes(hidden),`${hidden} must not appear in the starter screen`);
-const closedPdaHtml=renderGame(uiState);
+const idleViewState={...uiState,game:createGame(character,[],START_BUDGET)};
+const closedPdaHtml=renderGame(idleViewState);
 assert.ok(closedPdaHtml.includes('КПК') && closedPdaHtml.includes('pda-toggle-button'));
 assert.ok(!closedPdaHtml.includes('aria-label="Разделы КПК"'),'PDA tabs must stay hidden until the device is opened');
-assert.ok(closedPdaHtml.includes('Текущая локация') || closedPdaHtml.includes('ДЕЙСТВИЯ'));
+assert.ok(closedPdaHtml.includes('scene-gm') && closedPdaHtml.includes('scene-entry-actions'),'the closed-PDA game view should show the location narrative and scene actions');
+assert.ok(/weapon-hud (?:left|right) idle/.test(closedPdaHtml) && !closedPdaHtml.includes('data-action="combat-attack"'),'exploration should use a compact equipment HUD without disabled combat controls');
 uiState.ui.pdaOpen=true;
 assert.ok(renderGame(uiState).includes('aria-label="Разделы КПК"'),'opening the PDA should reveal tabs across the top');
 uiState.game.locationId='rookie-village';
@@ -497,9 +549,14 @@ addItem(game.inventory,'water',1);
 const inventoryUi=renderModal({...uiState,ui:{...uiState.ui,modal:'inventory-panel'}});
 assert.ok(inventoryUi.includes('🍞') && inventoryUi.includes('💧'),'inventory should use distinct item-specific icons rather than a repeated generic symbol');
 assert.ok(costumeFitCss.includes('object-fit:contain'),'armor artwork should preserve its full silhouette');
+assert.match(costumeFitCss,/\.loadout-screen \.shop-grid\{[^}]*overflow-y:auto/s,'starter shop item list should scroll independently from its sticky footer');
+assert.match(costumeFitCss,/\.dialogue-transcript \.dialogue-line p\{[^}]*white-space:pre-wrap/s,'dialogue transcript should render plain text lines');
+assert.match(costumeFitCss,/\.dialogue-simple\{[^}]*background:transparent;border:0;box-shadow:none/s,'dialogue should not wrap each exchange in a large chat window');
+assert.match(costumeFitCss,/\.first-person-weapon\.right img\{transform:rotate\(-13deg\)\}/,'weapon artwork on the right should point inward toward screen centre');
+assert.match(costumeFitCss,/\.first-person-weapon\.left img\{transform:scaleX\(-1\) rotate\(-13deg\)\}/,'weapon artwork moved to the left should be mirrored toward screen centre');
 assert.match(costumeFitCss,/\.scene-interactions\s*\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/s,'desktop NPC list should use a compact two-column layout');
 assert.match(costumeFitCss,/\.pda-screen-wrap\{[^}]*aspect-ratio:4\/3/s,'character creation should preserve the PDA frame proportions');
-assert.match(costumeFitCss,/\.pda-screen-wrap\{[^}]*padding:11\.7% 13\.8% 12\.8% 11\.4%/s,'character creation content should align with the PDA glass without hiding the device frame');
+assert.match(costumeFitCss,/\.pda-screen-wrap\{[^}]*padding:13\.7% 11\.7% 12\.2%/s,'character creation content should align with the PDA glass without hiding the device frame');
 assert.match(costumeFitCss,/\.pda-fullscreen-page\{[^}]*rgba\(7,12,8,\.48\)[^}]*var\(--pda-texture\)/s,'fullscreen PDA should keep the supplied background texture visible');
 assert.match(costumeFitCss,/\.pda-fullscreen-page\{[^}]*var\(--pda-texture\)/s,'the fullscreen PDA should use the supplied PDA glass texture');
 assert.match(costumeFitCss,/\.contact-card-clean\{[^}]*grid-template-columns:82px/s,'contacts should use compact rows with separate artwork cells');
@@ -544,11 +601,14 @@ assert.ok(mapModal.includes('МЕСТА В ЭТОЙ ЛОКАЦИИ') && mapModal
 uiState.ui.modal='avatars';
 const avatarModal=renderModal(uiState);
 assert.ok(avatarModal.includes('Волк') && !avatarModal.includes('Сидорович'),'loner avatar picker should offer only complete matching portrait/body sets');
-assert.ok(avatarModal.includes('avatar-option-body'),'avatar picker must show the matching full-body appearance alongside each portrait');
+assert.ok(avatarModal.includes('avatar-option-single portrait-only') && avatarModal.includes('data-action="choose-avatar"'),'portrait picker should show only the portrait and keep appearance selection independent');
 assert.ok(!avatarModal.includes('Кефир') && !avatarModal.includes('Дмитрий Дзержинский'),'loner avatar picker must not mix in bandit or military appearances');
 const banditAvatarModal=renderModal({...uiState,draft:{...uiState.draft,faction:'bandit'},ui:{...uiState.ui,modal:'avatars'}});
-assert.ok(banditAvatarModal.includes('avatar-option-body') && banditAvatarModal.includes('Кефир'));
-assert.equal((banditAvatarModal.match(/class="avatar-option-body"/g)||[]).length,8,'bandit avatar picker should show all seven matched bandit body appearances');
+assert.ok(banditAvatarModal.includes('avatar-option-single portrait-only') && banditAvatarModal.includes('Кефир'));
+const banditAppearanceModal=renderModal({...uiState,draft:{...uiState.draft,faction:'bandit'},ui:{...uiState.ui,modal:'avatars',avatarPickMode:'appearance'}});
+assert.ok(banditAppearanceModal.includes('avatar-option-body') && banditAppearanceModal.includes('data-action="choose-appearance"') && !banditAppearanceModal.includes('portrait-only'),'appearance picker should show body art without coupling it to portraits');
+assert.equal((banditAvatarModal.match(/class="avatar-option-single portrait-only"/g)||[]).length,8,'bandit portrait picker should show seven separate portrait choices');
+assert.equal((banditAppearanceModal.match(/class="avatar-option-body"/g)||[]).length,8,'bandit appearance picker should show seven separate body choices');
 const militaryAvatarModal=renderModal({...uiState,draft:{...uiState.draft,faction:'military'},ui:{...uiState.ui,modal:'avatars'}});
 assert.ok(militaryAvatarModal.includes('Дмитрий Дзержинский') && !militaryAvatarModal.includes('Кефир'),'military avatar picker should only show military faction appearances');
 uiState.ui.tab='stats';
@@ -563,7 +623,7 @@ assert.ok(!tabMarkup.includes('data-tab="inventory"')&&!tabMarkup.includes('data
 assert.ok(!tabMarkup.includes('music-dock'));
 const contactsMarkup=renderGame({...tabState,ui:{...tabState.ui,tab:'contacts'}});
 assert.ok(contactsMarkup.includes('contact-card-clean') && contactsMarkup.includes('contact-clean-body'),'contacts should show compact cards with separate full-body NPC artwork');
-assert.ok(contactsMarkup.includes('talk-action') && contactsMarkup.includes('icon-action'),'contacts should expose icon-based dialogue actions');
+assert.ok(contactsMarkup.includes('talk-action') && contactsMarkup.includes('contact-action-button') && contactsMarkup.includes('Диалог'),'contacts should expose clear labelled dialogue actions');
 assert.ok(!contactsMarkup.includes('Не здесь'),'contacts should not list remote NPCs as unavailable cards');
 
 // Quests are hidden from the quest list until accepted and then show progress.
@@ -600,10 +660,22 @@ assert.ok(wolfTrailerModal.includes('Собаки у вагончика') && wol
 const conversationGame=createGame(character,[],START_BUDGET);
 conversationGame.locationId='rookie-village';
 talkToNpc(conversationGame,'wolf');
+const plainDialogueHtml=renderGame({screen:'game',characters:[character],activeCharacterId:'smoke',settings:{},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:'local',queue:[],index:0,playing:false}},game:conversationGame});
+const plainDialogueBlock=plainDialogueHtml.match(/<main class=\"dialogue-simple\"[\s\S]*?<\/main>/)?.[0]||'';
+assert.ok(plainDialogueBlock.includes('dialogue-line') && plainDialogueBlock.includes('Волк'),'dialogue should use a simple name-and-text transcript');
+assert.ok(!plainDialogueBlock.includes('<img') && !plainDialogueBlock.includes('npc-scene-body') && !plainDialogueBlock.includes('enemy-body-art'),'dialogue should not embed a character appearance image');
+assert.ok(!plainDialogueBlock.includes('<label for="npc-message">') && !plainDialogueBlock.includes('Сообщение будет учтено'),'dialogue should avoid redundant explanatory copy');
 const conversationReply=replyNpcFreeText(conversationGame,'wolf','Что случилось возле вагончика и почему собаки нападают на новичков?');
 assert.equal(conversationReply.ok,true);
 assert.ok(conversationGame.dialogueHistory.some(entry=>entry.role==='player' && entry.text.includes('вагончика')),'full-text NPC conversation should preserve the player message in the chat');
 assert.ok(conversationGame.dialogueHistory.at(-1).role==='npc','NPC response should be appended after the player message');
+const fallbackTalkGame=createGame({name:'Проверка фразы',faction:'loner'},[],START_BUDGET);
+fallbackTalkGame.locationId='rookie-village'; talkToNpc(fallbackTalkGame,'wolf');
+const fallbackSavedRandom=Math.random; Math.random=()=>0.99;
+const fallbackTalkReply=replyNpcFreeText(fallbackTalkGame,'wolf','квагл фрумпа дзю');
+Math.random=fallbackSavedRandom;
+assert.equal(fallbackTalkReply.ok,true,'an unknown player phrase should still receive an NPC response');
+assert.ok(fallbackTalkGame.dialogueHistory.at(-1).text.length>10,'an unrecognized input must append a generated in-character reply to the transcript');
 assert.equal(conversationGame.dialogueContext.lastIntent,'mutants','the dialogue engine should classify natural player phrases into a remembered topic');
 const followupReply=replyNpcFreeText(conversationGame,'wolf','А что дальше?');
 assert.ok(followupReply.ok && followupReply.message.includes('По поводу того, о чём говорили'),'NPC follow-up replies should use the previous conversation context');
@@ -612,6 +684,24 @@ assert.ok(directionReply.message.includes('Деревня новичков') && 
 const personalReply=replyNpcFreeText(conversationGame,'wolf','Расскажи, скучаешь по дому?');
 assert.ok(personalReply.ok && personalReply.message.length>20,'the expanded dialogue engine should answer personal small-talk');
 assert.equal(conversationGame.dialogueContext.lastIntent,'personal');
+// Unrecognized nonsense should receive a random, faction-appropriate in-character reply.
+const savedDialogueRandom=Math.random;
+try {
+  Math.random=()=>0;
+  const unknownText='квагл фрумпа дзю';
+  const unknownLoner=generateDialogueReply({id:'unknown-loner',name:'Сталкер',faction:'loner'},createGame(character,[],START_BUDGET),unknownText);
+  const unknownMilitary=generateDialogueReply({id:'unknown-military',name:'Военный',faction:'military'},createGame({name:'Военный',faction:'military'},[],START_BUDGET),unknownText);
+  const unknownBandit=generateDialogueReply({id:'unknown-bandit',name:'Бандит',faction:'bandit'},createGame({name:'Бандит',faction:'bandit'},[],START_BUDGET),unknownText);
+  assert.equal(unknownLoner.intent,'general');
+  assert.match(unknownLoner.answer,/не понял|телепат|мысли вслух|не уловил|без этой зауми|нормальн/i,'loners should ask to rephrase an unrecognized message');
+  assert.match(unknownMilitary.answer,/формулировка|доклад|запрос|гражданский|служебный канал/i,'military NPCs should answer in a formal service tone');
+  assert.match(unknownBandit.answer,/фраер|рамсы|маляв|базар|браток/i,'bandits should answer with their own fenya/jargon');
+  assert.ok(unknownLoner.answer.includes('Янтарь'),'the removed cheese may appear only as a rare dialogue rumour');
+  Math.random=()=>0.99;
+  const ordinaryReply=generateDialogueReply({id:'ordinary-loner',name:'Сталкер',faction:'loner'},createGame(character,[],START_BUDGET),unknownText);
+  assert.ok(!ordinaryReply.answer.includes('Янтарь'),'the rare cheese rumour should not be added to ordinary dialogue every time');
+} finally { Math.random=savedDialogueRandom; }
+
 
 // The four requested natural-language questions are recognized as dedicated conversation intents.
 for (const [phrase,intent] of [
@@ -695,9 +785,9 @@ assert.equal(getFactionRelation('military','bandit'),'hostile');
 assert.equal(getFactionRelation('bandit','loner'),'neutral');
 const zoneTravelGame=createGame({name:'Купоны',faction:'loner'},[],START_BUDGET);
 zoneTravelGame.locationId='ravine-tunnel'; zoneTravelGame.money=1000;
-const savedRandom=Math.random; Math.random=()=>.99;
+const savedCheeseRandom=Math.random; Math.random=()=>.99;
 const atpEntry=travelTo(zoneTravelGame,'atp');
-Math.random=savedRandom;
+Math.random=savedCheeseRandom;
 assert.equal(atpEntry.ok,true);
 assert.equal(zoneTravelGame.money,500,'a loner pays 500 Coupons to enter ATP');
 assert.ok(zoneTravelGame.log.some(entry=>entry.text.includes('500 Купонов')),'the ATP entry fee should be recorded in the game log');
@@ -799,8 +889,10 @@ assert.ok(populationOne.ambientNpcs.every(npc=>!/[«»\"“”]/.test(npc.name))
 // The PDA gradually exposes encyclopedia/help sections and adjustable sound settings.
 const encyclopediaView=renderGame({...dialogueState,ui:{...dialogueState.ui,pdaOpen:true,tab:'encyclopedia'}});
 assert.ok(encyclopediaView.includes('Энциклопедия Зоны'));
+assert.ok(encyclopediaView.includes('split-guide-layout') && encyclopediaView.includes('guide-side-tabs') && encyclopediaView.includes('guide-detail'),'encyclopedia should use left-side tabs and a right-side reading pane');
 const helpView=renderGame({...dialogueState,ui:{...dialogueState.ui,pdaOpen:true,tab:'help'}});
 assert.ok(helpView.includes('Помощь сталкеру') && helpView.includes('Что писать') && helpView.includes('ПРИМЕРЫ ФРАЗ'));
+assert.ok(helpView.includes('guide-side-tabs') && helpView.includes('guide-detail'),'help should use the same split navigation layout as the encyclopedia');
 assert.ok(helpView.includes('RP-действия'),'help should teach practical roleplay commands rather than world lore');
 const soundSettingsView=renderGameSettings({settings:{soundEnabled:true,soundVolume:.4,uiScale:1,reducedMotion:false}});
 assert.ok(soundSettingsView.includes('data-setting="soundEnabled"') && soundSettingsView.includes('data-setting="soundVolume"'));

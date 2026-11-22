@@ -61,8 +61,16 @@ export function canFitLoadout(selected, id, delta, budget) {
   if (!item) return { ok:false, reason:'Неизвестный предмет.' };
   if (delta > 0 && !STARTER_ITEM_IDS.includes(id)) return { ok:false, reason:'Этот предмет нельзя взять в стартовую подборку. Его можно найти в Зоне или приобрести у подходящего торговца.' };
   const nextQty = (selected[id] || 0) + delta;
-  const maxQty = item.cat === 'Броня' || item.cat === 'Защита' || item.weapon ? 1 : ['Боеприпасы','Медицина'].includes(item.cat) ? 3 : item.cat === 'Еда' ? 3 : 2;
+  const firearmTypes=['pistol','rifle','shotgun','smg'];
+  const isFirearm=firearmTypes.includes(item.weapon);
+  const maxQty = item.cat === 'Броня' || item.cat === 'Защита' || item.weapon ? 1 : ['Боеприпасы','Медицина'].includes(item.cat) ? 2 : item.cat === 'Еда' ? 3 : 2;
   if (delta > 0 && nextQty > maxQty) return { ok:false, reason:`Для старта можно взять не больше ${maxQty} шт. этого предмета.` };
+  if (delta > 0 && ['Броня','Защита'].includes(item.cat) && Object.entries(selected).some(([other,qty])=>qty>0&&other!==id&&getItem(other)?.cat===item.cat)) {
+    return { ok:false, reason:item.cat==='Броня'?'Можно выбрать только один комплект брони.':'Можно выбрать только один противогаз.' };
+  }
+  if (delta > 0 && isFirearm && Object.entries(selected).some(([other,qty])=>qty>0&&other!==id&&firearmTypes.includes(getItem(other)?.weapon))) {
+    return { ok:false, reason:'На старте можно выбрать только один огнестрельный ствол. Остальное снаряжение можно докупить позже.' };
+  }
   if (nextQty < 0) return { ok:false, reason:'Количество не может быть отрицательным.' };
   const next = { ...selected };
   if (nextQty === 0) delete next[id]; else next[id] = nextQty;

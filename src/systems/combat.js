@@ -11,7 +11,16 @@ function ensureMagazine(game, weapon) {
   if (!weapon?.ammo) return 0;
   game.weaponMagazines ||= {}; game.ammoRounds ||= {};
   if (!Number.isFinite(game.weaponMagazines[weapon.id])) {
-    const total=Math.max(0,Number(game.ammoRounds[weapon.ammo] ?? countItem(game.inventory,weapon.ammo)*ammoCapacity(weapon.ammo))||0);
+    const trackedReserve=Math.max(0,Number(game.ammoRounds[weapon.ammo])||0);
+    // Inventory ammo stacks are the source of truth before any weapon of this calibre
+    // has initialized a magazine. After that, the same stack also represents rounds
+    // already loaded in another weapon, so never count it a second time.
+    const loadedElsewhere=weapons.filter(id=>id!==weapon.id).reduce((sum,id)=>{
+      const other=getItem(id);
+      return sum+(other?.ammo===weapon.ammo?Math.max(0,Number(game.weaponMagazines[id])||0):0);
+    },0);
+    const packedReserve=countItem(game.inventory,weapon.ammo)*ammoCapacity(weapon.ammo);
+    const total=Math.max(0,trackedReserve>0?trackedReserve:(loadedElsewhere>0?0:packedReserve));
     const loaded=Math.min(magazineSize(weapon.ammo),total);
     game.weaponMagazines[weapon.id]=loaded; game.ammoRounds[weapon.ammo]=Math.max(0,total-loaded);
   }
@@ -45,6 +54,14 @@ export function selectWeapon(game, weaponId) {
   if (item.ammo) ensureMagazine(game,item);
   addLog(game,`В руках теперь ${item.name}.`,'player');
   return {ok:true,message:`Выбрано оружие: ${item.name}.`};
+}
+
+
+function rewardForDefeat(enemy) {
+  const type=enemy?.type||'';
+  const min=type==='blind-dog'?18:type==='flesh'?30:45;
+  const spread=type==='blind-dog'?17:type==='flesh'?26:41;
+  return min+Math.floor(Math.random()*spread);
 }
 
 function enemyReply(game, enemy, multiplier=1, lead='') {
@@ -99,7 +116,7 @@ export function throwGrenade(game) {
   if (!countItem(game.inventory,'rgd5')) return {ok:false,message:'В рюкзаке нет РГД-5.'};
   removeItem(game.inventory,'rgd5',1); game.combatEffect={type:'grenade',until:(game.clock.worldMinutes||0)+3}; const damage=42+Math.floor(Math.random()*17); enemy.hp=Math.max(0,enemy.hp-damage); advanceGame(game,2);
   let message=`Ты бросаешь РГД-5. Взрыв наносит ${damage} урона.`;
-  if (enemy.hp<=0) { const reward=40+Math.floor(Math.random()*80); game.money+=reward; game.player.kills+=1; game.player.rating+=2; game.player.reputation+=2; if(enemy.type==='blind-dog'&&Math.random()<.72)addItem(game.inventory,'tail',1); if(enemy.type==='flesh'&&Math.random()<.48)addItem(game.inventory,'flesh-eye',1); if(enemy.atpAssault){game.activeEncounter=null;advanceAtpRescue(game);} else if(enemy.wolfDogPack&&game.wolfDogQuest?.status==='active'){game.wolfDogQuest.killed=Math.min(game.wolfDogQuest.total||5,(game.wolfDogQuest.killed||0)+1);const quest=game.quests?.find(entry=>entry.id==='wolf-dog-pack');if(quest)quest.progress=game.wolfDogQuest.killed;const remain=(game.wolfDogQuest.total||5)-game.wolfDogQuest.killed;if(remain>0){game.activeEncounter={type:'blind-dog',name:'Слепой пёс',hp:55,maxHp:55,damage:8+Math.floor(Math.random()*5),count:1,imageIndex:0,image:'',wolfDogPack:true,packIndex:game.wolfDogQuest.killed+1};message+=` Уничтожено ${game.wolfDogQuest.killed}/5. Выбегает следующая собака.`;}else{game.wolfDogQuest.status='ready';if(quest)quest.status='ready';}} else game.activeEncounter=null; message+=` Противник повержен. Найдено ${reward} Купонов.`; }
+  if (enemy.hp<=0) { const reward=rewardForDefeat(enemy); game.money+=reward; game.player.kills+=1; game.player.rating+=2; game.player.reputation+=2; if(enemy.type==='blind-dog'&&Math.random()<.72)addItem(game.inventory,'tail',1); if(enemy.type==='flesh'&&Math.random()<.48)addItem(game.inventory,'flesh-eye',1); if(enemy.atpAssault){game.activeEncounter=null;advanceAtpRescue(game);} else if(enemy.wolfDogPack&&game.wolfDogQuest?.status==='active'){game.wolfDogQuest.killed=Math.min(game.wolfDogQuest.total||5,(game.wolfDogQuest.killed||0)+1);const quest=game.quests?.find(entry=>entry.id==='wolf-dog-pack');if(quest)quest.progress=game.wolfDogQuest.killed;const remain=(game.wolfDogQuest.total||5)-game.wolfDogQuest.killed;if(remain>0){game.activeEncounter={type:'blind-dog',name:'Слепой пёс',hp:55,maxHp:55,damage:8+Math.floor(Math.random()*5),count:1,imageIndex:0,image:'',wolfDogPack:true,packIndex:game.wolfDogQuest.killed+1};message+=` Уничтожено ${game.wolfDogQuest.killed}/5. Выбегает следующая собака.`;}else{game.wolfDogQuest.status='ready';if(quest)quest.status='ready';}} else game.activeEncounter=null; message+=` Противник повержен. Найдено ${reward} Купонов.`; }
   else { const reply=enemyReply(game,enemy,.5); message+=` ${reply.message}`; }
   if (enemy.hp<=0 && !game.activeEncounter) registerCorpseLoot(game,enemy);
   addLog(game,message,enemy.hp>0?'danger':'system'); return {ok:true,message};
@@ -153,7 +170,10 @@ export function beginEncounter(game, type='blind-dog') {
   const faction = ['military','bandit','stalker'].includes(type) ? (type==='stalker'?'loner':type) : null;
   const appearances = faction ? (NPC_APPEARANCES[faction]||[]) : [];
   const look = appearances.length ? appearances[Math.floor(Math.random()*appearances.length)] : null;
-  game.activeEncounter = { type, name, hp, maxHp:hp, damage, count:1, imageIndex:0, image:'', ...(faction?{faction,icon:look?.icon||'',appearance:look?.appearance||'',insignia:ASSETS.factionInsignias?.[faction]||''}:{}) };
+  const mutantKey=type==='flesh'?'flesh':type==='boar'?'boar':'blindDog';
+  const mutantLooks=ASSETS.mutants?.[mutantKey]||[];
+  const mutantAppearance=mutantLooks.length?mutantLooks[Math.floor(Math.random()*mutantLooks.length)]:'';
+  game.activeEncounter = { type, name, hp, maxHp:hp, damage, count:1, imageIndex:0, image:'', ...(faction?{faction,icon:look?.icon||'',appearance:look?.appearance||'',insignia:ASSETS.factionInsignias?.[faction]||''}:mutantAppearance?{appearance:mutantAppearance}:{}) };
   rememberEntity(game, game.activeEncounter, 'creature');
   return true;
 }
@@ -164,7 +184,7 @@ export function beginWolfDogPack(game) {
   if (game.wolfDogQuest?.status!=='active') return {ok:false,message:'Сейчас у вагончика нет поручения Волка.'};
   if (game.activeEncounter) return {ok:false,message:'Сначала закончи текущий бой.'};
   const dogIndex=(game.wolfDogQuest.killed||0)+1;
-  game.activeEncounter={type:'blind-dog',name:'Слепой пёс',hp:55,maxHp:55,damage:8+Math.floor(Math.random()*5),count:1,imageIndex:0,image:'',wolfDogPack:true,packIndex:dogIndex};
+  game.activeEncounter={type:'blind-dog',name:'Слепой пёс',hp:55,maxHp:55,damage:8+Math.floor(Math.random()*5),count:1,imageIndex:0,image:'',appearance:(ASSETS.mutants?.blindDog||[])[Math.floor(Math.random()*(ASSETS.mutants?.blindDog?.length||1))]||'',wolfDogPack:true,packIndex:dogIndex};
   addLog(game,`У вагончика показался слепой пёс (${dogIndex}/5).`, 'danger');
   return {ok:true,message:`У вагончика тебя заметила стая. Первый пёс бросается на тебя. Всего здесь пять собак.`};
 }
@@ -189,7 +209,7 @@ export function playerAttack(game) {
   game.combatCooldownUntil=(game.clock.worldMinutes||0)+1;
   let message = `Ты используешь ${weapon.name}. Противник получает ${damage} урона.`;
   if (enemy.hp <= 0) {
-    const reward = 40 + Math.floor(Math.random()*80);
+    const reward = rewardForDefeat(enemy);
     game.money += reward;
     game.player.kills += 1;
     game.player.rating += 2;
@@ -214,7 +234,7 @@ export function playerAttack(game) {
       const remaining=(game.wolfDogQuest.total||5)-game.wolfDogQuest.killed;
       if (remaining>0) {
         const nextIndex=game.wolfDogQuest.killed+1;
-        game.activeEncounter={type:'blind-dog',name:'Слепой пёс',hp:55,maxHp:55,damage:8+Math.floor(Math.random()*5),count:1,imageIndex:0,image:'',wolfDogPack:true,packIndex:nextIndex};
+        game.activeEncounter={type:'blind-dog',name:'Слепой пёс',hp:55,maxHp:55,damage:8+Math.floor(Math.random()*5),count:1,imageIndex:0,image:'',appearance:(ASSETS.mutants?.blindDog||[])[Math.floor(Math.random()*(ASSETS.mutants?.blindDog?.length||1))]||'',wolfDogPack:true,packIndex:nextIndex};
         message += ` Уничтожено ${game.wolfDogQuest.killed} из пяти. Из-за вагончика выбегает следующая собака — осталось ${remaining}.`;
       } else {
         game.wolfDogQuest.status='ready';

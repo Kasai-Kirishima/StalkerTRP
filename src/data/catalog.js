@@ -1,6 +1,7 @@
 export const ASSETS = {
   menu: new URL('../../assets/images/location-backgrounds/fonderevnanovickov%20vhod.webp', import.meta.url).href,
   pda: new URL('../../assets/images/location-backgrounds/kpkfon.webp', import.meta.url).href,
+  pdaTexture: new URL('../../assets/images/location-backgrounds/kpk-glass-texture.webp', import.meta.url).href,
   pdaBackdrop: new URL('../../assets/images/cordon-clean.webp', import.meta.url).href,
   locationBackgrounds: {
     'north-checkpoint': new URL('../../assets/images/location-backgrounds/severblokpostfon.webp', import.meta.url).href,
@@ -80,6 +81,53 @@ export const ASSETS = {
     wolf: new URL('../../assets/npc/Vneska/volkvneska.webp', import.meta.url).href,
     dzerzhinsky: new URL('../../assets/npc/Vneska/dxerjunskivneska.webp', import.meta.url).href
   },
+  itemImages: {
+    bread:new URL('../../assets/items/bread.webp',import.meta.url).href,
+    water:new URL('../../assets/items/water.webp',import.meta.url).href,
+    sausage:new URL('../../assets/items/sausage.webp',import.meta.url).href,
+    vodka:new URL('../../assets/items/vodka.webp',import.meta.url).href,
+    shells:new URL('../../assets/items/shells.webp',import.meta.url).href,
+    energy:new URL('../../assets/items/energy.webp',import.meta.url).href,
+    canned:new URL('../../assets/items/canned.webp',import.meta.url).href,
+    knife:new URL('../../assets/items/knife.webp',import.meta.url).href,
+    ammo9x18:new URL('../../assets/items/ammo9x18.webp',import.meta.url).href,
+    ammo9x19:new URL('../../assets/items/ammo9x19.webp',import.meta.url).href,
+    ammo545:new URL('../../assets/items/ammo545.webp',import.meta.url).href,
+    bandage:new URL('../../assets/items/bandage.webp',import.meta.url).href,
+    boltpack:new URL('../../assets/items/boltpack.webp',import.meta.url).href,
+    rgd5:new URL('../../assets/items/rgd5.webp',import.meta.url).href,
+    antirad:new URL('../../assets/items/antirad.webp',import.meta.url).href,
+    ai2:new URL('../../assets/items/ai2.webp',import.meta.url).href,
+    binoculars:new URL('../../assets/items/binoculars.webp',import.meta.url).href,
+    flash:new URL('../../assets/items/flash.webp',import.meta.url).href,
+    tail:new URL('../../assets/items/tail.webp',import.meta.url).href,
+    'flesh-eye':new URL('../../assets/items/flesh-eye.webp',import.meta.url).href,
+    medusa:new URL('../../assets/items/medusa.webp',import.meta.url).href,
+    'stone-flower':new URL('../../assets/items/stone-flower.webp',import.meta.url).href,
+    meat_chunk:new URL('../../assets/items/meat-chunk.webp',import.meta.url).href,
+    gravi:new URL('../../assets/items/gravi.webp',import.meta.url).href,
+    milmed:new URL('../../assets/items/milmed.webp',import.meta.url).href,
+    sawedoff:new URL('../../assets/items/sawedoff.webp',import.meta.url).href,
+    pm:new URL('../../assets/items/pm.webp',import.meta.url).href,
+    vm17:new URL('../../assets/items/vm17.webp',import.meta.url).href,
+    gaduka:new URL('../../assets/items/gaduka.webp',import.meta.url).href,
+    aksu:new URL('../../assets/items/aksu.webp',import.meta.url).href,
+    'pripyat-dosimeter':new URL('../../assets/items/dosimeter.webp',import.meta.url).href,
+    'boar-trophy':new URL('../../assets/items/boar-trophy.webp',import.meta.url).href
+  },
+  weaponImages: {
+    knife:new URL('../../assets/items/knife.webp',import.meta.url).href,
+    sawedoff:new URL('../../assets/items/sawedoff.webp',import.meta.url).href,
+    pm:new URL('../../assets/items/pm.webp',import.meta.url).href,
+    vm17:new URL('../../assets/items/vm17.webp',import.meta.url).href,
+    gaduka:new URL('../../assets/items/gaduka.webp',import.meta.url).href,
+    aksu:new URL('../../assets/items/aksu.webp',import.meta.url).href
+  },
+  mutants: {
+    blindDog:['slepoipes1.webp','slepoipes2.webp','slepoipes3.webp','slepoipes4.webp'].map(name=>new URL(`../../assets/mutants/${name}`,import.meta.url).href),
+    flesh:['plot1icon.webp','plot2.webp','plot3icon.webp'].map(name=>new URL(`../../assets/mutants/${name}`,import.meta.url).href),
+    boar:['kaban1.webp','kaban2.webp','kaban3.webp'].map(name=>new URL(`../../assets/mutants/${name}`,import.meta.url).href)
+  },
   factionInsignias: {
     loner: new URL('../../assets/insignia/stalkericon.webp', import.meta.url).href,
     bandit: new URL('../../assets/insignia/bandituicon.webp', import.meta.url).href,
@@ -151,58 +199,57 @@ export const AVATARS = {
 };
 
 export const ITEMS = [
-  { id:'bread', name:'Хлеб', price:35, weight:.45, w:1,h:1, cat:'Еда', desc:'Простой хлеб. Не роскошь, но в дороге пригодится.', image:'', use:'food', restore:14 },
-  { id:'water', name:'Минеральная вода', price:40, weight:.55, w:1,h:2, cat:'Еда', desc:'Бутылка питьевой воды.', image:'', use:'water', restore:25 },
-  { id:'sausage', name:'Колбаса диетическая', price:65, weight:.35, w:2,h:1, cat:'Еда', desc:'Небольшая палка колбасы.', image:'', use:'food', restore:22 },
-  { id:'vodka', name:'Водка «Казаки»', price:70, weight:.5, w:1,h:2, cat:'Еда', desc:'Предмет для обмена и лута. Персонаж не употребляет его.', image:'', use:null },
-  { id:'shells', name:'Пачка патронов 12 калибра', price:80, weight:.6, w:2,h:1, cat:'Боеприпасы', desc:'Пачка дробовых патронов.', image:'' },
-  { id:'energy', name:'Энергетик', price:80, weight:.45, w:1,h:2, cat:'Еда', desc:'Помогает взбодриться и немного восстановить силы.', image:'', use:'energy', restore:18 },
-  { id:'canned', name:'Тушёнка', price:90, weight:.45, w:1,h:1, cat:'Еда', desc:'Банка тушёнки.', image:'', use:'food', restore:30 },
-  { id:'yantar-cheese', name:'Плавленый сырок «Янтарь»', price:45, weight:.16, w:1,h:1, cat:'Еда', desc:'Небольшой плавленый сырок в фольге. Хорошая закуска у костра.', image:'', use:'food', restore:18, emoji:'🧀' },
-  { id:'knife', name:'Нож', price:100, weight:.35, w:1,h:2, cat:'Оружие', desc:'Надёжный нож для бытовых задач и самообороны.', image:'', damage:12, weapon:'melee' },
-  { id:'ammo9x18', name:'Пачка патронов 9×18', price:110, weight:.35, w:2,h:1, cat:'Боеприпасы', desc:'Пачка патронов 9×18 мм.', image:'' },
-  { id:'ammo9x19', name:'Пачка патронов 9×19', price:130, weight:.4, w:2,h:1, cat:'Боеприпасы', desc:'Пачка патронов 9×19 мм.', image:'' },
-  { id:'ammo545', name:'Пачка патронов 5.45×39', price:180, weight:.48, w:2,h:1, cat:'Боеприпасы', desc:'Пачка патронов 5.45×39 мм для АКСУ.', image:'' },
-  { id:'bandage', name:'Бинт', price:140, weight:.12, w:1,h:1, cat:'Медицина', desc:'Останавливает небольшое кровотечение и восстанавливает здоровье.', image:'', use:'heal', restore:18 },
-  { id:'boltpack', name:'Болты (10 шт.)', price:160, weight:.5, w:2,h:1, cat:'Снаряжение', desc:'Пачка из десяти болтов. Используются для проверки и отключения некоторых аномалий.', image:'', restore:10 },
-  { id:'rgd5', name:'РГД-5', price:220, weight:.4, w:1,h:2, cat:'Оружие', desc:'Осколочная граната. В прототипе используется как редкий боевой расходник.', image:'', damage:35, weapon:'grenade' },
-  { id:'antirad', name:'Антирад', price:240, weight:.15, w:1,h:1, cat:'Медицина', desc:'Снижает накопленную радиацию.', image:'', use:'antirad', restore:35 },
-  { id:'ai2', name:'АИ-2', price:260, weight:.25, w:1,h:1, cat:'Медицина', desc:'Аптечка первой помощи.', image:'', use:'heal', restore:38 },
-  { id:'binoculars', name:'Бинокль', price:320, weight:.6, w:2,h:2, cat:'Снаряжение', desc:'Позволяет осмотреть соседнюю локацию, не заходя на неё.', image:'', emoji:'🔭' },
-  { id:'flash', name:'Флешка', price:350, weight:.05, w:1,h:1, cat:'Снаряжение', desc:'Может содержать данные о задании или координаты тайника.', image:'' },
-  { id:'tail', name:'Хвост слепого пса', price:400, weight:.4, w:2,h:1, cat:'Добыча', desc:'Мутантный трофей, который можно продать торговцу.', image:'', emoji:'🐕' },
-  { id:'flesh-eye', name:'Глаз плоти', price:650, weight:.2, w:1,h:1, cat:'Добыча', desc:'Редкий мутантный трофей. Торговцы платят за него заметно больше, чем за обычные части мутантов.', image:'', emoji:'👁' },
-  { id:'medusa', name:'Артефакт «Медуза»', price:650, weight:.3, w:2,h:2, cat:'Артефакты', desc:'Небольшой артефакт. Может быть продан или изучен.', image:'' },
-  { id:'stone-flower', name:'Артефакт «Каменный цветок»', price:1850, weight:.45, w:2,h:2, cat:'Артефакты', desc:'Редкий плотный артефакт с минерализованными лепестками. Его происхождение пока не установлено.', image:'', emoji:'✿' },
-  { id:'meat_chunk', name:'Артефакт «Ломоть мяса»', price:900, weight:.35, w:2,h:2, cat:'Артефакты', desc:'Органический артефакт, образующийся в биологических аномалиях. Слабо восстанавливает здоровье, но повышает радиационный фон.', image:'' },
-  { id:'gravi', name:'Артефакт «Грави»', price:1100, weight:.4, w:2,h:2, cat:'Артефакты', desc:'Гравитационный артефакт, образующийся в полях аномалий типа Воронка и Трамплин.', image:'' },
-  { id:'milmed', name:'Военная аптечка', price:700, weight:.45, w:2,h:1, cat:'Медицина', desc:'Улучшенная аптечка.', image:'', use:'heal', restore:60 },
-  { id:'aurora', name:'Противогаз «Аврора»', price:800, weight:1.2, w:2,h:2, cat:'Защита', desc:'Базовая защита органов дыхания.', image:'' },
-  { id:'leather', name:'Кожанка', price:850, weight:2.8, w:2,h:3, cat:'Броня', desc:'Обычная кожаная куртка новичка. Изображение соответствует предмету — бронекуртка «Кожанка», а не косуха.', image:'', armor:8 },
-  { id:'sawedoff', name:'Обрез', price:950, weight:2.2, w:2,h:2, cat:'Оружие', desc:'Двуствольное ружьё укороченного типа.', image:'', damage:28, weapon:'shotgun', ammo:'shells' },
-  { id:'biker', name:'Косуха', price:1100, weight:2.4, w:2,h:3, cat:'Броня', desc:'Чёрная кожаная косуха. Отличается от обычной кожанки.', image:'', armor:10 },
-  { id:'pm', name:'ПМм', price:1250, weight:.9, w:2,h:2, cat:'Оружие', desc:'Пистолет под патрон 9×18 мм.', image:'', damage:21, weapon:'pistol', ammo:'ammo9x18' },
-  { id:'otklik', name:'Детектор «Отклик»', price:1450, weight:.7, w:2,h:2, cat:'Снаряжение', desc:'Простейший детектор аномальных сигналов. Нужен для поиска артефактов.', image:'' },
-  { id:'medved', name:'Детектор аномалий «Медведь»', price:3200, weight:.9, w:2,h:2, cat:'Снаряжение', desc:'Более точный детектор: помогает различать сильные и слабые отклики в аномальных полях.', image:'', emoji:'📡' },
-  { id:'pripyat-dosimeter', name:'Счётчик радиации «Припять»', price:520, weight:.35, w:1,h:2, cat:'Снаряжение', desc:'Компактный дозиметр. При наличии в рюкзаке показывает отдельное показание радиационного фона.', image:'', emoji:'☢' },
-  { id:'vm17', name:'ВМ-17', price:1800, weight:3.4, w:3,h:2, cat:'Оружие', desc:'Двуствольное охотничье ружьё.', image:'', damage:34, weapon:'shotgun', ammo:'shells' },
-  { id:'psz5', name:'Бронежилет ПСЗ-5', price:2600, weight:5.8, w:3,h:3, cat:'Броня', desc:'Армейский бронежилет.', image:'', armor:24 },
-  { id:'gaduka', name:'Гадюка-5', price:3400, weight:3.1, w:3,h:2, cat:'Оружие', desc:'Пистолет-пулемёт под патрон 9×19 мм.', image:'', damage:26, weapon:'smg', ammo:'ammo9x19' },
-  { id:'aksu', name:'АКСУ', price:4800, weight:2.7, w:3,h:2, cat:'Оружие', desc:'Компактный автомат под патрон 5.45×39 мм. Удобен в тесных помещениях, но уступает полноразмерным автоматам в точности на дальних дистанциях.', image:'', damage:31, weapon:'rifle', ammo:'ammo545' },
-  { id:'optik', name:'Противогаз «Оптик»', price:3900, weight:1.4, w:2,h:2, cat:'Защита', desc:'Продвинутая маска с улучшенным обзором.', image:'' },
-  { id:'zarya', name:'Заря', price:5200, weight:6.5, w:3,h:3, cat:'Броня', desc:'Защитный костюм для опасных вылазок.', image:'', armor:30 },
-  { id:'berill', name:'Бронекостюм «Берилл»', price:6200, weight:7.2, w:3,h:3, cat:'Броня', desc:'Тяжёлый защитный комплект с усиленной бронёй.', image:'', armor:34 },
-  { id:'debyt', name:'Защитный костюм «Дебют»', price:1800, weight:3.6, w:2,h:3, cat:'Броня', desc:'Простой защитный комплект для первых вылазок.', image:'', armor:12 },
-  { id:'kosyha', name:'Усиленная косуха', price:1050, weight:2.5, w:2,h:3, cat:'Броня', desc:'Косуха с простыми защитными вставками.', image:'', armor:9 },
-  { id:'kozanka', name:'Бандитская бронекуртка', price:1450, weight:3.1, w:2,h:3, cat:'Броня', desc:'Усиленная куртка, которую носят некоторые группировки.', image:'', armor:13 },
-  { id:'kozanplash', name:'Плащ', price:1650, weight:3.8, w:2,h:3, cat:'Броня', desc:'Плотный плащ с капюшоном и простыми защитными вставками. Доступен для выбора перед первым выходом.', image:'', armor:13 },
-  { id:'stalnoishlem', name:'Стальной шлем', price:1650, weight:2.1, w:2,h:2, cat:'Броня', desc:'Защитный шлем для опасных переходов.', image:'', armor:8 },
-  { id:'pa8', name:'Противогаз ПА-8', price:950, weight:1.1, w:2,h:2, cat:'Защита', desc:'Фильтрующий противогаз базового класса.', image:'' },
-  { id:'mask-loner-basic', name:'Противогаз новичка «ПА-8Л»', price:520, weight:1.0, w:2,h:2, cat:'Защита', desc:'Простой подержанный противогаз, который часто достаётся новичкам-одиночкам. Защита базовая, фильтр лучше заменить при первой возможности.', image:'', faction:'loner', starterOnly:true },
-  { id:'mask-bandit-basic', name:'Самодельный противогаз «Бродяга»', price:480, weight:1.0, w:2,h:2, cat:'Защита', desc:'Потёртая маска с простым фильтром, которую обычно используют новички-бандиты.', image:'', faction:'bandit', starterOnly:true },
-  { id:'mask-military-basic', name:'Учебный противогаз ПМК-1', price:650, weight:1.1, w:2,h:2, cat:'Защита', desc:'Складской противогаз начального уровня, выдаваемый новобранцам военных подразделений.', image:'', faction:'military', starterOnly:true },
-  { id:'pa10', name:'Противогаз ПА-10', price:1350, weight:1.25, w:2,h:2, cat:'Защита', desc:'Противогаз с улучшенной посадкой и фильтрацией.', image:'' },
-  { id:'pg4', name:'Противогаз ПГ-4', price:1750, weight:1.4, w:2,h:2, cat:'Защита', desc:'Защитная маска для длительных переходов в загрязнённых районах.', image:'' }
+  { id:'bread', name:'Хлеб', price:60, weight:.45, w:1,h:1, cat:'Еда', desc:'Простой хлеб. Не роскошь, но в дороге пригодится.', image:'', use:'food', restore:14 },
+  { id:'water', name:'Минеральная вода', price:75, weight:.55, w:1,h:2, cat:'Еда', desc:'Бутылка питьевой воды.', image:'', use:'water', restore:25 },
+  { id:'sausage', name:'Колбаса диетическая', price:110, weight:.35, w:2,h:1, cat:'Еда', desc:'Небольшая палка колбасы.', image:'', use:'food', restore:22 },
+  { id:'vodka', name:'Водка «Казаки»', price:150, weight:.5, w:1,h:2, cat:'Еда', desc:'Предмет для обмена и лута. Персонаж не употребляет его.', image:'', use:null },
+  { id:'shells', name:'Пачка патронов 12 калибра', price:165, weight:.6, w:2,h:1, cat:'Боеприпасы', desc:'Пачка дробовых патронов.', image:'' },
+  { id:'energy', name:'Энергетик', price:130, weight:.45, w:1,h:2, cat:'Еда', desc:'Помогает взбодриться и немного восстановить силы.', image:'', use:'energy', restore:18 },
+  { id:'canned', name:'Тушёнка', price:160, weight:.45, w:1,h:1, cat:'Еда', desc:'Банка тушёнки.', image:'', use:'food', restore:30 },
+  { id:'knife', name:'Нож', price:300, weight:.35, w:1,h:2, cat:'Оружие', desc:'Надёжный нож для бытовых задач и самообороны.', image:'', damage:12, weapon:'melee' },
+  { id:'ammo9x18', name:'Пачка патронов 9×18', price:175, weight:.35, w:2,h:1, cat:'Боеприпасы', desc:'Пачка патронов 9×18 мм.', image:'' },
+  { id:'ammo9x19', name:'Пачка патронов 9×19', price:220, weight:.4, w:2,h:1, cat:'Боеприпасы', desc:'Пачка патронов 9×19 мм.', image:'' },
+  { id:'ammo545', name:'Пачка патронов 5.45×39', price:360, weight:.48, w:2,h:1, cat:'Боеприпасы', desc:'Пачка патронов 5.45×39 мм для АКСУ.', image:'' },
+  { id:'bandage', name:'Бинт', price:210, weight:.12, w:1,h:1, cat:'Медицина', desc:'Останавливает небольшое кровотечение и восстанавливает здоровье.', image:'', use:'heal', restore:18 },
+  { id:'boltpack', name:'Болты (10 шт.)', price:220, weight:.5, w:2,h:1, cat:'Снаряжение', desc:'Пачка из десяти болтов. Используются для проверки и отключения некоторых аномалий.', image:'', restore:10 },
+  { id:'rgd5', name:'РГД-5', price:520, weight:.4, w:1,h:2, cat:'Оружие', desc:'Осколочная граната. В прототипе используется как редкий боевой расходник.', image:'', damage:35, weapon:'grenade' },
+  { id:'antirad', name:'Антирад', price:430, weight:.15, w:1,h:1, cat:'Медицина', desc:'Снижает накопленную радиацию.', image:'', use:'antirad', restore:35 },
+  { id:'ai2', name:'АИ-2', price:480, weight:.25, w:1,h:1, cat:'Медицина', desc:'Аптечка первой помощи.', image:'', use:'heal', restore:38 },
+  { id:'binoculars', name:'Бинокль', price:680, weight:.6, w:2,h:2, cat:'Снаряжение', desc:'Позволяет осмотреть соседнюю локацию, не заходя на неё.', image:'', emoji:'🔭' },
+  { id:'flash', name:'Флешка', price:550, weight:.05, w:1,h:1, cat:'Снаряжение', desc:'Может содержать данные о задании или координаты тайника.', image:'' },
+  { id:'tail', name:'Хвост слепого пса', price:450, weight:.4, w:2,h:1, cat:'Добыча', desc:'Мутантный трофей, который можно продать торговцу.', image:'', emoji:'🐕' },
+  { id:'flesh-eye', name:'Глаз плоти', price:950, weight:.2, w:1,h:1, cat:'Добыча', desc:'Редкий мутантный трофей. Торговцы платят за него заметно больше, чем за обычные части мутантов.', image:'', emoji:'👁' },
+  { id:'medusa', name:'Артефакт «Медуза»', price:1200, weight:.3, w:2,h:2, cat:'Артефакты', desc:'Небольшой артефакт. Может быть продан или изучен.', image:'' },
+  { id:'stone-flower', name:'Артефакт «Каменный цветок»', price:3300, weight:.45, w:2,h:2, cat:'Артефакты', desc:'Редкий плотный артефакт с минерализованными лепестками. Его происхождение пока не установлено.', image:'', emoji:'✿' },
+  { id:'meat_chunk', name:'Артефакт «Ломоть мяса»', price:1450, weight:.35, w:2,h:2, cat:'Артефакты', desc:'Органический артефакт, образующийся в биологических аномалиях. Слабо восстанавливает здоровье, но повышает радиационный фон.', image:'' },
+  { id:'gravi', name:'Артефакт «Грави»', price:2200, weight:.4, w:2,h:2, cat:'Артефакты', desc:'Гравитационный артефакт, образующийся в полях аномалий типа Воронка и Трамплин.', image:'' },
+  { id:'milmed', name:'Военная аптечка', price:1150, weight:.45, w:2,h:1, cat:'Медицина', desc:'Улучшенная аптечка.', image:'', use:'heal', restore:60 },
+  { id:'aurora', name:'Противогаз «Аврора»', price:1050, weight:1.2, w:2,h:2, cat:'Защита', desc:'Базовая защита органов дыхания.', image:'' },
+  { id:'leather', name:'Кожанка', price:1300, weight:2.8, w:2,h:3, cat:'Броня', desc:'Обычная кожаная куртка новичка. Изображение соответствует предмету — бронекуртка «Кожанка», а не косуха.', image:'', armor:8 },
+  { id:'sawedoff', name:'Обрез', price:1650, weight:2.2, w:2,h:2, cat:'Оружие', desc:'Двуствольное ружьё укороченного типа.', image:'', damage:28, weapon:'shotgun', ammo:'shells' },
+  { id:'biker', name:'Косуха', price:1400, weight:2.4, w:2,h:3, cat:'Броня', desc:'Чёрная кожаная косуха. Отличается от обычной кожанки.', image:'', armor:10 },
+  { id:'pm', name:'ПМм', price:1750, weight:.9, w:2,h:2, cat:'Оружие', desc:'Пистолет под патрон 9×18 мм.', image:'', damage:21, weapon:'pistol', ammo:'ammo9x18' },
+  { id:'otklik', name:'Детектор «Отклик»', price:1950, weight:.7, w:2,h:2, cat:'Снаряжение', desc:'Простейший детектор аномальных сигналов. Нужен для поиска артефактов.', image:'' },
+  { id:'medved', name:'Детектор аномалий «Медведь»', price:4300, weight:.9, w:2,h:2, cat:'Снаряжение', desc:'Более точный детектор: помогает различать сильные и слабые отклики в аномальных полях.', image:'', emoji:'📡' },
+  { id:'pripyat-dosimeter', name:'Счётчик радиации «Припять»', price:700, weight:.35, w:1,h:2, cat:'Снаряжение', desc:'Компактный дозиметр. При наличии в рюкзаке показывает отдельное показание радиационного фона.', image:'', emoji:'☢' },
+  { id:'vm17', name:'ВМ-17', price:2850, weight:3.4, w:3,h:2, cat:'Оружие', desc:'Двуствольное охотничье ружьё.', image:'', damage:34, weapon:'shotgun', ammo:'shells' },
+  { id:'psz5', name:'Бронежилет ПСЗ-5', price:5200, weight:5.8, w:3,h:3, cat:'Броня', desc:'Армейский бронежилет.', image:'', armor:24 },
+  { id:'gaduka', name:'Гадюка-5', price:5600, weight:3.1, w:3,h:2, cat:'Оружие', desc:'Пистолет-пулемёт под патрон 9×19 мм.', image:'', damage:26, weapon:'smg', ammo:'ammo9x19' },
+  { id:'aksu', name:'АКСУ', price:7200, weight:2.7, w:3,h:2, cat:'Оружие', desc:'Компактный автомат под патрон 5.45×39 мм. Удобен в тесных помещениях, но уступает полноразмерным автоматам в точности на дальних дистанциях.', image:'', damage:31, weapon:'rifle', ammo:'ammo545' },
+  { id:'optik', name:'Противогаз «Оптик»', price:5200, weight:1.4, w:2,h:2, cat:'Защита', desc:'Продвинутая маска с улучшенным обзором.', image:'' },
+  { id:'zarya', name:'Заря', price:7200, weight:6.5, w:3,h:3, cat:'Броня', desc:'Защитный костюм для опасных вылазок.', image:'', armor:30 },
+  { id:'berill', name:'Бронекостюм «Берилл»', price:9200, weight:7.2, w:3,h:3, cat:'Броня', desc:'Тяжёлый защитный комплект с усиленной бронёй.', image:'', armor:34 },
+  { id:'debyt', name:'Защитный костюм «Дебют»', price:1850, weight:3.6, w:2,h:3, cat:'Броня', desc:'Простой защитный комплект для первых вылазок.', image:'', armor:12 },
+  { id:'kosyha', name:'Усиленная косуха', price:1600, weight:2.5, w:2,h:3, cat:'Броня', desc:'Косуха с простыми защитными вставками.', image:'', armor:9 },
+  { id:'kozanka', name:'Бандитская бронекуртка', price:1550, weight:3.1, w:2,h:3, cat:'Броня', desc:'Усиленная куртка, которую носят некоторые группировки.', image:'', armor:13 },
+  { id:'kozanplash', name:'Плащ', price:1600, weight:3.8, w:2,h:3, cat:'Броня', desc:'Плотный плащ с капюшоном и простыми защитными вставками. Доступен для выбора перед первым выходом.', image:'', armor:13 },
+  { id:'stalnoishlem', name:'Стальной шлем', price:1800, weight:2.1, w:2,h:2, cat:'Броня', desc:'Защитный шлем для опасных переходов.', image:'', armor:8 },
+  { id:'pa8', name:'Противогаз ПА-8', price:1150, weight:1.1, w:2,h:2, cat:'Защита', desc:'Фильтрующий противогаз базового класса.', image:'' },
+  { id:'mask-loner-basic', name:'Противогаз новичка «ПА-8Л»', price:550, weight:1.0, w:2,h:2, cat:'Защита', desc:'Простой подержанный противогаз, который часто достаётся новичкам-одиночкам. Защита базовая, фильтр лучше заменить при первой возможности.', image:'', faction:'loner', starterOnly:true },
+  { id:'mask-bandit-basic', name:'Самодельный противогаз «Бродяга»', price:520, weight:1.0, w:2,h:2, cat:'Защита', desc:'Потёртая маска с простым фильтром, которую обычно используют новички-бандиты.', image:'', faction:'bandit', starterOnly:true },
+  { id:'mask-military-basic', name:'Учебный противогаз ПМК-1', price:600, weight:1.1, w:2,h:2, cat:'Защита', desc:'Складской противогаз начального уровня, выдаваемый новобранцам военных подразделений.', image:'', faction:'military', starterOnly:true },
+  { id:'pa10', name:'Противогаз ПА-10', price:1500, weight:1.25, w:2,h:2, cat:'Защита', desc:'Противогаз с улучшенной посадкой и фильтрацией.', image:'' },
+  { id:'pg4', name:'Противогаз ПГ-4', price:1900, weight:1.4, w:2,h:2, cat:'Защита', desc:'Защитная маска для длительных переходов в загрязнённых районах.', image:'' }
 ];
 
 export const LOCATIONS = [
@@ -280,13 +327,13 @@ export const EXPLORE_SPOTS = [
 ];
 
 export const NPCS = [
-  { id:'sidorovich', name:'Сидорович', role:'Торговец', group:'Одиночки', faction:'loner', location:'sidorovich-bunker', icon:ASSETS.npcPortraits.sidorovich, appearance:'', trader:true, stockIds:['bread','water','canned','sausage','yantar-cheese','bandage','ai2','antirad','ammo9x18','ammo9x19','ammo545','shells','knife','pm','binoculars','boltpack','otklik','medved','pripyat-dosimeter','aksu','leather','aurora'], priceMultiplier:1.08, buyMultiplier:.48, greeting:'Ну, заходи, сталкер. Есть дело или просто погреться пришёл?', topics:['работа','задания','квесты','поручения','торговля','слухи'], lines:{ work:'Есть пара мелких поручений. Для начала осмотрись на Кордоне, не лезь куда не просят.', trade:'Открывай торговую вкладку КПК. Покупай мой товар или продавай найденное — только не жди, что я дам за хлам большие деньги.', rumors:'Говорят, у старой насыпи снова что-то притягивает железо. Я бы туда без болтов не совался.' } },
+  { id:'sidorovich', name:'Сидорович', role:'Торговец', group:'Одиночки', faction:'loner', location:'sidorovich-bunker', icon:ASSETS.npcPortraits.sidorovich, appearance:'', trader:true, stockIds:['bread','water','canned','sausage','bandage','ai2','antirad','ammo9x18','ammo9x19','ammo545','shells','knife','pm','binoculars','boltpack','otklik','medved','pripyat-dosimeter','aksu','leather','aurora'], priceMultiplier:1.14, buyMultiplier:.42, greeting:'Ну, заходи, сталкер. Есть дело или просто погреться пришёл?', topics:['работа','задания','квесты','поручения','торговля','слухи'], lines:{ work:'Есть пара мелких поручений. Для начала осмотрись на Кордоне, не лезь куда не просят.', trade:'Открывай торговую вкладку КПК. Покупай мой товар или продавай найденное — только не жди, что я дам за хлам большие деньги.', rumors:'Говорят, у старой насыпи снова что-то притягивает железо. Я бы туда без болтов не совался.' } },
   { id:'wolf', name:'Волк', role:'Вожатый', group:'Одиночки', faction:'loner', location:'rookie-village', icon:ASSETS.npcPortraits.wolf, appearance:ASSETS.npcBodies.wolf, greeting:'Здравствуй, сталкер. Не желаешь помочь таким как ты?', topics:['совет','работа','деревня'], lines:{ advice:'Не отходи далеко от деревни, пока не поймёшь, где здесь безопасно. И всегда держи путь назад.', work:'Тут собаки обжились возле вагончика, что севернее от деревни. Новички идут — они на них гавкнут, и те бегут куда глаза глядят. А бывает, что собаки и нападают. Убей пятерых, а там уже сочтёмся.', village:'Здесь собираются одиночки. Если не нарываться на неприятности, можно спокойно начать.' } },
   { id:'kostya-pudel', name:'Костя Пудель', role:'Сталкер у костра', group:'Одиночки', faction:'loner', location:'farmstead', icon:ASSETS.npcPortraits.loner[1], appearance:ASSETS.npcBodies.loner[1], greeting:'Ох, здорово. Присядь, если не торопишься. У огня разговор спокойнее.', topics:['работа','еда','колбаса','слухи'], lines:{ work:'Ох, знаешь, хотел бы я колбаски, да на костре поджарить, это же вкуснотища. Да вот только колбасы у меня нет, мог бы ты принести мне колбасу, только мне нужна колбаса диетическая, у меня с детства с желудком туго. Принесёшь, я буду тебе благодарен.', food:'Диетическая колбаса — вот это вещь. Только мне нужна именно такая, обычную желудок не простит.', rumors:'Говорят, в Тайном лагере странное поле появилось. Даже плоть рядом с ним будто теряется в воздухе.' } },
   { id:'kefir', name:'Кефир', role:'Пахан', group:'Бандиты', faction:'bandit', location:'atp', icon:ASSETS.npcPortraits.bandit[2], appearance:ASSETS.npcBodies.bandit[2], greeting:'Чего надо? Говори быстро, у меня тут люди заняты.', topics:['дело','правила','слухи'], lines:{ work:'Есть работа для тех, кто умеет держать язык за зубами. Сначала покажи, что не пустышка.', rules:'На АТП чужое добро без спроса не трогают. Особенно если оно моё.', rumors:'У мусорки замечали странные вспышки. Парни туда пока не суются.' } },
-  { id:'shnurok', name:'Шнурок', role:'Торговец АТП', group:'Бандиты', faction:'bandit', location:'atp', icon:ASSETS.npcPortraits.bandit[5], appearance:ASSETS.npcBodies.bandit[6], trader:true, stockIds:['vodka','bread','canned','sausage','knife','rgd5','shells','ammo9x18','ammo9x19','sawedoff','vm17','pm','biker','leather'], priceMultiplier:1.04, buyMultiplier:.42, greeting:'Чё надо? У Шнурка товар не залеживается. Есть деньги — найдём общий язык.', topics:['торговля','слухи','дела'], lines:{ trade:'Смотри товар в КПК. Могу продать ствол или патроны, а могу принять добычу. Только без мутантских соплей на прилавок.', rumors:'На свиноферме что-то копается. Парни говорят, там уже не обычные свиньи.', дела:'Сначала разберись с Кефиром. Не люблю, когда чужие решают вопросы без пахана.' } },
+  { id:'shnurok', name:'Шнурок', role:'Торговец АТП', group:'Бандиты', faction:'bandit', location:'atp', icon:ASSETS.npcPortraits.bandit[5], appearance:ASSETS.npcBodies.bandit[6], trader:true, stockIds:['vodka','bread','canned','sausage','knife','rgd5','shells','ammo9x18','ammo9x19','sawedoff','vm17','pm','biker','leather'], priceMultiplier:1.16, buyMultiplier:.39, greeting:'Чё надо? У Шнурка товар не залеживается. Есть деньги — найдём общий язык.', topics:['торговля','слухи','дела'], lines:{ trade:'Смотри товар в КПК. Могу продать ствол или патроны, а могу принять добычу. Только без мутантских соплей на прилавок.', rumors:'На свиноферме что-то копается. Парни говорят, там уже не обычные свиньи.', дела:'Сначала разберись с Кефиром. Не люблю, когда чужие решают вопросы без пахана.' } },
   { id:'dzerzhinsky', name:'Дмитрий Дзержинский', role:'Капитан блокпоста', group:'Военные', faction:'military', location:'south-checkpoint', icon:ASSETS.npcPortraits.dzerzhinsky, appearance:ASSETS.npcBodies.dzerzhinsky, greeting:'Документы и цель прибытия. На блокпосту без самодеятельности.', topics:['служба','пропуск','обстановка'], lines:{ service:'Я отвечаю за порядок на южном блокпосту. Любые подозрительные перемещения докладываются.', pass:'Порядок прохода зависит от обстановки и твоей репутации. Пока у тебя нулевой рейтинг.', situation:'Патрули проверяют дорогу и ближайшие строения. В последнее время в районе свалки участились странные сигналы.' } },
-  { id:'kapterka', name:'Каптёрка', role:'Квартирмейстер / снабженец', group:'Военные', faction:'military', location:'south-checkpoint', icon:ASSETS.npcPortraits.military[0], appearance:ASSETS.npcBodies.military[0], trader:true, stockIds:['ammo9x18','ammo9x19','ammo545','shells','bandage','ai2','antirad','milmed','aurora','optik','psz5','vm17','pm','gaduka','aksu','ammo545','boltpack'], priceMultiplier:1.18, buyMultiplier:.5, greeting:'Снабжение выдаётся по ведомости. Лишних вопросов не задавай — лучше скажи, что нужно.', topics:['торговля','снабжение','служба'], lines:{ trade:'В КПК открыт мой склад. Снаряжение выдаю по цене, трофеи принимаю по оценке.', supply:'Боеприпасы и аптечки есть не всегда. Запасы пополняются после поставок.', service:'Список имущества ведётся строго. За потерю армейского снаряжения придётся отвечать.' } }
+  { id:'kapterka', name:'Каптёрка', role:'Квартирмейстер / снабженец', group:'Военные', faction:'military', location:'south-checkpoint', icon:ASSETS.npcPortraits.military[0], appearance:ASSETS.npcBodies.military[0], trader:true, stockIds:['ammo9x18','ammo9x19','ammo545','shells','bandage','ai2','antirad','milmed','aurora','optik','psz5','vm17','pm','gaduka','aksu','ammo545','boltpack'], priceMultiplier:1.18, buyMultiplier:.40, greeting:'Снабжение выдаётся по ведомости. Лишних вопросов не задавай — лучше скажи, что нужно.', topics:['торговля','снабжение','служба'], lines:{ trade:'В КПК открыт мой склад. Снаряжение выдаю по цене, трофеи принимаю по оценке.', supply:'Боеприпасы и аптечки есть не всегда. Запасы пополняются после поставок.', service:'Список имущества ведётся строго. За потерю армейского снаряжения придётся отвечать.' } }
 ];
 
 // Варианты внешности персонажа используют только полные локальные пары портрета и модели.
@@ -301,13 +348,13 @@ export const AVATAR_OPTIONS = [
 
 // Music is loaded only from files selected by the player. No external music streams are bundled.
 export const QUESTS = [
-  { id:'first-steps', title:'Первые шаги', giver:'wolf', text:'Осмотрись в деревне новичков и загляни к Волку за советом.', reward:150, condition:'talk:wolf', status:'available' },
-  { id:'wolf-dog-pack', title:'Собаки у вагончика', giver:'wolf', text:'Уничтожь пять слепых собак, которые обосновались у вагончика севернее деревни новичков, затем вернись к Волку.', reward:450, condition:'wolf-dog-pack', status:'available' },
-  { id:'old-supplies', title:'Старые припасы', giver:'wolf', text:'Проверь остановку и найди что-нибудь полезное.', reward:220, condition:'search:stop', status:'available' },
-  { id:'signal-dump', title:'Новая аномалия', giver:'sidorovich', text:'Сходи в Тайный лагерь, понаблюдай за неизвестной аномалией, придумай ей название и вернись к Сидоровичу с докладом.', reward:850, condition:'anomaly:secret-camp', status:'available' },
-  { id:'pudel-sausage', title:'Колбаска для Пуделя', giver:'kostya-pudel', text:'Принеси Косте «Пуделю» диетическую колбасу. Он хочет поджарить её на костре.', reward:350, condition:'item:sausage', status:'available' },
-  { id:'atp-test', title:'Проверка на прочность', giver:'kefir', text:'Доберись до туннеля в лощину и проверь, не появились ли там чужаки.', reward:300, condition:'visit:ravine-tunnel', status:'available' },
-  { id:'patrol-report', title:'Доклад патруля', giver:'dzerzhinsky', text:'Осмотри блокпост под мостом и сообщи, что происходит на дороге.', reward:180, condition:'visit:bridge-checkpoint', status:'available' }
+  { id:'first-steps', title:'Первые шаги', giver:'wolf', text:'Осмотрись в деревне новичков и загляни к Волку за советом.', reward:400, condition:'talk:wolf', status:'available' },
+  { id:'wolf-dog-pack', title:'Собаки у вагончика', giver:'wolf', text:'Уничтожь пять слепых собак, которые обосновались у вагончика севернее деревни новичков, затем вернись к Волку.', reward:1150, condition:'wolf-dog-pack', status:'available' },
+  { id:'old-supplies', title:'Старые припасы', giver:'wolf', text:'Проверь остановку и найди что-нибудь полезное.', reward:600, condition:'search:stop', status:'available' },
+  { id:'signal-dump', title:'Новая аномалия', giver:'sidorovich', text:'Сходи в Тайный лагерь, понаблюдай за неизвестной аномалией, придумай ей название и вернись к Сидоровичу с докладом.', reward:2200, condition:'anomaly:secret-camp', status:'available' },
+  { id:'pudel-sausage', title:'Колбаска для Пуделя', giver:'kostya-pudel', text:'Принеси Косте «Пуделю» диетическую колбасу. Он хочет поджарить её на костре.', reward:450, condition:'item:sausage', status:'available' },
+  { id:'atp-test', title:'Проверка на прочность', giver:'kefir', text:'Доберись до туннеля в лощину и проверь, не появились ли там чужаки.', reward:950, condition:'visit:ravine-tunnel', status:'available' },
+  { id:'patrol-report', title:'Доклад патруля', giver:'dzerzhinsky', text:'Осмотри блокпост под мостом и сообщи, что происходит на дороге.', reward:650, condition:'visit:bridge-checkpoint', status:'available' }
 ];
 
 export const SQUADS = [
@@ -328,7 +375,7 @@ export const SQUADS = [
 // Rare protection, advanced weapons, detectors, mutant trophies and artifacts are excluded.
 export const STARTER_ITEM_IDS = [
   'bread','water','sausage','shells','energy','canned',
-  'knife','ammo9x18','ammo9x19','bandage','boltpack','rgd5','ai2','antirad',
+  'knife','ammo9x18','ammo9x19','bandage','boltpack','ai2','antirad',
   'sawedoff','pm','binoculars','leather','kozanka','kozanplash','debyt',
   'mask-loner-basic','mask-bandit-basic','mask-military-basic'
 ];
@@ -347,5 +394,5 @@ export const ITEM_ACQUISITION = {
   mutantDrops: ['tail','flesh-eye'],
   artifactHunt: ['medusa','meat_chunk','gravi']
 };
-export const START_BUDGET = 5200;
+export const START_BUDGET = 5000;
 export const MAX_CARRY_KG = 50;

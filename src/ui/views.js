@@ -11,7 +11,7 @@ const avatarMarkup = (src, name, emoji='☢') => {
   const fallback=`<span class="avatar-fallback"${isImageSource(src)?' hidden':''}>${emoji}</span>`;
   return `<div class="avatar-wrap">${isImageSource(src)?`<img src="${esc(src)}" alt="${esc(name)}" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false">`:''}${fallback}</div>`;
 };
-const factionInsignia = (faction, extraClass='') => ASSETS.factionInsignias?.[faction] ? `<img class="faction-insignia ${extraClass}" src="${esc(ASSETS.factionInsignias[faction])}" alt="${esc(faction)}" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="faction-insignia-fallback ${extraClass}" hidden>⚑</span>` : '';
+const factionInsignia = (faction, extraClass='') => ASSETS.factionInsignias?.[faction] ? `<img class="faction-insignia ${extraClass}" src="${esc(ASSETS.factionInsignias[faction])}" alt="${esc(faction)}" loading="lazy" onerror="this.hidden=true">` : '';
 const iconSvg = (name) => {
   const paths = {
     location:'<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5M9 21v-7h6v7"/>',
@@ -41,7 +41,7 @@ const iconSvg = (name) => {
   return `<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${paths[name]||paths.help}</svg>`;
 };
 const ITEM_ICONS = {
-  bread:'🍞', water:'💧', sausage:'🌭', vodka:'🧴', shells:'▤', energy:'⚡', canned:'🥫', 'yantar-cheese':'🧀',
+  bread:'🍞', water:'💧', sausage:'🌭', vodka:'🧴', shells:'▤', energy:'⚡', canned:'🥫',
   knife:'🔪', ammo9x18:'▥', ammo9x19:'▧', ammo545:'▦', bandage:'🩹', boltpack:'🔩', rgd5:'◉', antirad:'☣', ai2:'✚',
   binoculars:'🔭', flash:'▣', tail:'🐕', 'flesh-eye':'👁', medusa:'✹', 'stone-flower':'✿', meat_chunk:'◆', gravi:'⬢',
   milmed:'✚', aurora:'◉', leather:'🧥', sawedoff:'⌁', biker:'🧥', pm:'◌', otklik:'📡', medved:'📡', 'pripyat-dosimeter':'☢',
@@ -50,11 +50,11 @@ const ITEM_ICONS = {
 };
 const itemImage = (item) => {
   const icons = { 'Еда':'🍴', 'Медицина':'✚', 'Добыча':'◆', 'Артефакты':'✦', 'Оружие':'▰', 'Боеприпасы':'▦', 'Снаряжение':'▣', 'Броня':'🦺', 'Защита':'◉' };
-  const image=item.image || ASSETS.armor?.[item.id];
+  const image=item.image || ASSETS.itemImages?.[item.id] || ASSETS.armor?.[item.id];
   const armorClass=item.cat==='Броня'?' armor-art-image':'';
   return image && isImageSource(image) ? `<img class="item-art-image${armorClass}" src="${esc(image)}" alt="${esc(item.name)}" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false"><span class="item-emoji" hidden>${ITEM_ICONS[item.id]||icons[item.cat]||'▧'}</span>` : `<span class="item-emoji">${item.emoji || ITEM_ICONS[item.id] || icons[item.cat] || '▧'}</span>`;
 };
-const avatarOptionMarkup = option => `<span class="avatar-option-visual"><span class="avatar-option-portrait"><small>ПОРТРЕТ</small>${avatarMarkup(option.src,option.name,'♟')}</span><span class="avatar-option-appearance"><small>ВНЕШНОСТЬ</small>${isImageSource(option.appearance)?`<img class="avatar-option-body" src="${esc(option.appearance)}" alt="Полная внешность: ${esc(option.name)}" loading="lazy" onerror="this.hidden=true">`:'<span class="avatar-option-body-placeholder">—</span>'}</span></span>`;
+const avatarOptionMarkup = (option, mode='portrait') => mode==='appearance' ? `<span class="avatar-option-single appearance-only"><img class="avatar-option-body" src="${esc(option.appearance)}" alt="Внешность: ${esc(option.name)}" loading="lazy" onerror="this.hidden=true"></span>` : `<span class="avatar-option-single portrait-only">${avatarMarkup(option.src,option.name,'♟')}</span>`;
 const bar = (label, value, cls='') => `<div class="stat-bar"><div class="stat-bar-label"><span>${label}</span><b>${Math.round(value)}%</b></div><div class="bar-track"><i class="${cls}" style="width:${Math.max(0,Math.min(100,value))}%"></i></div></div>`;
 const btn = (label, action, cls='button', data='') => `<button class="${cls}" data-action="${action}" ${data}>${label}</button>`;
 
@@ -112,7 +112,6 @@ export function renderCharacters(state) {
 export function renderCreate(state) {
   const d = state.draft;
   const factionCards = FACTIONS.map(f=>`<label class="faction-choice ${d.faction===f.id?'selected':''}"><input type="radio" name="faction" value="${f.id}" ${d.faction===f.id?'checked':''}><span><b>${esc(f.name)}</b><small>${esc(f.description)}</small></span></label>`).join('');
-  const previewSrc = d.avatar || '';
   const portraitMark = d.faction==='military'?'🪖':d.faction==='bandit'?'♟':'☢';
   return `<section class="screen-wrap pda-screen-wrap" style="--pda-shell:url('${ASSETS.pda}')">
     <header class="screen-heading pda-create-heading"><div><div class="eyebrow">КПК · ЛИЧНОЕ ДЕЛО</div><h2>Регистрация сталкера</h2><p>Заполни данные персонажа перед выходом на Кордон.</p></div>${btn('← Назад','back-characters','button ghost')}</header>
@@ -120,12 +119,16 @@ export function renderCreate(state) {
       <div class="pda-topline"><span>НОВОЕ ЛИЧНОЕ ДЕЛО / КОРДОН</span><span class="pda-live-time" data-live-clock>15 апреля · ${new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'})}</span></div>
       <div class="pda-form-layout">
         <aside class="pda-photo-column">
-          <div class="photo-frame">${previewSrc?avatarMarkup(previewSrc,'Портрет персонажа',portraitMark):`<span>${portraitMark}</span>`}</div>
+          <div class="photo-frame">${d.avatar?avatarMarkup(d.avatar,'Портрет персонажа',portraitMark):`<span>${portraitMark}</span>`}</div>
           <b>ПОРТРЕТ</b>
           ${btn('Выбрать портрет','open-avatars','button small wide')}
-          <label class="button small wide upload-button">Загрузить фото<input type="file" id="avatar-upload" accept="image/*" hidden></label>
+          <label class="button small wide upload-button">Загрузить иконку<input type="file" id="avatar-upload" accept="image/*" hidden></label>
           ${d.avatar?btn('Сбросить портрет','reset-avatar','button small ghost wide'):''}
-          ${isImageSource(d.appearance)?`<div class="create-appearance-preview"><small>ВНЕШНОСТЬ · ОТДЕЛЬНО</small><img src="${esc(d.appearance)}" alt="Полная внешность персонажа" loading="lazy" onerror="this.hidden=true"></div>`:`<div class="create-appearance-empty">Полная внешность<br>появится после выбора</div>`}
+          <div class="create-appearance-preview">${isImageSource(d.appearance)?`<img src="${esc(d.appearance)}" alt="Полная внешность персонажа" loading="lazy" onerror="this.hidden=true">`:'<span class="create-appearance-empty">Внешность не выбрана</span>'}</div>
+          <b>ВНЕШНОСТЬ</b>
+          ${btn('Выбрать внешность','open-appearances','button small wide')}
+          <label class="button small wide upload-button">Загрузить внешность<input type="file" id="appearance-upload" accept="image/*" hidden></label>
+          ${d.appearance?btn('Сбросить внешность','reset-appearance','button small ghost wide'):''}
         </aside>
         <div class="pda-fields">
           <label class="field field-name"><span>Имя персонажа *</span><input name="name" data-field="name" value="${esc(d.name)}" maxlength="32" placeholder="Например, Алексей Ветров" required></label>
@@ -135,8 +138,8 @@ export function renderCreate(state) {
             <label class="field"><span>Вес, кг</span><input type="number" name="weight" data-field="weight" value="${esc(d.weight)}" min="35" max="180" placeholder="75"></label>
           </div>
           <label class="field"><span>Характер</span><textarea name="personality" data-field="personality" rows="2" maxlength="300" placeholder="Спокойный, недоверчивый, вспыльчивый...">${esc(d.personality)}</textarea></label>
-          <label class="field"><span>Биография</span><textarea name="biography" data-field="biography" rows="3" maxlength="900" placeholder="Кем был до Зоны и почему пришёл сюда...">${esc(d.biography)}</textarea></label>
-          <label class="field"><span>Дополнительные сведения</span><textarea name="notes" data-field="notes" rows="2" maxlength="500" placeholder="Привычки, страхи, цели, приметы...">${esc(d.notes)}</textarea></label>
+          <label class="field"><span>Биография</span><textarea name="biography" data-field="biography" rows="2" maxlength="900" placeholder="Кем был до Зоны и почему пришёл сюда...">${esc(d.biography)}</textarea></label>
+          <label class="field field-notes"><span>Дополнительные сведения</span><textarea name="notes" data-field="notes" rows="2" maxlength="500" placeholder="Привычки, страхи, цели, приметы...">${esc(d.notes)}</textarea></label>
         </div>
       </div>
       <div class="pda-faction-section"><div class="section-caption"><b>ПРИНАДЛЕЖНОСТЬ К ГРУППИРОВКЕ</b><small>Определяет стартовую локацию, отношения и доступное снаряжение.</small></div><div class="faction-options">${factionCards}</div></div>
@@ -154,13 +157,15 @@ export function renderLoadout(state) {
   const spent = Object.entries(selected).reduce((sum,[id,qty])=>sum+(getItem(id)?.price||0)*qty,0);
   const weight = Object.entries(selected).reduce((sum,[id,qty])=>sum+(getItem(id)?.weight||0)*qty,0);
   const remain = START_BUDGET - spent;
-  const maxFor = item => item.cat==='Броня'||item.cat==='Защита'||item.weapon ? 1 : ['Боеприпасы','Медицина'].includes(item.cat) ? 3 : item.cat==='Еда' ? 3 : 2;
+  const maxFor = item => item.cat==='Броня'||item.cat==='Защита'||item.weapon ? 1 : ['Боеприпасы','Медицина'].includes(item.cat) ? 2 : item.cat==='Еда' ? 3 : 2;
+  const firearmTypes=['pistol','rifle','shotgun','smg'];
+  const firearmSelected=Object.entries(selected).some(([id,qty])=>qty>0&&firearmTypes.includes(getItem(id)?.weapon));
   const orderedItems = ITEMS.filter(item=>eligibleIds.has(item.id)).sort((a,b)=>a.price-b.price);
   return `<section class="screen-wrap loadout-screen">
     <header class="screen-heading"><div><div class="eyebrow">ПОДГОТОВКА К ВЫХОДУ</div><h2>Стартовое снаряжение</h2><p>Собери разумный комплект новичка: несколько припасов, амуницию и подходящую фракции защиту.</p></div>${btn('← К персонажу','back-create','button ghost')}</header>
     <div class="loadout-summary"><div><small>БЮДЖЕТ</small><b>${money(START_BUDGET)}</b></div><div><small>ПОТРАЧЕНО</small><b>${money(spent)}</b></div><div><small>ОСТАЛОСЬ</small><b class="good-text">${money(remain)}</b></div><div><small>ВЕС</small><b class="${weight>MAX_CARRY_KG?'bad-text':''}">${weight.toFixed(1)} / ${MAX_CARRY_KG} кг</b></div></div>
-    <div class="loadout-note">Для группировки «${esc(FACTIONS.find(f=>f.id===factionId)?.name||'Одиночки')}» доступны лёгкие стартовые комплекты. Можно взять один комплект брони и один противогаз, но несколько порций еды, аптечек и пачек патронов. Остаток ${money(START_BUDGET)} останется у персонажа.</div>
-    <section class="shop-group"><h3>СТАРТОВАЯ ПОДБОРКА · СНАРЯЖЕНИЕ НОВИЧКА</h3><div class="shop-grid">${orderedItems.map(item=>{const isArmor=item.cat==='Броня';const isMask=item.cat==='Защита';const alreadyEquipped=selected[item.id]||0;const occupied=isArmor?Object.entries(selected).some(([other,qty])=>qty>0&&other!==item.id&&getItem(other)?.cat==='Броня'):isMask?Object.entries(selected).some(([other,qty])=>qty>0&&other!==item.id&&getItem(other)?.cat==='Защита'):false;return `<article class="shop-item"><div class="shop-image">${itemImage(item)}</div><div class="shop-info"><b>${esc(item.name)}</b><small>${esc(item.cat)} · ${item.weight} кг · ${item.w}×${item.h} яч. · до ${maxFor(item)} шт.</small><strong>${money(item.price)}</strong>${isArmor||isMask?`<small class="good-text">${isArmor?'Стартовая броня фракции':'Стартовый противогаз'}</small>`:''}</div><div class="shop-controls">${btn('−','loadout-remove','button square',`data-id="${item.id}" ${!alreadyEquipped?'disabled':''}`)}<b>${alreadyEquipped}</b>${btn('+','loadout-add','button square',`data-id="${item.id}" ${occupied||alreadyEquipped>=maxFor(item)?'disabled':''}`)}</div></article>`}).join('')}</div></section>
+    <div class="loadout-note">Для группировки «${esc(FACTIONS.find(f=>f.id===factionId)?.name||'Одиночки')}» доступны лёгкие стартовые комплекты. Можно выбрать один комплект брони, один противогаз и только один огнестрельный ствол. Еду можно взять до трёх порций, медикаменты и боеприпасы — до двух пачек. Оставшиеся Купоны сохраняются у персонажа.</div>
+    <section class="shop-group"><h3>СТАРТОВАЯ ПОДБОРКА · СНАРЯЖЕНИЕ НОВИЧКА</h3><div class="shop-grid">${orderedItems.map(item=>{const isArmor=item.cat==='Броня';const isMask=item.cat==='Защита';const alreadyEquipped=selected[item.id]||0;const occupied=isArmor?Object.entries(selected).some(([other,qty])=>qty>0&&other!==item.id&&getItem(other)?.cat==='Броня'):isMask?Object.entries(selected).some(([other,qty])=>qty>0&&other!==item.id&&getItem(other)?.cat==='Защита'):false;return `<article class="shop-item"><div class="shop-image">${itemImage(item)}</div><div class="shop-info"><b>${esc(item.name)}</b><small>${esc(item.cat)} · ${item.weight} кг · ${item.w}×${item.h} яч. · до ${maxFor(item)} шт.</small><strong>${money(item.price)}</strong>${isArmor||isMask?`<small class="good-text">${isArmor?'Стартовая броня фракции':'Стартовый противогаз'}</small>`:''}</div><div class="shop-controls">${btn('−','loadout-remove','button square',`data-id="${item.id}" ${!alreadyEquipped?'disabled':''}`)}<b>${alreadyEquipped}</b>${btn('+','loadout-add','button square',`data-id="${item.id}" ${occupied||alreadyEquipped>=maxFor(item)||(firearmTypes.includes(item.weapon)&&firearmSelected&&!alreadyEquipped)?'disabled':''}`)}</div></article>`}).join('')}</div></section>
     <div class="loadout-bottom"><div><span>${Object.values(selected).reduce((a,b)=>a+b,0)} предметов в выборе</span><small>Лимит рюкзака: ${MAX_CARRY_KG} кг</small></div>${btn('Завершить подготовку →','finish-loadout','button primary')}</div>
   </section>`;
 }
@@ -204,7 +209,7 @@ function renderLocation(game, character, state) {
     : (currentArea?.description || game.currentDescription||location?.desc||'Оглядись. Кордон редко бывает по-настоящему тихим.');
   const enemy=game.activeEncounter;
   const enemyEmoji=enemy?.type==='blind-dog'?'🐕':enemy?.type==='flesh'?'🐖':enemy?.type==='military'||enemy?.type==='bandit'||enemy?.type==='stalker'?'🕴️':'☢';
-  const enemyPortrait=enemy?.icon?`<div class="enemy-portrait-frame"><small>ПОРТРЕТ</small><img class="enemy-portrait-art" src="${esc(enemy.icon)}" alt="Портрет: ${esc(enemy.name)}" loading="lazy"></div>`:'';
+  const enemyPortrait=enemy?.icon && ['military','bandit','stalker'].includes(enemy.type)?`<div class="enemy-portrait-frame"><small>ПОРТРЕТ</small><img class="enemy-portrait-art" src="${esc(enemy.icon)}" alt="Портрет: ${esc(enemy.name)}" loading="lazy"></div>`:'';
   const enemyBody=enemy?.appearance?`<div class="enemy-body-frame"><small>ВНЕШНОСТЬ</small><img class="enemy-body-art" src="${esc(enemy.appearance)}" alt="Полная внешность: ${esc(enemy.name)}" loading="lazy"></div>`:`<div class="enemy-body-frame enemy-fallback">${enemyEmoji}</div>`;
   const enemyStage=enemy?`<div class="enemy-stage ${enemy.type}"><div class="enemy-art-pair">${enemyPortrait}${enemyBody}</div><div class="enemy-stage-info"><b>${esc(enemy.name)}</b>${enemy.faction?`<div class="enemy-faction-row">${factionInsignia(enemy.faction)}<span>${esc(FACTIONS.find(f=>f.id===enemy.faction)?.name||enemy.faction)}</span></div>`:''}<span>${enemy.hp}/${enemy.maxHp} здоровья</span><div class="bar-track"><i class="danger" style="width:${Math.max(0,enemy.hp/enemy.maxHp*100)}%"></i></div></div></div>`:'';
   const effect=game.combatEffect && Number(game.combatEffect.until||0)>=Number(game.clock.worldMinutes||0)?game.combatEffect.type:null;
@@ -214,7 +219,10 @@ function renderLocation(game, character, state) {
   const reserve=weapon?.ammo?(game.ammoRounds?.[weapon.ammo]??0):null;
   const weaponEmoji=weapon?.weapon==='melee'?'🔪':'🔫';
   const weaponSide=state.settings?.weaponHudSide==='left'?'left':'right';
-  const weaponHud=`<aside class="weapon-hud ${weaponSide}"><div class="weapon-hud-top"><small>В РУКАХ</small>${btn('⇄','toggle-weapon-side','icon-button small',`title="Переместить панель оружия"`)}</div><div class="weapon-hud-icon">${weaponEmoji}</div><b>${esc(weapon?.name||'Без оружия')}</b>${weapon?.ammo?`<div class="ammo-readout"><strong>${magazine}</strong><span>в магазине</span><strong>${reserve}</strong><span>в запасе</span></div>`:`<small>${weapon?'Ближний бой':'Выбери оружие в рюкзаке'}</small>`}<div class="weapon-quick-actions">${weapon?.ammo?btn('↻ Зарядить','combat-reload','button tiny ghost'):''}${btn('🔫 Атака','combat-attack','button tiny danger',`${enemy?'':'disabled'}`)}${btn('▣ Рюкзак','inventory-open','button tiny ghost')}</div><div class="hand-tools"><span>🔩 Болт: ${game.boltsRemaining??0}</span>${btn('Бросить болт','combat-bolt','button tiny ghost',`${enemy?'':'disabled'}`)}</div></aside>`;
+  const heldWeaponImage=weapon?.weapon&&ASSETS.weaponImages?.[weapon.id]?`<div class="first-person-weapon ${weaponSide}" aria-hidden="true"><img src="${esc(ASSETS.weaponImages[weapon.id])}" alt=""></div>`:'';
+  const weaponHud=enemy
+    ? `<aside class="weapon-hud ${weaponSide} combat"><div class="weapon-hud-top"><small>В РУКАХ</small>${btn('⇄','toggle-weapon-side','icon-button small',`title="Переместить панель оружия"`)}</div><div class="weapon-hud-icon">${weaponEmoji}</div><b>${esc(weapon?.name||'Без оружия')}</b>${weapon?.ammo?`<div class="ammo-readout"><strong>${magazine}</strong><span>в магазине</span><strong>${reserve}</strong><span>в запасе</span></div>`:`<small>${weapon?'Ближний бой':'Выбери оружие в рюкзаке'}</small>`}<div class="weapon-quick-actions">${weapon?.ammo?btn('↻ Зарядить','combat-reload','button tiny ghost'):''}${btn('🔫 Атака','combat-attack','button tiny danger')}${btn('▣ Рюкзак','inventory-open','button tiny ghost')}</div><div class="hand-tools"><span>🔩 Болт: ${game.boltsRemaining??0}</span>${btn('Бросить болт','combat-bolt','button tiny ghost')}</div></aside>`
+    : `<aside class="weapon-hud ${weaponSide} idle"><div class="weapon-hud-top"><small>СНАРЯЖЕНИЕ</small>${btn('⇄','toggle-weapon-side','icon-button small',`title="Переместить панель снаряжения"`)}</div><div class="weapon-idle-body"><span class="weapon-hud-icon">${weaponEmoji}</span><div><small>В РУКАХ</small><b>${esc(weapon?.name||'Без оружия')}</b>${btn('Открыть рюкзак','inventory-open','button tiny ghost')}</div></div></aside>`;
   const quickCombat=enemy?`<div class="combat-quickbar"><b>БОЕВЫЕ ДЕЙСТВИЯ</b>${btn('Прицелиться','combat-aim','button small')}${btn('Уклониться','combat-dodge','button small')}${btn('Защищаться','combat-defend','button small')}${btn('Граната','combat-grenade','button small danger',`${countItem(game.inventory,'rgd5')?'':'disabled'}`)}${btn('Отступить','combat-flee','button small ghost')}</div>`:'';
   const rescueButton=game.locationId==='atp'&&!game.atpRescue?.cleared?btn('Освободить пленников','atp-rescue-start','button tiny danger'):'';
   const areaPanel=currentArea?`<div class="current-area-panel"><div><small>ТЕКУЩЕЕ МЕСТО</small><b>${esc(currentArea.name)}</b><p>${esc(currentArea.description)}</p></div><div class="current-area-actions">${currentArea.kind==='breakable'?btn('Сломать ящик','break-crate','button tiny primary',`data-id="${currentArea.id}"`):btn('Обыскать','scene-search','button tiny primary',`data-id="${currentArea.id}"`)}${currentArea.shelter&&!game.player.sheltered?btn('Укрыться','scene-shelter','button tiny ghost',`data-id="${currentArea.id}"`):''}${game.player.sheltered?btn('Выйти из укрытия','leave-shelter','button tiny ghost'):''}${btn('Вернуться наружу','scene-back','button tiny ghost')}${btn(state?.ui?.flashlight?'Выключить фонарик':'Фонарик','flashlight-toggle','button tiny ghost')}</div></div>`:'';
@@ -226,7 +234,7 @@ function renderLocation(game, character, state) {
   const hazards=hazardLabels.length?`<div class="scene-hazards">${hazardLabels.map(label=>`<span>${esc(label)}</span>`).join('')}</div>`:'';
   const anomaly=location?.hazards?.includes('gravity')?`<div class="anomaly-scene" aria-hidden="true"><i></i><i></i><i></i></div>`:'';
   return `<section class="location-scene ${enemy?'in-combat':''} ${maskClass}" style="--scene-image:url('${scene}');--scene-brightness:${brightness}">
-    <div class="scene-background" style="background-image:linear-gradient(90deg,rgba(7,11,7,.75),rgba(7,11,7,.08) 55%,rgba(7,11,7,.55)),url('${scene}');filter:${brightness}"></div>${vignette}${anomaly}
+    <div class="scene-background" style="background-image:linear-gradient(90deg,rgba(7,11,7,.75),rgba(7,11,7,.08) 55%,rgba(7,11,7,.55)),url('${scene}');filter:${brightness}"></div>${vignette}${anomaly}${heldWeaponImage}
     <div class="scene-topline"><div class="scene-gm"><small>GAME MASTER · ${esc(location?.name||'КОРДОН')}</small><p>${esc(gmText)}</p></div><div class="scene-clock"><b>${time.time}</b><span>${esc(time.date)}</span><small>${esc(game.weather||'Пасмурно')}</small></div></div>
     ${emissionBanner}<div class="scene-vitals"><span>♥ ${game.player.hp}/${game.player.maxHp}</span><span>⚡ ${Math.round(game.player.stamina)}%</span><span class="${game.player.hunger>=75?'vital-warning':''}">🍞 Голод ${Math.round(game.player.hunger)}%</span><span class="${game.player.thirst>=75?'vital-warning':''}">💧 Жажда ${Math.round(game.player.thirst)}%</span><span>☢ ${countItem(game.inventory,'pripyat-dosimeter')?`Припять: ${Math.round(game.player.radiation)}%`:`${Math.round(game.player.radiation)}%`}</span>${countItem(game.inventory,'medved')?`<span>📡 Медведь: ${location?.anomalies?.length?'есть отклик':'тихо'}</span>`:''}${emissionCountdown}</div>
     ${hazards}${enemyStage}${combatEffect}${quickCombat}
@@ -297,7 +305,7 @@ function renderStats(game, character) {
     <div class="stats-grid"><article class="metric-card"><span>Здоровье</span><strong>${p.hp}<small> / ${p.maxHp}</small></strong></article><article class="metric-card"><span>Репутация</span><strong>${p.reputation}</strong></article><article class="metric-card"><span>Рейтинг</span><strong>${p.rating}</strong></article><article class="metric-card"><span>Звание</span><strong class="rank-text">${esc(p.rank)}</strong></article><article class="metric-card"><span>Убеждено противников</span><strong>${p.kills}</strong></article><article class="metric-card"><span>Артефактов найдено</span><strong>${p.artifacts}</strong></article></div>
     <div class="panel bars-panel">${bar('Выносливость',p.stamina,'stamina')}${bar('Голод',p.hunger,'warning')}${bar('Жажда',p.thirst,'warning')}${bar('Радиация',p.radiation,'danger')}${bar('Стресс',p.stress||0,'warning')}</div>
     <div class="panel bio-panel"><h3>Досье</h3><div class="bio-grid"><span>Дата рождения</span><b>${esc(character.birthDate||'Не указана')}</b><span>Рост / вес</span><b>${character.height?`${esc(character.height)} см`: '—'} / ${character.weight?`${esc(character.weight)} кг`:'—'}</b><span>Характер</span><b>${esc(character.personality||'Не указан')}</b></div><p>${esc(character.biography||'Биография не заполнена.')}</p>${character.notes?`<p class="muted">${esc(character.notes)}</p>`:''}</div>
-    <form id="profile-edit-form" class="panel profile-edit-form"><div class="panel-title"><h3>Редактировать личное дело</h3><span>Изменения сохраняются в персонаже</span></div><div class="form-grid"><label>Имя<input name="name" maxlength="32" required value="${esc(character.name)}"></label><label>Рост, см<input name="height" type="number" min="80" max="230" value="${esc(character.height||'')}"></label><label>Вес, кг<input name="weight" type="number" min="25" max="250" value="${esc(character.weight||'')}"></label><label>Характер<textarea name="personality" rows="2">${esc(character.personality||'')}</textarea></label><label>Биография<textarea name="biography" rows="3">${esc(character.biography||'')}</textarea></label><label>Другое<textarea name="notes" rows="2">${esc(character.notes||'')}</textarea></label></div><div class="profile-avatar-edit">${avatarMarkup(character.avatar,character.name,'☢')}${btn('Выбрать портрет','profile-choose-avatar','button ghost')}<label class="button ghost" for="profile-avatar-upload">Загрузить с устройства</label><input id="profile-avatar-upload" type="file" accept="image/*" hidden></div><div class="form-actions">${btn('Сохранить изменения','profile-save','button primary')}</div></form>
+    <form id="profile-edit-form" class="panel profile-edit-form"><div class="panel-title"><h3>Редактировать личное дело</h3><span>Изменения сохраняются в персонаже</span></div><div class="form-grid"><label>Имя<input name="name" maxlength="32" required value="${esc(character.name)}"></label><label>Рост, см<input name="height" type="number" min="80" max="230" value="${esc(character.height||'')}"></label><label>Вес, кг<input name="weight" type="number" min="25" max="250" value="${esc(character.weight||'')}"></label><label>Характер<textarea name="personality" rows="2">${esc(character.personality||'')}</textarea></label><label>Биография<textarea name="biography" rows="3">${esc(character.biography||'')}</textarea></label><label>Другое<textarea name="notes" rows="2">${esc(character.notes||'')}</textarea></label></div><div class="profile-avatar-edit profile-visual-edit"><div><small>ПОРТРЕТ</small>${avatarMarkup(character.avatar,character.name,'☢')}${btn('Выбрать портрет','profile-choose-avatar','button ghost')}<label class="button ghost" for="profile-avatar-upload">Загрузить портрет</label><input id="profile-avatar-upload" type="file" accept="image/*" hidden></div><div><small>ВНЕШНОСТЬ</small>${isImageSource(character.appearance)?`<img class="profile-appearance-thumb" src="${esc(character.appearance)}" alt="Внешность">`:'<span class="profile-appearance-thumb profile-appearance-empty">—</span>'}${btn('Выбрать внешность','profile-choose-appearance','button ghost')}<label class="button ghost" for="profile-appearance-upload">Загрузить внешность</label><input id="profile-appearance-upload" type="file" accept="image/*" hidden></div></div><div class="form-actions">${btn('Сохранить изменения','profile-save','button primary')}</div></form>
     <div class="panel"><div class="panel-title"><h3>Путевой журнал</h3><span>${p.locationsVisited.length} локаций</span></div><div class="visited-chips">${p.locationsVisited.map(id=>`<span>${esc(getLocation(id)?.name||id)}</span>`).join('')}</div><div class="mini-readout"><span>Время активности в игре</span><b>${formatElapsed(game.playMinutes)}</b></div></div>
   </div>`;
 }
@@ -364,11 +372,45 @@ function renderContacts(game,state) {
     const body=isImageSource(n.appearance)?`<div class="contact-clean-body"><img src="${esc(n.appearance)}" alt="Внешность ${esc(n.name)}" loading="lazy" onerror="this.hidden=true"></div>`:'<div class="contact-clean-body contact-clean-body-empty" aria-hidden="true">—</div>';
     return `<article class="contact-card-clean">
       <div class="contact-clean-art"><div class="contact-clean-portrait">${avatarMarkup(n.icon,n.name,n.faction==='military'?'🪖':n.faction==='bandit'?'♟':'☢')}</div>${body}</div>
-      <div class="contact-clean-info"><b>${esc(n.name)}</b><span>${esc(role)}</span><small>${esc(activity)}</small><div class="contact-clean-faction">${factionInsignia(n.faction)}<span>${esc(factionName)}</span></div></div>
-      <div class="contact-clean-actions"><button class="icon-action talk-action" data-action="talk" data-id="${n.id}" title="Поговорить с ${esc(n.name)}" aria-label="Поговорить с ${esc(n.name)}">${iconSvg('talk')}</button>${trader?`<button class="icon-action trade-action" data-action="trade-open" data-id="${n.id}" title="Торговать с ${esc(n.name)}" aria-label="Торговать с ${esc(n.name)}">${iconSvg('trade')}</button>`:''}</div>
+      <div class="contact-clean-info"><b>${esc(n.name)}</b><span>${esc(role)}</span><small>${esc(activity)}</small><div class="contact-clean-faction"><span>${esc(factionName)}</span></div></div>
+      <div class="contact-clean-actions"><button class="contact-action-button talk-action" data-action="talk" data-id="${n.id}" title="Поговорить с ${esc(n.name)}">${iconSvg('talk')}<span>Диалог</span></button>${trader?`<button class="contact-action-button trade-action" data-action="trade-open" data-id="${n.id}" title="Торговать с ${esc(n.name)}">${iconSvg('trade')}<span>Обмен</span></button>`:''}</div>
     </article>`;
   }).join('');
   return `<div class="tab-page contacts-page"><div class="tab-heading"><div><div class="eyebrow">КПК · КОНТАКТЫ</div><h2>Люди поблизости</h2><p>${esc(current?.name||'Кордон')} · показаны только те, кто находится в этой локации.</p></div><span class="quest-count">${people.length} рядом</span></div><div class="contacts-list-clean">${cards||'<div class="empty-state">Рядом никого нет. Перейди в другую часть Кордона или загляни в лагерь.</div>'}</div></div>`;
+}
+
+const ENCYCLOPEDIA_DETAILS = {
+  trampoline:['Гравитационная аномалия с коротким импульсом вверх. Высота подброса непостоянна и может оказаться почти незаметной или достигать примерно пятнадцати метров.','Перед проходом проверяй участок болтами и не беги вслепую. Даже если поле не нанесло вреда при первом срабатывании, место может оставаться опасным.'],
+  vortex:['Поле постепенно притягивает предметы и человека к центру, затем сжимается и выпускает разряд. После разряда аномалия на короткое время затихает.','В момент ослабления поля появляется короткое окно для отхода. Не пытайся пересекать неизвестную воронку без проверки болтами и свободного пути назад.'],
+  carousel:['Гравитационное поле поднимает объект над землёй и раскручивает его. В начале воздействие нарастает постепенно, затем вращение ускоряется.','Наблюдай за границей поля с безопасного расстояния. Не считай короткое затишье признаком того, что аномалия исчезла навсегда.'],
+  'secret-unknown':['Неизвестное поле обнаружено в Тайном лагере. Наблюдалась последовательность из подъёма, вращения и последующего выброса объекта в сторону соседней аномалии.','Название и окончательная классификация оставлены на усмотрение исследователя. Неизвестные свойства не следует считать подтверждёнными до повторных наблюдений.'],
+  'blind-dog':['Слепые псы ориентируются на звук и обычно держатся небольшими группами. На открытом месте они быстро сокращают дистанцию, поэтому важно заранее заметить движение и иметь путь отхода.','После встречи осмотри останки: иногда удаётся найти хвост. Трофей можно сдать торговцу или оставить как образец для записей.'],
+  flesh:['Плоть — тяжёлый мутант, встречающийся возле старых построек и заброшенных хозяйственных участков. Она медленнее мелких зверей, но опасна на короткой дистанции.','После столкновения можно обнаружить глаз плоти. Не подходи к туше, пока поблизости остаются другие мутанты.'],
+  boar:['Кабан — крупный и выносливый мутант. Его присутствие часто выдают тяжёлые следы и повреждённая растительность.','Избегай прямой линии движения зверя и используй укрытия. Сведения о конкретной особи пополняются после наблюдений.'],
+  medusa:['Артефакт, формирующийся в опасных аномальных зонах. Несмотря на возможную ценность, находка не гарантирует безопасности при извлечении.','Перед поиском проверь уровень радиации, включи подходящий детектор и оставь запас места в рюкзаке.'],
+  'stone-flower':['Каменный цветок — редкий артефакт с необычной минеральной структурой. Его происхождение связывают с продолжительным воздействием аномального поля.','Неизвестные свойства не стоит проверять на себе. Сначала оцени находку детектором и уточни условия хранения у торговца.'],
+  meat_chunk:['Ломоть мяса — плотный артефакт органического вида. Его внешний вид не означает, что предмет безопасен или пригоден в пищу.','Храни находку отдельно от еды и не используй без подтверждённой информации о свойствах.'],
+  gravi:['Грави — артефакт, связанный с гравитационными полями. Такие находки ценятся торговцами, но часто обнаруживаются в местах с нестабильным воздействием.','При поиске используй детектор, проверяй путь болтами и не заходи глубоко в аномалию ради одной находки.'],
+  medved:['«Медведь» — детектор аномальных сигналов. Он помогает замечать активность поблизости и ориентироваться при поиске артефактов.','Детектор не заменяет проверку пути болтами: сигнал может быть слабым, а опасное поле — скрытым за препятствием.'],
+  otklik:['«Отклик» — базовый прибор для поиска аномальных сигналов. Он помогает обнаружить подозрительный участок до того, как сталкер подойдёт слишком близко.','Используй его вместе с болтами и дозиметром: разные приборы показывают разные типы угроз.'],
+  'pripyat-dosimeter':['Счётчик «Припять» показывает уровень радиации, которому подвергается сталкер. Показания помогают понять, когда стоит сменить маршрут или принять антирад.','Следи не только за текущим числом, но и за ростом показаний во время перехода. После выхода из опасной зоны проверь состояние повторно.'],
+  'rookie-village':['Деревня новичков — место, где можно передохнуть, познакомиться с местными и получить первые поручения. Здесь работают торговец Сидорович и сталкер Волк.','Перед выходом проверь стартовый комплект, пополни запас еды и воды и поговори с людьми у костра. Деревня служит удобной точкой возвращения после коротких вылазок.'],
+  atp:['АТП занято бандитами. Здесь можно встретить торговца Шнурка, узнать местные порядки и найти пленённых сталкеров в двухэтажном здании.','Не заходи на территорию без подготовки: проход может потребовать оплату, а конфликт с местной группой быстро перерастает в перестрелку.'],
+  'anomaly-dump':['Тайный лагерь — скрытая точка Кордона, куда ведёт маршрут через лесной лагерь. Здесь обнаружено неизвестное аномальное поле.','Сначала осмотри местность, затем наблюдай за поведением поля. Запиши увиденное и сообщи Сидоровичу, придумав аномалии собственное название.']
+};
+
+function encyclopediaExtra(entry,category) {
+  const direct=ENCYCLOPEDIA_DETAILS[entry.id];
+  if (direct) return direct;
+  const fallback={
+    locations:['Участок отмечен на карте КПК. При перемещении учитывай соседние переходы, примерное время в пути, состояние погоды и известные угрозы.','Исследованные места постепенно открывают дополнительные точки осмотра, тайники и цели заданий. Перед переходом проверь снаряжение и оставь свободное место в рюкзаке.'],
+    people:['Сведения о человеке собираются из встреч, разговоров и наблюдений. Отношение к персонажу может зависеть от фракции, репутации и предыдущих поступков.','Проверяй, где находится собеседник, и учитывай его занятие: торговец, патрульный и обычный сталкер по-разному реагируют на просьбы.'],
+    anomalies:['Аномальные поля могут наносить урон, менять положение предметов или влиять на состояние сталкера. Неизвестный участок сначала изучают с безопасной дистанции.','Используй детектор и болты, следи за показаниями дозиметра и не пересекай поле, пока не понятен безопасный маршрут.'],
+    mutants:['Мутанты чаще встречаются возле заброшенных построек и на окраинах локаций. После столкновения можно осмотреть место и иногда получить трофей.','Не расходуй весь боезапас на мелкие угрозы: оцени дистанцию, здоровье и возможность отступления.'],
+    artifacts:['Артефакты ищут в аномальных зонах при помощи детектора. Ценность находки зависит от редкости и состояния рынка.','Перед извлечением убедись, что путь проверен, а в рюкзаке достаточно свободных клеток.'],
+    equipment:['Снаряжение помогает выживать, но каждый предмет занимает место и имеет вес. Сравнивай защиту, массу и цену перед покупкой.','Не забывай проверять совместимость боеприпасов с оружием и состояние запасов перед выходом из безопасной зоны.']
+  };
+  return fallback[category]||[];
 }
 
 function renderEncyclopedia(game,state={}) {
@@ -379,13 +421,17 @@ function renderEncyclopedia(game,state={}) {
   const entries=book[active]||[];
   const rows=entries.map(entry=>{
     let image=entry.image||'';
-    if(!image&&active==='locations') image=ASSETS.locationBackgrounds?.[entry.id]||'';
-    if(!image&&active==='people') image=getStalkerById(game,entry.id)?.appearance||getStalkerById(game,entry.id)?.icon||'';
-    if(!image&&active==='equipment') image=ASSETS.armor?.[entry.id]||'';
+    if(!image&&active==='locations') image=ASSETS.areaBackgrounds?.[entry.id]||ASSETS.locationBackgrounds?.[entry.id]||'';
+    if(!image&&active==='people') { const person=getStalkerById(game,entry.id); image=person?.icon||''; }
+    if(!image&&active==='mutants') image=ASSETS.mutants?.[entry.id==='blind-dog'?'blindDog':entry.id]?.[0]||'';
+    if(!image&&active==='artifacts') image=ASSETS.itemImages?.[entry.id]||'';
+    if(!image&&active==='equipment') image=ASSETS.itemImages?.[entry.id]||ASSETS.armor?.[entry.id]||'';
     const imageMarkup=image&&isImageSource(image)?`<img src="${esc(image)}" alt="${esc(entry.title)}" loading="lazy">`:`<span class="encyclopedia-art-fallback">${active==='anomalies'?iconSvg('anomaly'):active==='artifacts'?iconSvg('artifact'):active==='mutants'?iconSvg('mutant'):iconSvg('gear')}</span>`;
-    return `<article class="encyclopedia-entry-card"><div class="encyclopedia-entry-art">${imageMarkup}</div><div class="encyclopedia-entry-copy"><b>${esc(entry.title)}</b><p>${esc(entry.description||'Запись добавлена в КПК. По мере исследования здесь появятся подробности.')}</p><small>Открыто: ${Math.floor((entry.discoveredAt||0)/60)} ч игрового времени</small></div></article>`;
+    const extra=encyclopediaExtra(entry,active);
+    const description=entry.description||'Запись добавлена в КПК.';
+    return `<article class="encyclopedia-entry-card"><div class="encyclopedia-entry-art">${imageMarkup}</div><div class="encyclopedia-entry-copy"><b>${esc(entry.title)}</b><p>${esc(description)}</p>${extra.map(text=>`<p>${esc(text)}</p>`).join('')}<small>Открыто: ${Math.floor((entry.discoveredAt||0)/60)} ч игрового времени</small></div></article>`;
   }).join('');
-  return `<div class="tab-page split-guide-page encyclopedia-page"><div class="tab-heading"><div><div class="eyebrow">КПК · СПРАВОЧНИК</div><h2>Энциклопедия Зоны</h2><p>Записи открываются постепенно — по мере исследования и разговоров.</p></div><span class="quest-count">${total} записей</span></div><div class="split-guide-layout"><nav class="guide-side-tabs" aria-label="Разделы энциклопедии">${sections.map(([key,title,icon])=>`<button class="guide-tab ${active===key?'active':''}" data-action="encyclopedia-category" data-id="${key}">${icon}<span>${title}</span><small>${book[key]?.length||0}</small></button>`).join('')}</nav><section class="guide-detail"><div class="guide-detail-heading"><div><div class="eyebrow">РАЗДЕЛ КПК</div><h3>${sections.find(([key])=>key===active)?.[1]||'Энциклопедия'}</h3></div><span>${entries.length} открыто</span></div>${rows?`<div class="encyclopedia-entry-list">${rows}</div>`:`<div class="guide-empty"><span>${active==='anomalies'?iconSvg('anomaly'):active==='artifacts'?iconSvg('artifact'):active==='mutants'?iconSvg('mutant'):iconSvg('gear')}</span><b>Записей пока нет</b><p>${active==='locations'?'Посещай новые участки Кордона — их описание появится здесь.':active==='people'?'Знакомься со сталкерами и разговаривай с ними.':active==='anomalies'?'Исследуй аномальные поля и наблюдай за их поведением.':active==='mutants'?'Встречай и изучай мутантов.':active==='artifacts'?'Ищи артефакты с помощью детектора.':'Находи и используй новое снаряжение.'}</p></div>`}</section></div></div>`;
+  return `<div class="tab-page split-guide-page encyclopedia-page"><div class="tab-heading"><div><div class="eyebrow">КПК · СПРАВОЧНИК</div><h2>Энциклопедия Зоны</h2><p>Полевые заметки, маршруты и наблюдения сталкеров.</p></div><span class="quest-count">${total} записей</span></div><div class="split-guide-layout"><nav class="guide-side-tabs" aria-label="Разделы энциклопедии">${sections.map(([key,title,icon])=>`<button class="guide-tab ${active===key?'active':''}" data-action="encyclopedia-category" data-id="${key}">${icon}<span>${title}</span><small>${book[key]?.length||0}</small></button>`).join('')}</nav><section class="guide-detail"><div class="guide-detail-heading"><div><div class="eyebrow">РАЗДЕЛ КПК</div><h3>${sections.find(([key])=>key===active)?.[1]||'Энциклопедия'}</h3></div><span>${entries.length} открыто</span></div>${rows?`<div class="encyclopedia-entry-list">${rows}</div>`:`<div class="guide-empty"><span>${active==='anomalies'?iconSvg('anomaly'):active==='artifacts'?iconSvg('artifact'):active==='mutants'?iconSvg('mutant'):iconSvg('gear')}</span><b>Записей пока нет</b><p>${active==='locations'?'Посещай новые участки Кордона — их описание появится здесь.':active==='people'?'Знакомься со сталкерами и разговаривай с ними.':active==='anomalies'?'Исследуй аномальные поля и наблюдай за их поведением.':active==='mutants'?'Встречай и изучай мутантов.':active==='artifacts'?'Ищи артефакты с помощью детектора.':'Находи и используй новое снаряжение.'}</p></div>`}</section></div></div>`;
 }
 
 function renderHelp(game,state={}) {
@@ -416,8 +462,6 @@ function renderHelp(game,state={}) {
   return `<div class="tab-page split-guide-page help-page"><div class="tab-heading"><div><div class="eyebrow">КПК · ИНСТРУКЦИЯ</div><h2>Помощь сталкеру</h2><p>Как играть, какие действия доступны и что можно писать в поле команд.</p></div></div><div class="split-guide-layout"><nav class="guide-side-tabs" aria-label="Разделы помощи">${topics.map(([key,label])=>`<button class="guide-tab ${active===key?'active':''}" data-action="help-topic" data-id="${key}"><span class="guide-tab-icon">${iconSvg(key==='dialogue'?'talk':key==='trade'?'trade':key==='pda'?'book':key==='basics'?'location':key==='loot'?'compass':key==='combat'?'stats':key==='commands'?'messages':'help')}</span><span>${label}</span></button>`).join('')}</nav><section class="guide-detail help-detail"><div class="guide-detail-heading"><div><div class="eyebrow">${topic[2]}</div><h3>${topic[1]}</h3></div></div><p class="help-topic-text">${topic[3]}</p><div class="help-examples"><b>ПРИМЕРЫ ФРАЗ</b>${examples.map(text=>`<span>“${esc(text)}”</span>`).join('')}</div></section></div></div>`;
 }
 
-function renderCombat(game) { return ''; }
-
 function renderArtifact(game) {
   const hunt=game.artifactHunt;
   if (!hunt) return '';
@@ -428,8 +472,6 @@ function renderDialogue(game,character={}) {
   if (!game.dialogueNpcId) return '';
   const npc=getStalkerById(game,game.dialogueNpcId);
   if (!npc) return '';
-  const playerFaction=FACTIONS.find(f=>f.id===game.player.faction);
-  const npcFaction=FACTIONS.find(f=>f.id===npc.faction);
   const jobs=game.sidorovichJobs||{}; const active=jobs.active;
   const workTopic=/работ|задан|квест|поруч|помощ|дело|служб|пропуск/.test(game.dialogueTopic||'');
   const sidorovichActions=npc.id==='sidorovich'&&workTopic?`<div class="dialogue-quest-actions">${active?`<div class="quest-mini"><b>Текущее поручение: ${esc(active.title)}</b><small>${esc(active.description)}</small></div>${btn('Сдать поручение','quest-turnin','button primary')}`:btn('Взять случайное поручение','quest-accept','button primary')}</div>`:'';
@@ -442,16 +484,14 @@ function renderDialogue(game,character={}) {
   const anomalyQuest=game.quests?.find(q=>q.id==='signal-dump');
   const anomalyTurnIn=npc.id==='sidorovich'&&anomalyQuest?.status==='ready'?`<div class="dialogue-quest-actions"><div class="quest-mini"><b>Аномалия названа: ${esc(game.secretAnomaly?.name||'неизвестно')}</b><small>Доложи Сидоровичу о наблюдениях.</small>${btn('Сдать сведения','anomaly-quest-turnin','button primary')}</div></div>`:'';
   const atpReward=npc.id==='sidorovich'&&game.atpRescue?.cleared&&!game.atpRescue?.rewardClaimed?`<div class="dialogue-quest-actions"><div class="quest-mini"><b>Пленные на АТП освобождены</b><small>Сидорович обещал отметить твою помощь.</small>${btn('Получить АКСУ и «Дебют»','atp-rescue-reward','button primary')}</div></div>`:'';
-  const history=(game.dialogueHistory||[]).map(entry=>`<div class="dialogue-line ${entry.role==='player'?'player-line':'npc-line'}"><small>${entry.role==='player'?esc(character.name||'ТЫ'):esc(npc.name.toUpperCase())}</small><p>${esc(entry.text)}</p></div>`).join('');
-  return `<div class="modal-shade dialogue-shade"><section class="dialogue-layout">
-    <aside class="dialogue-person player-person"><div class="dialogue-portrait">${avatarMarkup(character.avatar,character.name||'Сталкер','☢')}</div>${isImageSource(character.appearance)?`<div class="dialogue-fullbody"><img class="npc-dialogue-body" src="${esc(character.appearance)}" alt="Полная внешность игрока" loading="lazy"></div>`:''}<div class="dialogue-badges">${factionInsignia(game.player.faction)}</div><b>${esc(character.name||'Сталкер')}</b><span>${esc(playerFaction?.name||'Без фракции')}</span><small>${esc(game.player.rank||'Новичок')} · рейтинг ${game.player.rating||0}</small></aside>
-    <main class="dialogue-modal dialogue-center"><header class="dialogue-center-head"><div><div class="eyebrow">РАЗГОВОР · ${esc(getLocation(game.locationId)?.name||'КОРДОН')}</div><h2>${esc(npc.name)}</h2><small>${esc(npc.role||'Сталкер')} · ${esc(npc.group||npcFaction?.name||'Путники')}</small></div><div class="dialogue-head-actions">${btn(`${iconSvg('trade')} Обмен`,'trade-open','button small ghost',`data-id="${npc.id}"`)}<button class="modal-close" data-action="close-dialogue">×</button></div></header>
-      <div class="dialogue-history" id="dialogue-history">${history||`<div class="dialogue-line npc-line"><small>${esc(npc.name.toUpperCase())}</small><p>${esc(npc.greeting||'Чего хотел, сталкер?')}</p></div>`}</div>
-      ${sidorovichActions}${wolfActions}${offerMarkup}${pudelTurnIn}${anomalyTurnIn}${atpReward}
-      <form class="dialogue-text-form" id="npc-dialogue-form"><label for="npc-message">Твоё сообщение</label><textarea id="npc-message" name="message" maxlength="700" rows="3" placeholder="Напиши NPC своими словами…" required></textarea><div class="dialogue-send-row"><small>Свободный текст · контекст разговора сохраняется</small><button class="button primary" type="submit">${iconSvg('talk')} Отправить</button></div></form>
-    </main>
-    <aside class="dialogue-person npc-person"><div class="dialogue-portrait">${avatarMarkup(npc.icon,npc.name,'♟')}</div>${npc.appearance?`<div class="dialogue-fullbody"><img class="npc-dialogue-body" src="${esc(npc.appearance)}" alt="Полная внешность: ${esc(npc.name)}" loading="lazy"></div>`:''}<div class="dialogue-badges">${factionInsignia(npc.faction)}</div><b>${esc(npc.name)}</b><span>${esc(npcFaction?.name||npc.group||'Путники')}</span><small>${esc(npc.role||'Сталкер')} · рейтинг ${npc.rating??0}</small></aside>
-  </section></div>`;
+  const lines=game.dialogueHistory||[];
+  const history=(lines.length?lines:[{role:'npc',text:npc.greeting||'Чего хотел, сталкер?'}]).map(entry=>`<div class="dialogue-line ${entry.role==='player'?'player-line':'npc-line'}"><b>${entry.role==='player'?esc(character.name||'Ты'):esc(npc.name)}</b><p>${esc(entry.text)}</p></div>`).join('');
+  return `<div class="modal-shade dialogue-shade"><main class="dialogue-simple" aria-label="Разговор с ${esc(npc.name)}">
+    <header class="dialogue-simple-head"><h2>${esc(npc.name)}</h2><div class="dialogue-head-actions">${btn(`${iconSvg('trade')} Обмен`,'trade-open','button small ghost',`data-id="${npc.id}"`)}<button class="modal-close" data-action="close-dialogue" aria-label="Закрыть диалог">×</button></div></header>
+    <div class="dialogue-history dialogue-transcript" id="dialogue-history">${history}</div>
+    ${sidorovichActions}${wolfActions}${offerMarkup}${pudelTurnIn}${anomalyTurnIn}${atpReward}
+    <form class="dialogue-text-form dialogue-simple-form" id="npc-dialogue-form"><textarea id="npc-message" name="message" aria-label="Твоё сообщение" maxlength="700" rows="2" placeholder="Сказать…" required></textarea><div class="dialogue-send-row"><button class="button primary" type="submit">${iconSvg('talk')} Отправить</button></div></form>
+  </main></div>`;
 }
 
 
@@ -509,10 +549,11 @@ export function renderModal(state) {
     const currentCharacter=state.ui.editAvatar?state.characters.find(entry=>entry.id===state.activeCharacterId):null;
     const currentFaction=currentCharacter?.faction||state.draft?.faction||'loner';
     const factionTitle=FACTIONS.find(entry=>entry.id===currentFaction)?.name||'Одиночки';
-    const factionOptions=AVATAR_OPTIONS.filter(option=>option.group===currentFaction);
-    const keyOptions=AVATAR_OPTIONS.filter(option=>option.group==='npc'&&option.faction===currentFaction);
-    const groups=[{id:currentFaction,title:factionTitle,note:`${factionOptions.length} комплектов` ,options:factionOptions},{id:'npc',title:'Персонажи этой группировки',note:`${keyOptions.length} образа`,options:keyOptions}].filter(group=>group.options.length);
-    return `<div class="modal-shade"><div class="modal-card avatar-modal"><button class="modal-close" data-action="close-modal">×</button><div class="eyebrow">ВНЕШНОСТЬ · ЛИЧНОЕ ДЕЛО</div><h2>Выбрать внешность</h2><p>Показываются портрет и полнофигурная модель для группировки «${esc(factionTitle)}». Они отображаются отдельно; знак группировки не накладывается на изображения.</p>${groups.map(group=>`<section class="avatar-group"><div class="avatar-group-heading"><b>${group.title}</b><small>${group.note}</small></div><div class="avatar-choice-grid">${group.options.map(option=>`<button data-action="choose-avatar" data-src="${esc(option.src)}" data-appearance="${esc(option.appearance||'')}" title="${esc(option.name)}">${avatarOptionMarkup(option)}<span class="avatar-choice-label">${esc(option.name)}</span></button>`).join('')}</div></section>`).join('')}</div></div>`;
+    const mode=state.ui.avatarPickMode==='appearance'?'appearance':'portrait';
+    const options=AVATAR_OPTIONS.filter(option=>option.faction===currentFaction);
+    const action=mode==='appearance'?'choose-appearance':'choose-avatar';
+    const title=mode==='appearance'?'Выбрать внешность':'Выбрать иконку персонажа';
+    return `<div class="modal-shade"><div class="modal-card avatar-modal avatar-modal-independent"><button class="modal-close" data-action="close-modal">×</button><div class="eyebrow">ЛИЧНОЕ ДЕЛО · ${esc(factionTitle)}</div><h2>${title}</h2><p>${mode==='appearance'?'Выбери полнофигурную модель. Она не меняет портрет персонажа.':'Выбери портрет. Он не меняет полнофигурную внешность персонажа.'}</p><div class="avatar-choice-grid avatar-choice-grid-independent">${options.map(option=>`<button data-action="${action}" data-src="${esc(mode==='appearance'?option.appearance:option.src)}" title="${esc(option.name)}">${avatarOptionMarkup(option,mode)}<span class="avatar-choice-label">${esc(option.name)}</span></button>`).join('')}</div></div></div>`;
   }
   if (state.ui.modal === 'exit') return `<div class="modal-shade"><div class="modal-card"><div class="eyebrow">ВЫХОД</div><h2>Закрыть игру?</h2><p>Браузер не может закрыть вкладку, открытую пользователем. Сохранение уже хранится на устройстве.</p>${btn('Понятно','close-modal','button primary')}</div></div>`;
   if (state.ui.modal === 'reset') return `<div class="modal-shade"><div class="modal-card"><div class="eyebrow danger-text">ВНИМАНИЕ</div><h2>Сбросить прогресс?</h2><p>Будут удалены все персонажи, достижения и настройки, хранящиеся в этом браузере.</p><div class="modal-actions">${btn('Отмена','close-modal','button ghost')}${btn('Удалить всё','confirm-reset','button danger')}</div></div></div>`;
@@ -532,16 +573,16 @@ export function renderGame(state) {
   };
   const pdaOpen=!!state.ui.pdaOpen;
   if (pdaOpen) {
-    return `<section class="pda-fullscreen-page" aria-label="КПК персонажа" style="--pda-texture:url('${ASSETS.pda}')">
+    return `<section class="pda-fullscreen-page" aria-label="КПК персонажа" style="--pda-texture:url('${ASSETS.pdaTexture||ASSETS.pda}')">
       <header class="pda-fullscreen-header"><div class="pda-device-mark">${iconSvg('book')} <span>ZONE LINK</span></div><div class="pda-device-player">${avatarMarkup(character.avatar,character.name,'☢')}<div><b>${esc(character.name)}</b><small>${esc(FACTIONS.find(f=>f.id===game.player.faction)?.name||'')} · ${clock.date} · ${clock.time}</small></div></div><div class="pda-device-status"><span>${money(game.money)}</span><span>♥ ${game.player.hp}/${game.player.maxHp}</span></div>${btn(`${iconSvg('book')} Закрыть КПК`,'pda-toggle','button pda-close-button','aria-label="Закрыть КПК и вернуться в игру"')}</header>
       <div class="pda-fullscreen-tabs"><nav class="game-nav" aria-label="Разделы КПК">${gameNav(state.ui.tab||'location')}</nav></div>
       <main class="pda-fullscreen-content">${tabs[state.ui.tab]||tabs.location}</main>
-      ${renderCombat(game)}${renderArtifact(game)}${renderDialogue(game,character)}${state.ui.modal==='sleep'?renderSleep(game):''}
+      ${renderArtifact(game)}${renderDialogue(game,character)}${state.ui.modal==='sleep'?renderSleep(game):''}
     </section>`;
   }
   return `<section class="game-shell"><div class="game-main">
     <header class="game-topbar"><div class="topbar-player">${avatarMarkup(character.avatar,character.name,'☢')}<div><b>${esc(character.name)}</b><small>${esc(FACTIONS.find(f=>f.id===game.player.faction)?.name||'')}</small></div></div><div class="topbar-status"><span class="money-readout">${iconSvg('coins')} ${money(game.money)}</span><span>${iconSvg('heart')} ${game.player.hp}/${game.player.maxHp}</span><span class="clock-readout" data-game-clock>${iconSvg('clock')} ${clock.date} · ${clock.time}</span></div><div class="topbar-buttons">${btn(`${iconSvg('bag')} Рюкзак`,'inventory-open','button ghost')}${btn(`${iconSvg('book')} КПК`,'pda-toggle','button pda-toggle-button','aria-expanded="false"')}${btn(iconSvg('settings'),'settings','icon-button',`title="Настройки" aria-label="Настройки"`)}${btn(iconSvg('download'),'export-save','icon-button',`title="Экспорт сохранения" aria-label="Экспорт сохранения"`)}</div></header>
     <div class="game-content pda-closed-content">${tabs.location}</div>
     <form class="action-composer" id="action-form"><span class="composer-symbol">${iconSvg('talk')}</span><input id="player-action" type="text" maxlength="220" placeholder="Опиши действие… например: осмотреться, поговорить с Волком, обыскать местность" autocomplete="off"><button class="send-action" type="submit">${iconSvg('talk')} Отправить</button></form>
-  </div>${renderCombat(game)}${renderArtifact(game)}${renderDialogue(game,character)}${state.ui.modal==='sleep'?renderSleep(game):''}</section>`;
+  </div>${renderArtifact(game)}${renderDialogue(game,character)}${state.ui.modal==='sleep'?renderSleep(game):''}</section>`;
 }

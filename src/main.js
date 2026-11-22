@@ -389,21 +389,22 @@ root.addEventListener('click', (event) => {
     state.characters=state.characters.filter(c=>c.id!==id);
     persist(); render(); toast('Персонаж удалён.'); return;
   }
-  if (action==='open-avatars') { state.ui.editAvatar=false; state.ui.modal='avatars'; return render(); }
-  if (action==='profile-choose-avatar') { state.ui.editAvatar=true; state.ui.modal='avatars'; return render(); }
+  if (action==='open-avatars') { state.ui.editAvatar=false; state.ui.avatarPickMode='portrait'; state.ui.modal='avatars'; return render(); }
+  if (action==='open-appearances') { state.ui.editAvatar=false; state.ui.avatarPickMode='appearance'; state.ui.modal='avatars'; return render(); }
+  if (action==='profile-choose-avatar') { state.ui.editAvatar=true; state.ui.avatarPickMode='portrait'; state.ui.modal='avatars'; return render(); }
+  if (action==='profile-choose-appearance') { state.ui.editAvatar=true; state.ui.avatarPickMode='appearance'; state.ui.modal='avatars'; return render(); }
   if (action==='choose-avatar') {
-    const appearance=button.dataset.appearance||'';
-    if(state.ui.editAvatar){
-      const character=state.characters.find(entry=>entry.id===state.activeCharacterId);
-      if(character){ character.avatar=button.dataset.src; character.appearance=appearance; }
-      state.ui.editAvatar=false;
-    } else {
-      state.draft.avatar=button.dataset.src;
-      state.draft.appearance=appearance;
-    }
-    state.ui.modal=null; persist(); return render();
+    if(state.ui.editAvatar){ const character=state.characters.find(entry=>entry.id===state.activeCharacterId); if(character) character.avatar=button.dataset.src; }
+    else state.draft.avatar=button.dataset.src;
+    state.ui.editAvatar=false; state.ui.modal=null; persist(); return render();
   }
-  if (action==='reset-avatar') { state.draft.avatar=''; state.draft.appearance=''; persist(); return render(); }
+  if (action==='choose-appearance') {
+    if(state.ui.editAvatar){ const character=state.characters.find(entry=>entry.id===state.activeCharacterId); if(character) character.appearance=button.dataset.src; }
+    else state.draft.appearance=button.dataset.src;
+    state.ui.editAvatar=false; state.ui.modal=null; persist(); return render();
+  }
+  if (action==='reset-avatar') { state.draft.avatar=''; persist(); return render(); }
+  if (action==='reset-appearance') { state.draft.appearance=''; persist(); return render(); }
   if (action==='loadout-add' || action==='loadout-remove') {
     const delta=action==='loadout-add'?1:-1;
     const selected=state.loadout.selected||{};
@@ -690,15 +691,23 @@ root.addEventListener('change', async (event) => {
   if (event.target.id==='avatar-upload' && event.target.files?.[0]) {
     try {
       const dataUrl=await resizeImage(event.target.files[0]);
-      state.draft.avatar=dataUrl; state.draft.appearance=''; persist(); render(); toast('Портрет добавлен.');
+      state.draft.avatar=dataUrl; persist(); render(); toast('Портрет добавлен.');
     } catch { toast('Не удалось загрузить изображение.','warning'); }
   }
   if (event.target.id==='profile-avatar-upload' && event.target.files?.[0]) {
     try {
       const dataUrl=await resizeImage(event.target.files[0]);
       const character=state.characters.find(entry=>entry.id===state.activeCharacterId);
-      if (character) { character.avatar=dataUrl; character.appearance=''; persist(); render(); toast('Иконка персонажа обновлена.'); }
+      if (character) { character.avatar=dataUrl; persist(); render(); toast('Иконка персонажа обновлена.'); }
     } catch { toast('Не удалось загрузить изображение.','warning'); }
+  }
+  if (event.target.id==='appearance-upload' && event.target.files?.[0]) {
+    try { const dataUrl=await resizeImage(event.target.files[0]); state.draft.appearance=dataUrl; persist(); render(); toast('Внешность добавлена.'); }
+    catch { toast('Не удалось загрузить изображение внешности.','warning'); }
+  }
+  if (event.target.id==='profile-appearance-upload' && event.target.files?.[0]) {
+    try { const dataUrl=await resizeImage(event.target.files[0]); const character=state.characters.find(entry=>entry.id===state.activeCharacterId); if(character){character.appearance=dataUrl;persist();render();toast('Внешность персонажа обновлена.');} }
+    catch { toast('Не удалось загрузить изображение внешности.','warning'); }
   }
   if (event.target.id==='save-upload' && event.target.files?.[0]) {
     try {
@@ -825,6 +834,6 @@ setInterval(()=>{
   updateClockDisplays();
 },15000);
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=253').catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=270').catch(()=>{}));
 }
 render();

@@ -164,6 +164,8 @@ const NPC_TRADE_STOCK = {
 const getItemName = (id) => ({medusa:'Медуза',meat_chunk:'Ломоть мяса',gravi:'Грави','stone-flower':'Каменный цветок'}[id] || id);
 const RANDOM_TRADER_STOCK = ['bread','water','canned','sausage','bandage','ammo9x18','ammo9x19','ammo545','shells','knife','vodka','boltpack','ai2','antirad','binoculars','pm'];
 
+const ECONOMY_VERSION = 3;
+
 function makeStock(ids, multiplier=1) {
   return [...new Set(ids)].map(id=>{
     const item=getItem(id);
@@ -183,8 +185,8 @@ function createTraderRecords() {
     return {
       id:`wanderer-${index+1}`, name:first, role:'Бродячий торговец', group:'Путники', faction:faction.id,
       location:pick(possible).id, ...npcLook(faction.id), greeting:'Поторопись, сталкер. Я не задерживаюсь на одном месте.',
-      stock:makeStock(RANDOM_TRADER_STOCK.filter(()=>Math.random()>.42),1.28), buyMultiplier:.43,
-      priceMultiplier:1.28, trader:true, random:true
+      stock:makeStock(RANDOM_TRADER_STOCK.filter(()=>Math.random()>.42),1.22), buyMultiplier:.40,
+      priceMultiplier:1.22, trader:true, random:true
     };
   });
   return { fixed, random };
@@ -198,8 +200,25 @@ function ensureTraderRecords(game) {
   }
   if (!Array.isArray(game.randomTraders)) game.randomTraders=createTraderRecords().random;
   const forbiddenResale=new Set(['tail','flesh-eye','medusa','meat_chunk','gravi']);
-  for (const trader of [...game.traders,...game.randomTraders]) {
+  const traders=[...game.traders,...game.randomTraders,...Object.values(game.npcTraders||{})];
+  for (const trader of traders) {
     if (Array.isArray(trader.stock)) trader.stock=trader.stock.filter(entry=>!forbiddenResale.has(entry.id));
+  }
+  // One-time migration keeps existing saves on the new economy without resetting stock.
+  if ((game.economyVersion||0)<ECONOMY_VERSION) {
+    for (const trader of traders) {
+      const profile=NPCS.find(npc=>npc.id===trader.id) || game.ambientNpcs?.find(npc=>npc.id===trader.id);
+      const faction=profile?.faction || trader.faction || 'loner';
+      const markup=profile?.priceMultiplier || trader.priceMultiplier || (faction==='military'?1.14:faction==='bandit'?1.08:1.10);
+      trader.priceMultiplier=markup;
+      for (const entry of trader.stock||[]) {
+        const item=getItem(entry.id);
+        if (item) entry.price=Math.max(1,Math.ceil(item.price*markup));
+      }
+      if (profile?.buyMultiplier!=null) trader.buyMultiplier=profile.buyMultiplier;
+      else trader.buyMultiplier=faction==='military'?.46:faction==='bandit'?.39:.42;
+    }
+    game.economyVersion=ECONOMY_VERSION;
   }
 }
 
@@ -214,12 +233,12 @@ function findTrader(game, traderId) {
     if (!record) {
       const faction=profile.faction||'loner';
       const stockIds=profile.stockIds?.length ? profile.stockIds : NPC_TRADE_STOCK[faction]||NPC_TRADE_STOCK.loner;
-      const multiplier=faction==='military'?1.18:faction==='bandit'?1.08:1.12;
+      const multiplier=faction==='military'?1.14:faction==='bandit'?1.08:1.10;
       const personalSelection=shuffled(stockIds).slice(0,Math.max(4,Math.min(7,stockIds.length)));
       record=game.npcTraders[traderId]={
         id:traderId, location:profile.location,
         stock:makeStock(personalSelection,multiplier),
-        buyMultiplier:faction==='military'?.46:faction==='bandit'?.36:.4,
+        buyMultiplier:faction==='military'?.46:faction==='bandit'?.39:.42,
         priceMultiplier:multiplier, barter:true
       };
     }
@@ -247,6 +266,7 @@ export function createGame(character, starterInventory = [], money = 0) {
       faction:character.faction, kills:0, artifacts:0, questsDone:0, locationsVisited:[faction?.spawn || 'rookie-village']
     },
     money,
+    economyVersion:ECONOMY_VERSION,
     currencyName:'Купоны',
     encyclopedia:{locations:[],people:[],anomalies:[],mutants:[],artifacts:[],equipment:[]},
     secretAnomaly:{sceneSeen:false,observed:false,name:'',inactiveUntil:0},
@@ -497,8 +517,8 @@ export function searchLocation(game, { corpse=false } = {}) {
   const item = getItem(lootId);
   const chance = Math.random();
   let message;
-  if (chance < 0.18) {
-    const cash = 30 + Math.floor(Math.random()*120);
+  if (chance < 0.15) {
+    const cash = 15 + Math.floor(Math.random()*51);
     game.money += cash;
     message = `${corpse ? 'В кармане погибшего' : 'Под обломками'} нашлось ${cash} Купонов.`;
   } else if (item) {
@@ -725,8 +745,8 @@ export function travelTo(game, destinationId) {
     const fleshZone=['pig-farm','farmstead','forest-camp'].includes(destination.id);
     const useFlesh=fleshZone && Math.random()<.55;
     game.activeEncounter = useFlesh
-      ? { type:'flesh', name:'Плоть', hp:76, maxHp:76, damage:11+Math.floor(Math.random()*5), count:1, image:'' }
-      : { type:'blind-dog', name:'Слепой пёс', hp:55, maxHp:55, damage:7+Math.floor(Math.random()*7), count:Math.random()<.3?2:1, imageIndex:Math.floor(Math.random()*2) };
+      ? { type:'flesh', name:'Плоть', hp:76, maxHp:76, damage:11+Math.floor(Math.random()*5), count:1, image:'', appearance:pick(ASSETS.mutants?.flesh)||'' }
+      : { type:'blind-dog', name:'Слепой пёс', hp:55, maxHp:55, damage:7+Math.floor(Math.random()*7), count:Math.random()<.3?2:1, imageIndex:Math.floor(Math.random()*2), appearance:pick(ASSETS.mutants?.blindDog)||'' };
     recordKnowledge(game,'mutants',useFlesh?'flesh':'blind-dog',useFlesh?'Плоть':'Слепой пёс',useFlesh?'Крупный мутант, часто замеченный у старых построек.':'Слепой пёс держится стаями у заброшенных построек.');
     const message = useFlesh ? 'Из-за развалин выходит Плоть. Мутант тяжело переступает копытами и готовится к атаке.' : 'Из-за укрытия выскакивает слепой пёс! Он замечает тебя и готовится броситься.';
     addLog(game, message, 'danger');
@@ -827,15 +847,15 @@ export function acceptSidorovichJob(game) {
   if (game.clock.worldMinutes<jobs.cooldownUntil) return {ok:false,message:'Сидорович пока не подготовил новую работу. Загляни позже.'};
   const types=['tails','collector','medusa'];
   const type=types[Math.floor(Math.random()*types.length)];
-  if (type==='tails') jobs.active={type,title:'Крутить хвосты собакам',description:'Принеси Сидоровичу 5 хвостов обычных слепых псов. Псевдособаки не подходят.',target:5,progress:countItem(game.inventory,'tail'),reward:850};
+  if (type==='tails') jobs.active={type,title:'Крутить хвосты собакам',description:'Принеси Сидоровичу 5 хвостов обычных слепых псов. Псевдособаки не подходят.',target:5,progress:countItem(game.inventory,'tail'),reward:720};
   if (type==='collector') {
     const candidates=(game.randomTraders||[]).filter(t=>t.faction==='loner');
     const debtor=candidates[Math.floor(Math.random()*candidates.length)] || (game.randomTraders||[])[0];
     if (!debtor) return {ok:false,message:'На Кордоне пока не нашлось подходящего должника.'};
     debtor.faction='loner'; debtor.group='Одиночки'; debtor.role='Сталкер-должник';
-    jobs.active={type,title:'Коллектор',description:`Найди сталкера ${debtor.name} (${getLocation(debtor.location)?.name||'местоположение неизвестно'}) и поговори с ним о долге Сидоровичу. Затем вернись с докладом.`,targetNpcId:debtor.id,targetName:debtor.name,contacted:false,reward:600};
+    jobs.active={type,title:'Коллектор',description:`Найди сталкера ${debtor.name} (${getLocation(debtor.location)?.name||'местоположение неизвестно'}) и поговори с ним о долге Сидоровичу. Затем вернись с докладом.`,targetNpcId:debtor.id,targetName:debtor.name,contacted:false,reward:650};
   }
-  if (type==='medusa') jobs.active={type,title:'Ловля медузы',description:'Найди артефакт «Медуза» и принеси его Сидоровичу. Учёный с большой земли ждёт образец.',target:1,progress:countItem(game.inventory,'medusa'),reward:1100};
+  if (type==='medusa') jobs.active={type,title:'Ловля медузы',description:'Найди артефакт «Медуза» и принеси его Сидоровичу. Учёный с большой земли ждёт образец.',target:1,progress:countItem(game.inventory,'medusa'),reward:1000};
   addLog(game,`Получено цикличное поручение Сидоровича: «${jobs.active.title}».`,'player');
   return {ok:true,job:jobs.active,message:`Сидорович: «${jobs.active.description} За работу заплачу ${jobs.active.reward} Купонов».`};
 }
@@ -880,7 +900,7 @@ export function turnInWolfDogQuest(game) {
   const quest=game.quests?.find(entry=>entry.id==='wolf-dog-pack');
   if (!quest || game.wolfDogQuest?.status!=='ready' || quest.status!=='ready') return {ok:false,message:'Волк: «Сначала разберись с собаками у вагончика, потом поговорим». '};
   if (game.locationId!=='rookie-village') return {ok:false,message:'Волк ждёт тебя в деревне новичков.'};
-  const reward=450;
+  const reward=850;
   game.money+=reward;
   game.wolfDogQuest.status='completed';
   quest.status='completed';

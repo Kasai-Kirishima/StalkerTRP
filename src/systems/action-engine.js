@@ -156,10 +156,10 @@ export function processPlayerAction(game, rawText) {
   if (/(пожарить|поджарить|приготовить|жарить).{0,28}(еду|колбас|сыр|хлеб)|(?:еду|колбас|сыр|хлеб).{0,20}(на костре|поджарить|пожарить)/.test(text)) {
     const campfire=EXPLORE_SPOTS.some(spot=>spot.locationId===game.locationId&&spot.kind==='campfire');
     if (!campfire) return {message:'Готовить можно у костра. Найди ближайшее место отдыха.'};
-    const food=['sausage','yantar-cheese','bread'].find(id=>countItem(game.inventory,id)>0);
-    if (!food) return {message:'Для готовки нужна еда: диетическая колбаса, сырок «Янтарь» или хлеб.'};
+    const food=['sausage','bread'].find(id=>countItem(game.inventory,id)>0);
+    if (!food) return {message:'Для готовки нужна диетическая колбаса или хлеб.'};
     const result=useItem(game,food); advanceGame(game,5);
-    return {message:`Ты поджарил ${food==='sausage'?'диетическую колбасу':food==='yantar-cheese'?'сырок «Янтарь»':'хлеб'} на костре. ${result.message} Несколько минут прошли в спокойной обстановке.`};
+    return {message:`Ты поджарил ${food==='sausage'?'диетическую колбасу':'хлеб'} на костре. ${result.message} Несколько минут прошли в спокойной обстановке.`};
   }
   if (/(лечь|ляг|прилечь|откинуться).{0,24}(трав|земл)|(?:на траву|на земле).{0,20}(отдох|полежать)/.test(text)) {
     if (game.activeEncounter) return {message:'Во время опасности отдыхать нельзя.'};
