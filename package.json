@@ -1,9 +1,9 @@
 {
   "name": "stalker-cordon-pda-prototype",
-  "version": "2.5.2",
+  "version": "2.5.3",
   "private": true,
   "type": "module",
-  "description": "Responsive STALKER Cordon RP prototype with local audio player, faction NPC art and quest icons",
+  "description": "Responsive STALKER Cordon RP prototype with paired local NPC artwork, distinct inventory icons and compact laptop layout",
   "scripts": {
     "test": "node tests/smoke-test.mjs"
   }

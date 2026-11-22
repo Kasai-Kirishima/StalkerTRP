@@ -603,3 +603,82 @@ html { zoom: var(--ui-scale, 1); }
 
 /* Keep the complete PDA texture visible across the laptop viewport. */
 @media(min-width:701px){.pda-fullscreen-page{background-size:100% 100%;background-attachment:fixed}}
+
+/* v2.5.3 — visual regression fixes: paired NPC art, distinct item icons and compact scene layout. */
+.avatar-wrap img[hidden], .item-art-image[hidden], .faction-insignia[hidden], .rank-insignia[hidden] { display:none !important; }
+.avatar-fallback { display:grid; place-items:center; width:100%; height:100%; }
+.faction-icon { position:relative; }
+.faction-icon-fallback { display:grid; place-items:center; width:100%; height:100%; color:#d6df9d; font-size:24px; }
+.faction-insignia-fallback,.rank-insignia-fallback { display:inline-grid; place-items:center; width:24px; height:24px; color:#d5df9c; font-size:16px; vertical-align:middle; }
+.npc-chip-art { width:52px; min-width:52px; min-height:54px; height:54px; overflow:visible; }
+.npc-chip-art .avatar-wrap { width:34px; height:34px; flex:0 0 34px; align-self:flex-start; }
+.npc-mini-body { height:48px; max-width:31px; right:0; bottom:0; }
+.npc-mini-body-fallback { position:absolute; z-index:2; right:3px; bottom:0; display:grid; place-items:center; width:27px; height:42px; color:#d5df9c; font-size:23px; }
+.npc-chip-art .npc-chip-insignia { position:absolute; z-index:4; top:0; right:0; width:17px; height:17px; max-width:17px; max-height:17px; margin:0; padding:1px; background:#10170f; border:1px solid #67794c; border-radius:50%; object-fit:contain; }
+.npc-chip-art .faction-insignia-fallback.npc-chip-insignia { position:absolute; z-index:4; top:0; right:0; width:17px; height:17px; font-size:11px; }
+.contact-person-art { position:relative; width:76px; min-width:76px; height:96px; min-height:96px; overflow:visible; }
+.contact-person-art .avatar-wrap { width:43px; height:43px; align-self:flex-start; }
+.contact-body-art { height:91px; max-width:57px; right:0; bottom:0; }
+.contact-body-art-fallback { position:absolute; z-index:2; right:4px; bottom:0; display:grid; place-items:center; width:45px; height:88px; color:#d5df9c; font-size:34px; }
+.contact-person-art .contact-card-insignia { position:absolute; z-index:4; top:1px; right:0; width:20px; height:20px; max-width:20px; max-height:20px; margin:0; padding:2px; background:#10170f; border:1px solid #67794c; border-radius:50%; object-fit:contain; }
+.contact-person-art .faction-insignia-fallback.contact-card-insignia { position:absolute; top:0; right:0; width:20px; height:20px; font-size:12px; }
+.npc-chip { min-width:0; min-height:54px; }
+.npc-chip>span:last-child { display:grid; min-width:0; gap:2px; }
+.npc-chip>span:last-child b,.npc-chip>span:last-child small { display:block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.scene-interactions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:5px; max-height:min(27vh,220px); overflow:auto; scrollbar-width:thin; scrollbar-color:#62744b #121910; }
+.npc-interaction { min-width:0; gap:2px; }
+.npc-interaction .npc-chip { padding:3px 5px; gap:4px; }
+.npc-trade-button { min-width:47px; font-size:9px; padding:2px 5px; }
+.scene-places { max-height:calc(100dvh - 235px); overflow:auto; scrollbar-width:thin; scrollbar-color:#62744b #121910; }
+
+/* The portrait and full-body sprite are always shown as a matched pair. */
+.avatar-choice-grid { grid-template-columns:repeat(4,minmax(0,1fr)); }
+.avatar-choice-grid button { min-height:134px; padding:7px; }
+.avatar-option-visual { display:grid; grid-template-columns:minmax(44px,.9fr) minmax(0,1fr); gap:6px; align-items:center; min-height:94px; }
+.avatar-option-portrait { position:relative; display:grid; place-items:start center; min-width:0; }
+.avatar-option-portrait .avatar-wrap { width:100%; max-width:62px; height:62px; }
+.avatar-option-insignia { position:absolute; z-index:2; right:0; bottom:-5px; width:22px; height:22px; object-fit:contain; padding:2px; background:#11180f; border:1px solid #65764b; border-radius:50%; }
+.avatar-option-body { display:block; justify-self:center; width:auto; height:92px; max-width:100%; object-fit:contain; object-position:center bottom; filter:drop-shadow(0 2px 3px #0008); }
+.avatar-option-body-placeholder { display:grid; place-items:center; height:88px; color:#879477; border:1px dashed #46533a; }
+.avatar-choice-label { min-height:19px; font-size:10px; }
+.photo-frame.paired-preview { display:flex; align-items:flex-end; justify-content:center; gap:5px; padding:6px; }
+.photo-frame.paired-preview .avatar-wrap { width:58px; height:58px; flex:0 0 58px; align-self:flex-start; }
+.photo-frame.paired-preview .photo-body-preview { width:auto; height:100%; max-width:62px; object-fit:contain; object-position:center bottom; }
+
+/* Item fallback art is item-specific; avoid repeating one generic food-can symbol. */
+.item-emoji { display:grid; place-items:center; width:100%; height:100%; min-width:0; min-height:0; font-size:clamp(18px,2.2vw,29px); line-height:1; color:#d8e1a0; text-shadow:0 2px 5px #000; }
+.item-art-image { display:block; width:100%; height:100%; max-width:100%; max-height:100%; object-fit:contain; object-position:center; padding:3px; }
+.inventory-item-clear .inventory-item-image .item-art-image { width:100%; height:100%; }
+.inventory-item-clear .inventory-item-image .item-emoji { font-size:clamp(18px,2.2vw,29px); }
+.shop-image .item-emoji { font-size:29px; }
+.trade-image .item-emoji { font-size:23px; }
+.trade-image .item-art-image { width:100%; height:100%; }
+.quest-symbol { background:linear-gradient(145deg,#283321,#11180f); }
+.quest-symbol img { object-fit:contain; padding:3px; }
+
+/* Remove the extra bottom padding that made the desktop scene taller than the laptop viewport. */
+@media (min-width:761px) {
+  .game-content.pda-closed-content { padding:0; height:calc(100dvh - 64px); min-height:calc(100dvh - 64px); overflow:hidden; }
+  .location-scene { height:100%; min-height:0; padding-bottom:92px; }
+  .scene-footer { bottom:78px; }
+}
+@media (max-width:760px) {
+  .scene-interactions { grid-template-columns:1fr; max-height:25vh; }
+  .scene-places { max-height:calc(100dvh - 270px); }
+  .avatar-choice-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+  .avatar-option-visual { grid-template-columns:42px minmax(0,1fr); min-height:76px; }
+  .avatar-option-portrait .avatar-wrap { width:42px; height:42px; }
+  .avatar-option-body { height:76px; }
+  .avatar-choice-grid button { min-height:116px; }
+}
+@media (max-width:430px) {
+  .npc-chip-art { width:43px; min-width:43px; }
+  .npc-chip-art .avatar-wrap { width:30px; height:30px; flex-basis:30px; }
+  .npc-mini-body { height:42px; max-width:26px; }
+  .scene-interactions { max-height:23vh; }
+  .contact-person-art { width:64px; min-width:64px; height:82px; min-height:82px; }
+  .contact-body-art { height:78px; max-width:47px; }
+}
+
+/* Keep faction and rank marks visible together in the character dossier. */
+.profile-heading-art{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex:0 0 auto}.profile-heading-art .faction-insignia,.profile-heading-art .rank-insignia{width:28px;height:28px;max-width:28px;max-height:28px;object-fit:contain}.profile-heading-art .avatar-wrap{width:52px;height:52px;flex:0 0 52px}

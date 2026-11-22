@@ -1,5 +1,5 @@
 export const ASSETS = {
-  menu: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS5OXJVGkhNyzTjS2YABky-DUSo45VdfMiDvddnm2NsexQfHmc4giGVzRY&s=10',
+  menu: new URL('../../assets/images/location-backgrounds/fonderevnanovickov%20vhod.webp', import.meta.url).href,
   pda: new URL('../../assets/images/location-backgrounds/kpkfon.webp', import.meta.url).href,
   locationBackgrounds: {
     'north-checkpoint': new URL('../../assets/images/location-backgrounds/severblokpostfon.webp', import.meta.url).href,
@@ -51,7 +51,7 @@ export const ASSETS = {
     zarya: new URL('../../assets/images/armor/zaraicon.webp', import.meta.url).href,
     leather: new URL('../../assets/images/armor/kosyhaicon.webp', import.meta.url).href,
     biker: new URL('../../assets/images/armor/kozanplashicon.webp', import.meta.url).href,
-    milmed: new URL('../../assets/images/armor/debyticon.webp', import.meta.url).href,
+    debyt: new URL('../../assets/images/armor/debyticon.webp', import.meta.url).href,
     berill: new URL('../../assets/images/armor/berilicon.webp', import.meta.url).href,
     kosyha: new URL('../../assets/images/armor/kosyhaicon.webp', import.meta.url).href,
     kozanka: new URL('../../assets/images/armor/kozankaicon.webp', import.meta.url).href,
@@ -288,15 +288,14 @@ export const NPCS = [
   { id:'kapterka', name:'Каптёрка', role:'Квартирмейстер / снабженец', group:'Военные', faction:'military', location:'south-checkpoint', icon:ASSETS.npcPortraits.military[0], appearance:ASSETS.npcBodies.military[0], trader:true, stockIds:['ammo9x18','ammo9x19','ammo545','shells','bandage','ai2','antirad','milmed','aurora','optik','psz5','vm17','pm','gaduka','aksu','ammo545','boltpack'], priceMultiplier:1.18, buyMultiplier:.5, greeting:'Снабжение выдаётся по ведомости. Лишних вопросов не задавай — лучше скажи, что нужно.', topics:['торговля','снабжение','служба'], lines:{ trade:'В КПК открыт мой склад. Снаряжение выдаю по цене, трофеи принимаю по оценке.', supply:'Боеприпасы и аптечки есть не всегда. Запасы пополняются после поставок.', service:'Список имущества ведётся строго. За потерю армейского снаряжения придётся отвечать.' } }
 ];
 
-// Варианты внешности персонажа используют локальные пары портрета и модели.
+// Варианты внешности персонажа используют только полные локальные пары портрета и модели.
 export const AVATAR_OPTIONS = [
-  ...AVATARS.loner.map((src, index) => ({ src, name: `Одиночка ${index + 1}`, group: 'loner' })),
-  ...AVATARS.bandit.map((src, index) => ({ src, name: `Бандит ${index + 1}`, group: 'bandit' })),
-  ...AVATARS.military.map((src, index) => ({ src, name: `Военный ${index + 1}`, group: 'military' })),
-  { src:ASSETS.npcPortraits.sidorovich, name:'Сидорович', group:'npc' },
-  { src:ASSETS.npcPortraits.wolf, name:'Волк', group:'npc' },
-  { src:ASSETS.npcPortraits.bandit[0], name:'Кефир', group:'npc' },
-  { src:ASSETS.npcPortraits.dzerzhinsky, name:'Дмитрий Дзержинский', group:'npc' }
+  ...NPC_APPEARANCES.loner.map((look, index) => ({ src:look.icon, appearance:look.appearance, faction:'loner', insignia:ASSETS.factionInsignias.loner, name:`Одиночка ${index + 1}`, group:'loner' })),
+  ...NPC_APPEARANCES.bandit.map((look, index) => ({ src:look.icon, appearance:look.appearance, faction:'bandit', insignia:ASSETS.factionInsignias.bandit, name:`Бандит ${index + 1}`, group:'bandit' })),
+  ...NPC_APPEARANCES.military.map((look, index) => ({ src:look.icon, appearance:look.appearance, faction:'military', insignia:ASSETS.factionInsignias.military, name:`Военный ${index + 1}`, group:'military' })),
+  { src:ASSETS.npcPortraits.wolf, appearance:ASSETS.npcBodies.wolf, faction:'loner', insignia:ASSETS.factionInsignias.loner, name:'Волк', group:'npc' },
+  { src:ASSETS.npcPortraits.bandit[0], appearance:ASSETS.npcBodies.bandit[0], faction:'bandit', insignia:ASSETS.factionInsignias.bandit, name:'Кефир', group:'npc' },
+  { src:ASSETS.npcPortraits.dzerzhinsky, appearance:ASSETS.npcBodies.dzerzhinsky, faction:'military', insignia:ASSETS.factionInsignias.military, name:'Дмитрий Дзержинский', group:'npc' }
 ];
 
 // Music is loaded only from files selected by the player. No external music streams are bundled.

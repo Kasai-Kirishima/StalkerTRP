@@ -5,7 +5,8 @@ import { addItem, getWeight, canFitLoadout, countItem, useItem, transferItem } f
 import { beginEncounter, beginWolfDogPack, playerAttack } from '../src/systems/combat.js';
 import { processPlayerAction } from '../src/systems/action-engine.js';
 import { rememberEntity, stemRussianWord, containsReferencePronoun, genderedSubject } from '../src/systems/russian-language.js';
-import { renderMenu, renderLoadout, renderGame, renderModal, renderGameSettings } from '../src/ui/views.js';
+import { renderMenu, renderCreate, renderLoadout, renderGame, renderModal, renderGameSettings } from '../src/ui/views.js';
+const fs = await import('node:fs');
 
 assert.equal(FACTIONS.length,3);
 // Survival needs increase over game time and can be managed through free-text RP.
@@ -74,14 +75,14 @@ assert.ok(ITEMS.some(item=>item.id==='gravi' && item.name.includes('Грави')
 assert.ok(LOCATIONS.find(location=>location.id==='elevator').desc.includes('фотографией Чернобыльской АЭС'),'Elevator description must mention the NPP photograph');
 assert.ok(NPCS.every(npc=>npc.icon?.includes('/assets/npc/Vneska/')),'key NPCs must use local portraits');
 assert.ok(NPCS.filter(npc=>npc.id!=='sidorovich').every(npc=>npc.appearance?.includes('/assets/npc/Vneska/')),'all supplied key NPC body images must be paired with their portraits');
-assert.ok(ASSETS.menu.startsWith('https://') && ASSETS.pda.includes('kpkfon.webp'));
+assert.ok(ASSETS.menu.includes('fonderevnanovickov') && ASSETS.pda.includes('kpkfon.webp'));
+assert.ok(fs.existsSync(new URL(ASSETS.menu)),'main-menu background must be stored locally for offline display');
 assert.ok(ASSETS.areaBackgrounds?.['village-basement']?.includes('fonpodvalderevnanovickov.webp'),'village basement should use its own local background');
 assert.ok(ASSETS.areaBackgrounds?.['village-basement-storage']?.includes('fonpodvalderevnanovickov.webp'));
 assert.ok(ASSETS.areaBackgrounds?.['atp-second-floor-storage']?.includes('fonatp.webp'));
 assert.ok(ASSETS.areaBackgrounds?.['barracks-personal-storage']?.includes('fonygblokpost.webp'));
 assert.ok(ASSETS.areaBackgrounds?.['locomotive-cabin']?.includes('fonlokomotiv.webp'),'locomotive cabin should use a local scene background');
-assert.equal(ASSETS.menu,'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS5OXJVGkhNyzTjS2YABky-DUSo45VdfMiDvddnm2NsexQfHmc4giGVzRY&s=10','main-menu must use only the user-provided external background');
-const fs = await import('node:fs');
+assert.ok(!ASSETS.menu.startsWith('http'),'main-menu background must not rely on a remote image');
 assert.ok(fs.existsSync(new URL(ASSETS.pda)),'PDA texture file must be included locally');
 assert.ok(fs.existsSync(new URL(ASSETS.map)),'clean Cordon map must be included locally');
 assert.ok(Object.values(ASSETS.locationBackgrounds).every(url=>fs.existsSync(new URL(url))),'all 18 location backgrounds must exist in the project');
@@ -101,7 +102,8 @@ assert.equal(NPCS.length,7,'five quest and key NPCs plus two additional traders'
 assert.ok(NPCS.some(n=>n.id==='sidorovich'&&n.trader));
 assert.ok(NPCS.some(n=>n.id==='shnurok'&&n.location==='atp'&&n.trader));
 assert.ok(NPCS.some(n=>n.id==='kapterka'&&n.location==='south-checkpoint'&&n.trader));
-assert.equal(AVATAR_OPTIONS.length,21,'all faction portraits, including the shared bandit portrait, and four key NPC portraits should be present');
+assert.equal(AVATAR_OPTIONS.length,20,'all full faction portrait/body pairs and three paired key NPC looks should be present');
+assert.ok(AVATAR_OPTIONS.every(option=>option.appearance),'avatar gallery must not include portrait-only entries that would render empty body placeholders');
 assert.ok(AVATAR_OPTIONS.every(option=>option.src.includes('/assets/npc/Vneska/')),'avatar choices should use the imported local portraits');
 assert.ok(NPC_APPEARANCES.loner.every(look=>look.icon&&look.appearance),'each loner portrait must pair with its matching body');
 assert.equal(NPC_APPEARANCES.bandit.length,7,'all seven supplied bandit body looks must be represented');
@@ -202,7 +204,7 @@ const banditTalkGame=createGame({name:'Проверка фени',faction:'loner
 banditTalkGame.locationId='atp';
 assert.equal(talkToNpc(banditTalkGame,'kefir').ok,true);
 const fenyaReply=replyNpcFreeText(banditTalkGame,'kefir','Что нового слышно?').message;
-assert.ok(/маляв|район|шухер|фарт|хабар/.test(fenyaReply.toLowerCase()),'bandit dialogue should use fenya vocabulary');
+assert.ok(/маляв|район|шухер|фарт|хабар|фраер/.test(fenyaReply.toLowerCase()),'bandit dialogue should use fenya vocabulary');
 const banditEncounterGame=createGame({name:'Проверка боя',faction:'loner'},[],START_BUDGET);
 beginEncounter(banditEncounterGame,'bandit');
 assert.ok(banditEncounterGame.activeEncounter.icon?.includes('/assets/npc/Vneska/banditicon'));
@@ -452,6 +454,9 @@ assert.ok(attack.message.includes('Нож'));
 
 const uiState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false},account:{},draft:{name:'',birthDate:'',height:'',weight:'',personality:'',biography:'',notes:'',faction:'loner',avatar:''},loadout:{selected:{}},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game};
 assert.ok(renderMenu(uiState).includes('Играть'));
+assert.ok(renderMenu(uiState).includes('fonderevnanovickov'),'menu should reference a local background');
+const createHtml=renderCreate(uiState);
+assert.ok(createHtml.includes('open-avatars') && createHtml.includes('ПРИНАДЛЕЖНОСТЬ К ГРУППИРОВКЕ'));
 assert.ok(renderLoadout(uiState).includes('СТАРТОВАЯ ПОДБОРКА'));
 for (const hidden of ['АКСУ','Пачка патронов 5.45×39','Хвост слепого пса','Глаз плоти','Медуза','Ломоть мяса','Грави','Заря']) assert.ok(!renderLoadout(uiState).includes(hidden),`${hidden} must not appear in the starter screen`);
 const closedPdaHtml=renderGame(uiState);
@@ -467,6 +472,14 @@ const locationHtml=renderGame(uiState);
 assert.ok(!locationHtml.includes('Радио Деревни новичков') && !locationHtml.includes('data-action="radio-base-open"'),'there must be no in-location radio controls');
 assert.ok(!/https?:\/\//i.test(locationHtml),'the location scene must not add external music URLs');
 assert.ok(!locationHtml.includes('music-dock'),'the bottom music dock should remain removed');
+assert.ok(locationHtml.includes('npc-mini-body') && locationHtml.includes('faction-insignia'),'nearby NPC roster should show paired local character art and faction emblems');
+assert.ok(locationHtml.includes('Купонов') && !/\bRU\b/.test(locationHtml),'all balances should use the in-world Coupons currency label');
+addItem(game.inventory,'bread',1);
+addItem(game.inventory,'water',1);
+const inventoryUi=renderModal({...uiState,ui:{...uiState.ui,modal:'inventory-panel'}});
+assert.ok(inventoryUi.includes('🍞') && inventoryUi.includes('💧'),'inventory should use distinct item-specific icons rather than a repeated generic symbol');
+assert.ok(costumeFitCss.includes('object-fit:contain'),'armor artwork should preserve its full silhouette');
+assert.match(costumeFitCss,/\.scene-interactions\s*\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/s,'desktop NPC list should use a compact two-column layout');
 const remoteRadioState={...uiState,game:{...uiState.game,locationId:'elevator'}};
 assert.ok(!renderGame(remoteRadioState).includes('Радио'),'no location should expose an internet radio station');
 uiState.ui.pdaOpen=true;
@@ -507,10 +520,18 @@ assert.ok(mapModal.includes('Тайный лагерь') && mapModal.includes('�
 assert.ok(mapModal.includes('МЕСТА В ЭТОЙ ЛОКАЦИИ') && mapModal.includes('ЦЕЛИ ЗАДАНИЙ В ЭТОЙ ЛОКАЦИИ'),'the selected map point should own its local places and quest targets');
 uiState.ui.modal='avatars';
 const avatarModal=renderModal(uiState);
-assert.ok(avatarModal.includes('Сидорович') && avatarModal.includes('Волк') && avatarModal.includes('Кефир') && avatarModal.includes('Дмитрий Дзержинский'));
+assert.ok(avatarModal.includes('Волк') && !avatarModal.includes('Сидорович'),'loner avatar picker should offer only complete matching portrait/body sets');
+assert.ok(avatarModal.includes('avatar-option-body'),'avatar picker must show the matching full-body appearance alongside each portrait');
+assert.ok(!avatarModal.includes('Кефир') && !avatarModal.includes('Дмитрий Дзержинский'),'loner avatar picker must not mix in bandit or military appearances');
+const banditAvatarModal=renderModal({...uiState,draft:{...uiState.draft,faction:'bandit'},ui:{...uiState.ui,modal:'avatars'}});
+assert.ok(banditAvatarModal.includes('avatar-option-body') && banditAvatarModal.includes('Кефир'));
+assert.equal((banditAvatarModal.match(/class="avatar-option-body"/g)||[]).length,8,'bandit avatar picker should show all seven matched bandit body appearances');
+const militaryAvatarModal=renderModal({...uiState,draft:{...uiState.draft,faction:'military'},ui:{...uiState.ui,modal:'avatars'}});
+assert.ok(militaryAvatarModal.includes('Дмитрий Дзержинский') && !militaryAvatarModal.includes('Кефир'),'military avatar picker should only show military faction appearances');
 uiState.ui.tab='stats';
 const statsHtml=renderGame(uiState);
 assert.ok(statsHtml.includes('profile-edit-form') && statsHtml.includes('Выбрать значок'),'PDA statistics must provide editable character dossier');
+assert.ok(statsHtml.includes('profile-heading-art') && statsHtml.includes('faction-insignia') && statsHtml.includes('rank-insignia'),'character dossier should show both faction and rank insignia');
 // PDA tabs keep inventory/trade/radio out; these remain location or independent overlays.
 const tabState={...uiState,ui:{...uiState.ui,pdaOpen:true,tab:'location',modal:null,mapView:'map'}};
 const tabMarkup=renderGame(tabState);
