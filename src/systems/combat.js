@@ -1,6 +1,6 @@
 import { getItem, countItem, removeItem, addItem, useItem } from './inventory.js';
-import { LOCATIONS } from '../data/catalog.js';
-import { addLog, advanceGame, registerCorpseLoot } from './world.js';
+import { LOCATIONS, NPC_APPEARANCES, ASSETS } from '../data/catalog.js';
+import { addLog, advanceGame, registerCorpseLoot, advanceAtpRescue } from './world.js';
 import { rememberEntity } from './russian-language.js';
 
 const weapons = ['aksu','gaduka','pm','vm17','sawedoff','knife'];
@@ -99,7 +99,7 @@ export function throwGrenade(game) {
   if (!countItem(game.inventory,'rgd5')) return {ok:false,message:'В рюкзаке нет РГД-5.'};
   removeItem(game.inventory,'rgd5',1); game.combatEffect={type:'grenade',until:(game.clock.worldMinutes||0)+3}; const damage=42+Math.floor(Math.random()*17); enemy.hp=Math.max(0,enemy.hp-damage); advanceGame(game,2);
   let message=`Ты бросаешь РГД-5. Взрыв наносит ${damage} урона.`;
-  if (enemy.hp<=0) { const reward=40+Math.floor(Math.random()*80); game.money+=reward; game.player.kills+=1; game.player.rating+=2; game.player.reputation+=2; if(enemy.type==='blind-dog'&&Math.random()<.72)addItem(game.inventory,'tail',1); if(enemy.type==='flesh'&&Math.random()<.48)addItem(game.inventory,'flesh-eye',1); if(enemy.wolfDogPack&&game.wolfDogQuest?.status==='active'){game.wolfDogQuest.killed=Math.min(game.wolfDogQuest.total||5,(game.wolfDogQuest.killed||0)+1);const quest=game.quests?.find(entry=>entry.id==='wolf-dog-pack');if(quest)quest.progress=game.wolfDogQuest.killed;const remain=(game.wolfDogQuest.total||5)-game.wolfDogQuest.killed;if(remain>0){game.activeEncounter={type:'blind-dog',name:'Слепой пёс',hp:55,maxHp:55,damage:8+Math.floor(Math.random()*5),count:1,imageIndex:0,image:'',wolfDogPack:true,packIndex:game.wolfDogQuest.killed+1};message+=` Уничтожено ${game.wolfDogQuest.killed}/5. Выбегает следующая собака.`;}else{game.wolfDogQuest.status='ready';if(quest)quest.status='ready';}} if(!enemy.wolfDogPack||game.wolfDogQuest?.killed>=5)game.activeEncounter=null; message+=` Противник повержен. Найдено ${reward} RU.`; }
+  if (enemy.hp<=0) { const reward=40+Math.floor(Math.random()*80); game.money+=reward; game.player.kills+=1; game.player.rating+=2; game.player.reputation+=2; if(enemy.type==='blind-dog'&&Math.random()<.72)addItem(game.inventory,'tail',1); if(enemy.type==='flesh'&&Math.random()<.48)addItem(game.inventory,'flesh-eye',1); if(enemy.atpAssault){game.activeEncounter=null;advanceAtpRescue(game);} else if(enemy.wolfDogPack&&game.wolfDogQuest?.status==='active'){game.wolfDogQuest.killed=Math.min(game.wolfDogQuest.total||5,(game.wolfDogQuest.killed||0)+1);const quest=game.quests?.find(entry=>entry.id==='wolf-dog-pack');if(quest)quest.progress=game.wolfDogQuest.killed;const remain=(game.wolfDogQuest.total||5)-game.wolfDogQuest.killed;if(remain>0){game.activeEncounter={type:'blind-dog',name:'Слепой пёс',hp:55,maxHp:55,damage:8+Math.floor(Math.random()*5),count:1,imageIndex:0,image:'',wolfDogPack:true,packIndex:game.wolfDogQuest.killed+1};message+=` Уничтожено ${game.wolfDogQuest.killed}/5. Выбегает следующая собака.`;}else{game.wolfDogQuest.status='ready';if(quest)quest.status='ready';}} else game.activeEncounter=null; message+=` Противник повержен. Найдено ${reward} Купонов.`; }
   else { const reply=enemyReply(game,enemy,.5); message+=` ${reply.message}`; }
   if (enemy.hp<=0 && !game.activeEncounter) registerCorpseLoot(game,enemy);
   addLog(game,message,enemy.hp>0?'danger':'system'); return {ok:true,message};
@@ -150,8 +150,10 @@ export function beginEncounter(game, type='blind-dog') {
   const name = type === 'military' ? 'Военнослужащий' : type === 'bandit' ? 'Бандит' : type === 'stalker' ? 'Сталкер' : type === 'flesh' ? 'Плоть' : 'Слепой пёс';
   const hp = type === 'military' ? 82 : type === 'bandit' ? 70 : type === 'stalker' ? 65 : type === 'flesh' ? 76 : 55;
   const damage = type === 'military' ? 12 : type === 'bandit' ? 10 : type === 'stalker' ? 8 : type === 'flesh' ? 13 : 9;
-  const image = '';
-  game.activeEncounter = { type, name, hp, maxHp:hp, damage, count:1, imageIndex:0, image };
+  const faction = ['military','bandit','stalker'].includes(type) ? (type==='stalker'?'loner':type) : null;
+  const appearances = faction ? (NPC_APPEARANCES[faction]||[]) : [];
+  const look = appearances.length ? appearances[Math.floor(Math.random()*appearances.length)] : null;
+  game.activeEncounter = { type, name, hp, maxHp:hp, damage, count:1, imageIndex:0, image:'', ...(faction?{faction,icon:look?.icon||'',appearance:look?.appearance||'',insignia:ASSETS.factionInsignias?.[faction]||''}:{}) };
   rememberEntity(game, game.activeEncounter, 'creature');
   return true;
 }
@@ -194,7 +196,9 @@ export function playerAttack(game) {
     game.player.reputation += 2;
     if (game.lastMentionedEntity?.type==='creature') game.lastMentionedEntity.alive=false;
     game.activeEncounter = null;
-    message += ` Угроза устранена. Найдено ${reward} RU.`;
+    const atpWave=!!enemy.atpAssault;
+    if (atpWave) advanceAtpRescue(game);
+    message += ` Угроза устранена. Найдено ${reward} Купонов.`;
     if (enemy.type==='blind-dog' && Math.random()<.72) {
       const trophy=addItem(game.inventory,'tail',1);
       message += trophy.ok ? ' Среди останков найден хвост слепого пса.' : ' Среди останков найден хвост слепого пса, но рюкзак перегружен.';

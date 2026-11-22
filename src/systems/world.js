@@ -1,4 +1,4 @@
-import { LOCATIONS, FACTIONS, SQUADS, ITEMS, QUESTS, NPCS, EXPLORE_SPOTS } from '../data/catalog.js';
+import { ASSETS, LOCATIONS, FACTIONS, SQUADS, ITEMS, QUESTS, NPCS, EXPLORE_SPOTS, NPC_APPEARANCES } from '../data/catalog.js';
 import { advanceTime, createClock, getGameDateTime, syncRealElapsed } from './game-clock.js';
 import { addItem, getItem, removeItem, countItem } from './inventory.js';
 import { rememberEntity } from './russian-language.js';
@@ -8,6 +8,31 @@ const pick = (array) => array[Math.floor(Math.random() * array.length)];
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 export const getLocation = (id) => LOCATIONS.find(location => location.id === id);
 export const getFaction = (id) => FACTIONS.find(faction => faction.id === id);
+
+export function getFactionRelation(first, second) {
+  if (!first || !second) return 'neutral';
+  if (first === second) return 'ally';
+  const relations = {
+    military: { loner:'hostile', bandit:'hostile' },
+    bandit: { loner:'neutral', military:'hostile' },
+    loner: { bandit:'neutral', military:'hostile' }
+  };
+  return relations[first]?.[second] || 'neutral';
+}
+
+function factionCanEnter(faction, locationId) {
+  const territory=getLocation(locationId)?.territory;
+  if (!territory) return true;
+  return faction===territory;
+}
+
+export function recordKnowledge(game, section, id, title, description='') {
+  game.encyclopedia ||= { locations:[], people:[], anomalies:[], mutants:[], artifacts:[], equipment:[] };
+  game.encyclopedia[section] ||= [];
+  if (!game.encyclopedia[section].some(entry=>entry.id===id)) {
+    game.encyclopedia[section].push({id,title,description,discoveredAt:game.clock?.worldMinutes||0});
+  }
+}
 
 // Estimated walking time uses the actual Cordon map proportions (768×1536).
 // The map is treated as roughly 2 m per source pixel; average Zone walking
@@ -30,6 +55,11 @@ const RANDOM_TRADER_NAMES = ['Серый','Муха','Гвоздь','Тихий'
 const STALKER_FIRST_NAMES = ['Макс','Саня','Клим','Боря','Феликс','Антон','Олег','Андрей','Макар','Алекс','Артём','Павел','Пётр','Никита','Марк','Костя','Егор','Нестор','Гриша','Захар','Хома','Ваня','Вася','Роман','Ростик','Леон','Лёва','Дима','Денис','Жора','Ян','Степан','Игнат','Тимур','Трофим','Юра'];
 const STALKER_NICKNAMES = ['Йог','Центнер','Упырь','Костлявый','Косой','Кислый','Енот','Нудный','Гидра','Гравий','Гром','Гитарист','Горбун','Шумахер','Щука','Затвор','Землянин','Зомби','Хомяк','Хитрый','Фитиль','Факел','Ветер','Волосатый','Веник','Автомат','Плохиш','Пастух','Пудель','Пистон','Петля','Паровоз','Пушкин','Робот','Рихтер','Рыболов','Онегин','Ловкач','Лимон','Диггер','Дикарь','Жук','Якут','Якорь','Чехов','Чумной','Чаплин','Сиплый','Старик','Моряк','Морпех','Мутный','Беляев','Балбес','Болтун','Бык','Башмак','Бухой','Бахмут','Барин','Белый','Юрта'];
 const FACTION_GROUPS = { loner:'Одиночки', bandit:'Бандиты', military:'Военные' };
+
+function npcLook(faction) {
+  const look=pick(NPC_APPEARANCES[faction]||NPC_APPEARANCES.loner);
+  return {icon:look?.icon||'',appearance:look?.appearance||'',insignia:ASSETS.factionInsignias[faction]||''};
+}
 
 // Постоянные жители локаций. У каждого есть своя повседневная рутина и личное дело.
 const VILLAGE_ROUTINES = [
@@ -78,14 +108,15 @@ function createNpcNameFactory() {
     const first=firstNames.shift() || STALKER_FIRST_NAMES[fallbackIndex%STALKER_FIRST_NAMES.length];
     const nickname=nicknames.shift() || STALKER_NICKNAMES[fallbackIndex%STALKER_NICKNAMES.length];
     fallbackIndex++;
-    return `${first} «${nickname}»`;
+    return `${first} ${nickname}`;
   };
 }
 
 function createAmbientNpc(id, location, faction, template, index, makeName) {
+  const look=npcLook(faction);
   return {
     id, name:makeName(), role:template.role,
-    group:FACTION_GROUPS[faction]||'Путники', faction, location, icon:'',
+    group:FACTION_GROUPS[faction]||'Путники', faction, location, ...look,
     ambient:true, personalTask:template.task,
     routines:{ morning:template.morning, day:template.day, evening:template.evening, night:template.night },
     activity:template.day, greeting:template.greeting,
@@ -103,6 +134,11 @@ function createAmbientNpcPopulation() {
   const checkpoints=['north-checkpoint','bridge-checkpoint','south-checkpoint'];
   checkpoints.forEach((location,index)=>shuffled(CHECKPOINT_ROUTINES).forEach((template,personIndex)=>people.push(createAmbientNpc(`checkpoint-${index+1}-guard-${personIndex+1}`,location,'military',template,personIndex,makeName))));
   shuffled(ATP_ROUTINES).forEach((template,index)=>people.push(createAmbientNpc(`atp-bandit-${index+1}`,'atp','bandit',template,index,makeName)));
+  // Two randomly named captives stay hidden until the player enters the first-floor room.
+  for (let index=1; index<=2; index++) {
+    const look=npcLook('loner');
+    people.push({id:`atp-captive-${index}`,name:makeName(),role:'Пленный сталкер',group:'Одиночки',faction:'loner',location:'atp',captured:true,areaId:'atp-first-floor-prisoners',...look,personalTask:'ждёт возможности выбраться из плена',activity:'сидит в запертой комнате',greeting:'Тише. Бандиты держат нас здесь. Если выберешься наружу, не оставляй нас им.',lines:{rumors:'Нас двое. Бандиты держат первый этаж. Снаружи у них несколько человек, но мы не знаем, сколько именно.',advice:'Поговори с нами, когда двор станет безопаснее. Пока лучше не поднимать шум.'}});
+  }
   return people;
 }
 
@@ -125,7 +161,7 @@ const NPC_TRADE_STOCK = {
   bandit:['vodka','bread','sausage','canned','ammo9x18','shells','knife','pm','biker'],
   military:['water','canned','bandage','ai2','ammo9x18','ammo545','shells','antirad','boltpack','pa8']
 };
-const getItemName = (id) => ({medusa:'Медуза',meat_chunk:'Ломоть мяса',gravi:'Грави'}[id] || id);
+const getItemName = (id) => ({medusa:'Медуза',meat_chunk:'Ломоть мяса',gravi:'Грави','stone-flower':'Каменный цветок'}[id] || id);
 const RANDOM_TRADER_STOCK = ['bread','water','canned','sausage','bandage','ammo9x18','ammo9x19','ammo545','shells','knife','vodka','boltpack','ai2','antirad','binoculars','pm'];
 
 function makeStock(ids, multiplier=1) {
@@ -143,10 +179,10 @@ function createTraderRecords() {
   const random = Array.from({length:4},(_,index)=>{
     const first=pick(RANDOM_TRADER_NAMES);
     const faction=pick(FACTIONS);
-    const possible=LOCATIONS.filter(location=>location.id!=='sidorovich-bunker' && location.id!=='north-checkpoint');
+    const possible=LOCATIONS.filter(location=>!location.territory && location.id!=='sidorovich-bunker');
     return {
       id:`wanderer-${index+1}`, name:first, role:'Бродячий торговец', group:'Путники', faction:faction.id,
-      location:pick(possible).id, icon:faction.icon, greeting:'Поторопись, сталкер. Я не задерживаюсь на одном месте.',
+      location:pick(possible).id, ...npcLook(faction.id), greeting:'Поторопись, сталкер. Я не задерживаюсь на одном месте.',
       stock:makeStock(RANDOM_TRADER_STOCK.filter(()=>Math.random()>.42),1.28), buyMultiplier:.43,
       priceMultiplier:1.28, trader:true, random:true
     };
@@ -211,6 +247,11 @@ export function createGame(character, starterInventory = [], money = 0) {
       faction:character.faction, kills:0, artifacts:0, questsDone:0, locationsVisited:[faction?.spawn || 'rookie-village']
     },
     money,
+    currencyName:'Купоны',
+    encyclopedia:{locations:[],people:[],anomalies:[],mutants:[],artifacts:[],equipment:[]},
+    secretAnomaly:{sceneSeen:false,observed:false,name:'',inactiveUntil:0},
+    atpRescue:{started:false,cleared:false,rewardClaimed:false,remaining:6},
+    locationLights:{},
     inventory:starterInventory.map(entry => ({ ...entry })),
     ammoRounds:{ ammo9x18:countItem(starterInventory,'ammo9x18')*12, ammo9x19:countItem(starterInventory,'ammo9x19')*12, ammo545:countItem(starterInventory,'ammo545')*30, shells:countItem(starterInventory,'shells')*8 },
     boltsRemaining:countItem(starterInventory,'boltpack')*10,
@@ -278,7 +319,7 @@ export function progressQuest(game, condition) {
   game.money += quest.reward;
   game.player.questsDone += 1;
   grantReputation(game, 5);
-  addLog(game, `Задание «${quest.title}» выполнено. Получено ${quest.reward} RU и +5 рейтинга.`);
+  addLog(game, `Задание «${quest.title}» выполнено. Получено ${quest.reward} Купонов и +5 рейтинга.`);
   return quest;
 }
 
@@ -287,8 +328,8 @@ export function acceptWorldQuest(game, questId) {
   if (!quest) return {ok:false,message:'Такого задания нет.'};
   if (quest.status!=='available') return {ok:false,message:'Это задание уже взято или завершено.'};
   if (quest.id==='wolf-dog-pack') return acceptWolfDogQuest(game);
-  quest.status='active';
-  quest.progress=0;
+  quest.status=(questId==='signal-dump' && game.secretAnomaly?.observed && game.secretAnomaly?.name) ? 'ready' : 'active';
+  quest.progress=quest.status==='ready'?1:0;
   quest.acceptedAt=game.clock.worldMinutes;
   addLog(game,`Принято задание «${quest.title}».`,'player');
   return {ok:true,quest,message:`Задание «${quest.title}» добавлено в КПК. ${quest.text}`};
@@ -312,7 +353,7 @@ export function simulateWorld(game) {
     for (const squad of game.squads) {
       if (Math.random() > 0.38) continue;
       const current = getLocation(squad.location);
-      const options = (current?.neighbors || []).filter(id => id !== squad.location);
+      const options = (current?.neighbors || []).filter(id => id !== squad.location && factionCanEnter(squad.faction,id));
       if (options.length) {
         squad.destination = pick(options);
         squad.location = squad.destination;
@@ -323,7 +364,7 @@ export function simulateWorld(game) {
     for (const trader of game.randomTraders) {
       if (Math.random() > .48) continue;
       const current=getLocation(trader.location);
-      const options=(current?.neighbors||[]).filter(id=>id!==trader.location);
+      const options=(current?.neighbors||[]).filter(id=>id!==trader.location && factionCanEnter(trader.faction,id));
       if (options.length) trader.location=pick(options);
     }
   }
@@ -425,6 +466,7 @@ export function describeLocation(game, locationId = game.locationId) {
   const location = getLocation(locationId);
   if (!location) return 'Ты не можешь определить своё местоположение.';
   rememberEntity(game, location, 'location');
+  recordKnowledge(game,'locations',location.id,location.name,location.desc);
   const time = getGameDateTime(game.clock);
   const squads = game.squads.filter(squad => squad.location === locationId);
   const extras = [
@@ -458,7 +500,7 @@ export function searchLocation(game, { corpse=false } = {}) {
   if (chance < 0.18) {
     const cash = 30 + Math.floor(Math.random()*120);
     game.money += cash;
-    message = `${corpse ? 'В кармане погибшего' : 'Под обломками'} нашлось ${cash} RU.`;
+    message = `${corpse ? 'В кармане погибшего' : 'Под обломками'} нашлось ${cash} Купонов.`;
   } else if (item) {
     const quantity = ['bread','water','ammo9x18','bandage'].includes(lootId) && Math.random() < .25 ? 2 : 1;
     const result = addItem(game.inventory, lootId, quantity);
@@ -546,6 +588,10 @@ export function startAreaSearch(game, spotId) {
   if (spot.kind==='storage') return openStorage(game,spot.storageId,spot.name);
   if (spot.kind==='breakable') return breakContainer(game,spotId);
   game.currentAreaId=spotId;
+  if (spotId==='atp-first-floor-prisoners') {
+    addLog(game,'Ты вошёл в комнату первого этажа. За перегородкой находятся двое пленных сталкеров.');
+    return {ok:true,spot,message:'В комнате двое пленных сталкеров. Поговори с ними; они расскажут, что произошло.'};
+  }
   game.lootContainers ||= {};
   game.searchedAreas ||= {};
   const now=game.clock.worldMinutes;
@@ -620,6 +666,10 @@ export function travelTo(game, destinationId) {
   if (!current || !destination) return { ok:false, message:'Неизвестный маршрут.' };
   if (!current.neighbors.includes(destinationId)) return { ok:false, message:'Прямого пути туда нет. Проверь соседние переходы на карте.' };
   if (game.activeEncounter) return { ok:false, message:'Сначала разберись с текущей угрозой.' };
+  if (destinationId==='atp' && game.player.faction==='loner') {
+    if ((game.money||0)<500) return {ok:false,message:'За вход на АТП требуют 500 Купонов. Денег не хватает.'};
+    game.money-=500; addLog(game,'За проход на территорию АТП уплачено 500 Купонов.');
+  }
   const travelMinutes = getTravelMinutes(current.id, destination.id);
   advanceGame(game, travelMinutes);
   leaveShelter(game);
@@ -632,6 +682,32 @@ export function travelTo(game, destinationId) {
   progressQuest(game, `visit:${destinationId}`);
   describeLocation(game);
   let hazardNotice = '';
+  if (destinationId==='anomaly-dump' && !game.secretAnomaly?.sceneSeen) {
+    game.secretAnomaly ||= {sceneSeen:false,observed:false,name:'',inactiveUntil:0};
+    game.secretAnomaly.sceneSeen=true; game.secretAnomaly.observed=true;
+    game.anomalyCooldowns ||= {vortexUntil:0,carouselUntil:0};
+    game.anomalyCooldowns.vortexUntil=game.clock.worldMinutes+6; game.anomalyCooldowns.carouselUntil=game.clock.worldMinutes+6;
+    const scene='У края лагеря плоть выскакивает из-за укрытия. Неизвестное поле слегка приподнимает мутанта, закручивает в воздухе и отбрасывает к воронке. Короткий разряд гасит свечение; обе аномалии на время затихают. Сцена заканчивается вспышкой и тяжёлым грохотом — без возможности рассмотреть подробности.';
+    addLog(game,scene,'danger');
+    recordKnowledge(game,'anomalies','secret-unknown','Неизвестное поле','Наблюдалось в Тайном лагере. Связано с подбрасыванием и вращением объектов; точные свойства предстоит выяснить.');
+    const anomalyQuest=game.quests?.find(entry=>entry.id==='signal-dump'&&entry.status==='active');
+    if(anomalyQuest) anomalyQuest.progress=1;
+    hazardNotice += ` ${scene}`;
+  }
+  if (destination.territory && destination.territory!==game.player.faction && getFactionRelation(game.player.faction,destination.territory)==='hostile') {
+    const enemyFaction=destination.territory;
+    game.activeEncounter={type:enemyFaction,name:enemyFaction==='military'?'Военный патруль':'Бандитский дозор',hp:68,maxHp:68,damage:9+Math.floor(Math.random()*5),count:1,faction:enemyFaction,...npcLook(enemyFaction)};
+    const message=enemyFaction==='military'?'Военные замечают чужака на охраняемой территории и требуют остановиться.':'Бандитский дозор перекрывает путь и требует объяснений.';
+    addLog(game,message,'danger');
+    return {ok:true,message:`Путь занял ${travelMinutes} мин. ${message}${hazardNotice}`,encounter:true,travelMinutes};
+  }
+  if (destinationId==='farmstead' && Math.random()<.38) {
+    const height=Math.round(Math.random()*15*10)/10;
+    const landingDamage=Math.max(0,Math.ceil(height*.55-2));
+    game.player.hp=Math.max(1,game.player.hp-landingDamage);
+    hazardNotice += ` Трамплин резко подбрасывает тебя примерно на ${height.toFixed(1)} м. После приземления здоровье ${landingDamage?`снижается на ${landingDamage}`:'не пострадало'}.`;
+    recordKnowledge(game,'anomalies','trampoline','Трамплин','Гравитационное поле кратко подбрасывает попавшего внутрь на высоту до 15 метров.');
+  }
   if (destination.hazards?.length && !game.anomalyStates[destinationId]) {
     if (destination.hazards.includes('radiation')) {
       const dose = 3 + Math.floor(Math.random()*5);
@@ -651,6 +727,7 @@ export function travelTo(game, destinationId) {
     game.activeEncounter = useFlesh
       ? { type:'flesh', name:'Плоть', hp:76, maxHp:76, damage:11+Math.floor(Math.random()*5), count:1, image:'' }
       : { type:'blind-dog', name:'Слепой пёс', hp:55, maxHp:55, damage:7+Math.floor(Math.random()*7), count:Math.random()<.3?2:1, imageIndex:Math.floor(Math.random()*2) };
+    recordKnowledge(game,'mutants',useFlesh?'flesh':'blind-dog',useFlesh?'Плоть':'Слепой пёс',useFlesh?'Крупный мутант, часто замеченный у старых построек.':'Слепой пёс держится стаями у заброшенных построек.');
     const message = useFlesh ? 'Из-за развалин выходит Плоть. Мутант тяжело переступает копытами и готовится к атаке.' : 'Из-за укрытия выскакивает слепой пёс! Он замечает тебя и готовится броситься.';
     addLog(game, message, 'danger');
     return { ok:true, message:`Путь занял ${travelMinutes} мин. ${message}${hazardNotice}`, encounter:true, travelMinutes };
@@ -680,11 +757,11 @@ function ensureSquadMembers(game) {
       const nickname=pick(STALKER_NICKNAMES);
       game.squadMembers.push({
         id:`${squad.id}-member-${index+1}`,
-        name:`${first} «${nickname}»`,
+        name:`${first} ${nickname}`,
         role:index===0?'Сталкер':'Боец отряда',
         group:FACTION_GROUPS[faction]||'Путники',
         faction, squadId:squad.id, memberIndex:index,
-        location:squad.location, icon:'',
+        location:squad.location, ...npcLook(faction),
         greeting:pick([
           'Здорово. Не видел тебя раньше. Ты по делу или просто пережидаешь? ',
           'Привет, сталкер. Дорога сегодня какая-то беспокойная. ',
@@ -707,7 +784,17 @@ export function getAvailableStalkers(game, locationId=game.locationId) {
   });
   const people=[...NPCS,...(game.randomTraders||[]),...(game.ambientNpcs||[]),...squadMembers];
   const seen=new Set();
-  return people.filter(person=>(locationId==null || person.location===locationId) && !seen.has(person.id) && seen.add(person.id));
+  const territory=getLocation(locationId)?.territory;
+  return people.filter(person=>{
+    if (locationId!=null && person.location!==locationId) return false;
+    if (person.captured && game.currentAreaId!=='atp-first-floor-prisoners') return false;
+    if (person.faction==='loner' && ['bandit','military'].includes(territory) && !person.captured) return false;
+    if (person.faction==='bandit' && territory==='military') return false;
+    if (person.faction==='military' && territory==='bandit') return false;
+    if (game.atpRescue?.cleared && locationId==='atp' && person.faction==='bandit') return false;
+    if (seen.has(person.id)) return false;
+    seen.add(person.id); return true;
+  });
 }
 
 export function getStalkerById(game,npcId) {
@@ -750,7 +837,7 @@ export function acceptSidorovichJob(game) {
   }
   if (type==='medusa') jobs.active={type,title:'Ловля медузы',description:'Найди артефакт «Медуза» и принеси его Сидоровичу. Учёный с большой земли ждёт образец.',target:1,progress:countItem(game.inventory,'medusa'),reward:1100};
   addLog(game,`Получено цикличное поручение Сидоровича: «${jobs.active.title}».`,'player');
-  return {ok:true,job:jobs.active,message:`Сидорович: «${jobs.active.description} За работу заплачу ${jobs.active.reward} RU».`};
+  return {ok:true,job:jobs.active,message:`Сидорович: «${jobs.active.description} За работу заплачу ${jobs.active.reward} Купонов».`};
 }
 
 export function turnInSidorovichJob(game) {
@@ -771,8 +858,8 @@ export function turnInSidorovichJob(game) {
   jobs.completed[job.type]=(jobs.completed[job.type]||0)+1;
   jobs.active=null;
   jobs.cooldownUntil=game.clock.worldMinutes+120;
-  addLog(game,`Поручение «${job.title}» выполнено. Сидорович выплатил ${job.reward} RU.`);
-  return {ok:true,message:`Сидорович: «Ну, ${job.type==='tails'?'хвосты получил':job.type==='medusa'?'Медузу забрал':'должнику напомнил'} — дело сделано. Держи ${job.reward} RU. Сидорович не обидел!» Получено +5 рейтинга.`};
+  addLog(game,`Поручение «${job.title}» выполнено. Сидорович выплатил ${job.reward} Купонов.`);
+  return {ok:true,message:`Сидорович: «Ну, ${job.type==='tails'?'хвосты получил':job.type==='medusa'?'Медузу забрал':'должнику напомнил'} — дело сделано. Держи ${job.reward} Купонов. Сидорович не обидел!» Получено +5 рейтинга.`};
 }
 
 
@@ -799,9 +886,9 @@ export function turnInWolfDogQuest(game) {
   quest.status='completed';
   game.player.questsDone=(game.player.questsDone||0)+1;
   grantReputation(game,5);
-  addLog(game,`Задание «Собаки у вагончика» выполнено. Волк заплатил ${reward} RU.`);
-  game.dialogueReply=`Волк: «Вот это дело, сталкер. Теперь новички смогут спокойно ходить к вагончику. Держи ${reward} RU — заслужил».`;
-  return {ok:true,message:`Волк: «Вот это дело, сталкер. Теперь новички смогут спокойно ходить к вагончику. Держи ${reward} RU — заслужил». Получено +5 рейтинга.`};
+  addLog(game,`Задание «Собаки у вагончика» выполнено. Волк заплатил ${reward} Купонов.`);
+  game.dialogueReply=`Волк: «Вот это дело, сталкер. Теперь новички смогут спокойно ходить к вагончику. Держи ${reward} Купонов — заслужил».`;
+  return {ok:true,message:`Волк: «Вот это дело, сталкер. Теперь новички смогут спокойно ходить к вагончику. Держи ${reward} Купонов — заслужил». Получено +5 рейтинга.`};
 }
 
 export function talkToNpc(game, npcId) {
@@ -813,6 +900,7 @@ export function talkToNpc(game, npcId) {
   game.dialogueReply = '';
   game.dialogueHistory=[{role:'npc',text:npc.greeting||'Чего хотел, сталкер?'}];
   rememberEntity(game, npc, 'npc');
+  recordKnowledge(game,'people',npc.id,npc.name,`${npc.role||'Персонаж'} · ${npc.group||npc.faction||'Путник'}`);
   const jobs=getSidorovichJobState(game);
   if (npcId==='sidorovich' && jobs.active?.type==='collector' && jobs.active.targetNpcId) { /* player returned to the quest giver */ }
   if (npcId!=='sidorovich' && jobs.active?.type==='collector' && jobs.active.targetNpcId===npcId) {
@@ -839,15 +927,32 @@ export function replyNpc(game, npcId, topic) {
   }
   if (npcId==='sidorovich' && ['работа','задания','квесты','поручения'].some(word=>topic.toLowerCase().includes(word))) {
     const jobs=getSidorovichJobState(game);
-    if (jobs.active) answer=`У тебя уже есть поручение «${jobs.active.title}». ${jobs.active.description}`;
+    const anomalyQuest=game.quests?.find(entry=>entry.id==='signal-dump');
+    if (anomalyQuest?.status==='available') answer='Слушай, сталкер, появилась в Тайном лагере странная аномалия. Таких у нас ещё не было. Возможно, она и вовсе уникальная, а я как торговец скажу тебе: всё, что уникально, можно хорошо продать. К тому же кто знает, какие у неё артефакты. Так что сходи и посмотри. Придёшь, расскажешь — с меня причитается.';
+    else if (anomalyQuest?.status==='active') answer='Поручение по неизвестной аномалии ещё в силе. Доберись до Тайного лагеря, осмотри поле и придумай ему название. Потом вернёшься с докладом.';
+    else if (anomalyQuest?.status==='ready') answer=`Ты уже назвал аномалию «${game.secretAnomaly?.name||'неизвестно'}». Возвращайся с докладом, мне интересно, что ты там увидел.`;
+    else if (jobs.active) answer=`У тебя уже есть поручение «${jobs.active.title}». ${jobs.active.description}`;
     else if (game.clock.worldMinutes<jobs.cooldownUntil) answer='Пока ничего нового. Дай мне немного времени, сталкер.';
     else answer='Хе-хе. Есть для тебя работа. Скажи, если готов взяться за поручение.';
     game.dialogueReply=answer;
     return answer;
   }
   const key = topic.toLowerCase();
-  const mapped = Object.keys(npc.lines||{}).find(entry => key.includes(entry) || entry.includes(key));
-  answer = mapped ? npc.lines[mapped] : `${npc.name} смотрит на тебя с недоверием. «Сейчас мне нечего добавить. Сначала разберись с делом».`;
+  const aliases=[
+    {target:'work',roots:['работ','задан','квест','поруч','помощ','дело','подработ']},
+    {target:'trade',roots:['торгов','куп','прод','обмен','бартер','товар']},
+    {target:'rumors',roots:['слух','новост','что слышно','обстанов']},
+    {target:'food',roots:['еда','колбас','голод','перекус']},
+    {target:'advice',roots:['совет','подсказ','помоги']},
+    {target:'anomaly',roots:['аномал','неизвестн']}
+  ];
+  const alias=aliases.find(entry=>entry.roots.some(root=>key.includes(root)));
+  const mapped = (alias&&npc.lines?.[alias.target]) ? alias.target : Object.keys(npc.lines||{}).find(entry => key.includes(entry) || entry.includes(key));
+  if (npcId==='sidorovich' && key.includes('работ') && game.quests?.some(entry=>entry.id==='signal-dump'&&entry.status==='available')) {
+    answer='Слушай, сталкер, появилась в Тайном лагере странная аномалия. Таких у нас ещё не было. Возможно, она и вовсе уникальная, а я как торговец скажу тебе: всё, что уникально, можно хорошо продать. К тому же кто знает, какие у неё артефакты. Так что сходи и посмотри. Придёшь, расскажешь — с меня причитается.';
+  } else {
+    answer = mapped ? npc.lines[mapped] : `${npc.name} смотрит на тебя с недоверием. «Сейчас мне нечего добавить. Сначала разберись с делом».`;
+  }
   game.dialogueReply=answer;
   return answer;
 }
@@ -857,8 +962,18 @@ export function replyNpcFreeText(game,npcId,rawText) {
   const text=String(rawText||'').toLowerCase().replaceAll('ё','е').replace(/[«»„“”"']/g,' ').replace(/[^а-яa-z0-9 -]/g,' ').replace(/\s+/g,' ').trim();
   if (!npc || npc.location!==game.locationId) return {ok:false,message:'Собеседник сейчас не находится рядом.'};
   if (!text) return {ok:false,message:'Напиши, что хочешь сказать.'};
-  let answer='';
   const includes=(...roots)=>roots.some(root=>text.includes(root));
+  let answer='';
+  if (npc.captured) {
+    answer=includes('кто','что случ','как попал','как захват','захват','почему','плен','когда','расскажи')
+      ? 'Нас двоих держат здесь уже не первый день. Бандиты с АТП перехватили нашу группу, вещи забрали, а нас заперли на первом этаже. Мы слышали, что во дворе дежурит несколько человек. Если станет тихо, попробуем уйти.'
+      : 'Пожалуйста, не уходи, пока они рядом. Мы не знаем, сколько бандитов осталось во дворе. Если решишь помочь, сначала осмотрись и будь осторожен.';
+    game.dialogueReply=answer; game.dialogueHistory ||= [];
+    game.dialogueHistory.push({role:'player',text:String(rawText).slice(0,500)},{role:'npc',text:answer});
+    game.dialogueHistory=game.dialogueHistory.slice(-16); addLog(game,`${npc.name}: ${answer}`);
+    return {ok:true,message:answer};
+  }
+
   if (includes('торгов','торговать','обмен','купить','продать','цен','товар','покажи ассортимент','что продаешь','что есть в наличии')) {
     const answer=pick([`Ладно, ${npc.name==='Сидорович'?'сталкер':'договорились'}. Открываю обмен — посмотри, что у меня есть, и что готов предложить сам.`,`Давай к делу. В торговом окне увидишь мой запас и цены выкупа на твои вещи.`,`Есть о чём поговорить. Открывай сделку: товар слева, твой рюкзак справа.`]);
     game.dialogueReply=answer;
@@ -935,7 +1050,7 @@ export function buyFromTrader(game, traderId, itemId) {
   updatePurchasedCounters(game,itemId,1);
   if (stock.qty<=0) found.record.stock=found.record.stock.filter(entry=>entry!==stock);
   const name=getItem(itemId)?.name||itemId;
-  const message=`Куплено у ${found.trader.name}: ${name} за ${stock.price} RU.`;
+  const message=`Куплено у ${found.trader.name}: ${name} за ${stock.price} Купонов.`;
   addLog(game,message);
   return { ok:true, message, price:stock.price };
 }
@@ -952,7 +1067,7 @@ export function sellToTrader(game, traderId, itemId, quantity=1) {
   updatePurchasedCounters(game,itemId,-1*qty);
   // Mutant trophies and artifacts are bought from the player, but never returned to sale stock.
   if (['Добыча','Артефакты'].includes(item.cat)) {
-    const message=`Продано ${item.name} ×${qty} торговцу ${found.trader.name}. Получено ${price*qty} RU.`;
+    const message=`Продано ${item.name} ×${qty} торговцу ${found.trader.name}. Получено ${price*qty} Купонов.`;
     addLog(game,message);
     return {ok:true,message,price:price*qty};
   }
@@ -962,7 +1077,7 @@ export function sellToTrader(game, traderId, itemId, quantity=1) {
     found.record.stock.push(stock);
   }
   stock.qty+=qty;
-  const message=`Продано ${item.name} ×${qty} торговцу ${found.trader.name}. Получено ${price*qty} RU.`;
+  const message=`Продано ${item.name} ×${qty} торговцу ${found.trader.name}. Получено ${price*qty} Купонов.`;
   addLog(game,message);
   return { ok:true, message, price:price*qty };
 }
@@ -996,8 +1111,10 @@ export function deactivateAnomaly(game) {
 export function startArtifactHunt(game) {
   const location = getLocation(game.locationId);
   if (!location?.hazards?.length) return { ok:false, message:'Здесь нет заметных аномальных сигналов.' };
-  if (!countItem(game.inventory, 'otklik')) return { ok:false, message:'Для мини-игры нужен детектор «Отклик».' };
-  const pool = location.hazards.includes('gravity') ? ['medusa','gravi'] : location.id==='atp' ? ['gravi','medusa'] : ['medusa','meat_chunk'];
+  if (!countItem(game.inventory, 'otklik') && !countItem(game.inventory, 'medved')) return { ok:false, message:'Для мини-игры нужен детектор «Отклик» или «Медведь».' };
+  const hasMedved=countItem(game.inventory,'medved')>0;
+  recordKnowledge(game,'equipment',hasMedved?'medved':'otklik',hasMedved?'Детектор «Медведь»':'Детектор «Отклик»','Используется для обнаружения аномальных сигналов.');
+  const pool = location.id==='anomaly-dump' && hasMedved ? ['stone-flower','medusa','gravi'] : location.hazards.includes('gravity') ? ['medusa','gravi'] : location.id==='atp' ? ['gravi','medusa'] : ['medusa','meat_chunk'];
   game.artifactHunt = { target:Math.floor(Math.random()*2), attempts:0, found:false, locationId:location.id, artifactId:pool[Math.floor(Math.random()*pool.length)] };
   return { ok:true, message:'Детектор ожил. Выбери один из трёх секторов, ориентируясь на усиление сигнала.' };
 }
@@ -1012,6 +1129,7 @@ export function chooseArtifactSector(game, sector) {
     const loot = addItem(game.inventory, artifactId, 1);
     if (loot.ok) {
       game.player.artifacts += 1;
+      recordKnowledge(game,'artifacts',artifactId,getItem(artifactId)?.name||artifactId,getItem(artifactId)?.desc||'Найденный артефакт.');
       grantReputation(game, 3);
       progressQuest(game, `artifact:${hunt.locationId}`);
       const message = `Сигнал резко усилился. Под слоем мусора обнаружен артефакт «${getItemName(artifactId)}». Его удалось аккуратно извлечь.`;
@@ -1026,6 +1144,140 @@ export function chooseArtifactSector(game, sector) {
   }
   const distance = Math.abs(sector - hunt.target);
   return { ok:true, message:distance === 1 ? 'Сигнал слабый, но стал немного чище. Проверь соседний сектор.' : 'Почти нет отклика. Ищи в другом направлении.' };
+}
+
+export function nameSecretAnomaly(game, rawName) {
+  const name=String(rawName||'').trim().replace(/[<>"']/g,'').slice(0,32);
+  if (game.locationId!=='anomaly-dump' || !game.secretAnomaly?.observed) return {ok:false,message:'Сначала доберись до Тайного лагеря и внимательно осмотри аномалию.'};
+  if (name.length<3) return {ok:false,message:'Название должно содержать хотя бы три символа.'};
+  game.secretAnomaly.name=name;
+  const quest=game.quests?.find(entry=>entry.id==='signal-dump');
+  if (quest?.status==='active') quest.status='ready';
+  recordKnowledge(game,'anomalies','secret-unknown',name,'Необычное поле Тайного лагеря. Название придумано игроком.');
+  addLog(game,`Ты дал неизвестной аномалии название «${name}».`,'player');
+  return {ok:true,message:`Аномалия теперь отмечена в КПК как «${name}». Вернись к Сидоровичу с докладом.`};
+}
+
+export function turnInSecretAnomalyQuest(game) {
+  if (game.locationId!=='sidorovich-bunker') return {ok:false,message:'Вернись к Сидоровичу в подвал.'};
+  const quest=game.quests?.find(entry=>entry.id==='signal-dump');
+  if (!quest || quest.status!=='ready' || !game.secretAnomaly?.name) return {ok:false,message:'Сначала исследуй аномалию и дай ей название.'};
+  quest.status='completed'; game.money+=quest.reward; game.player.questsDone=(game.player.questsDone||0)+1; grantReputation(game,5);
+  addLog(game,`Задание «Новая аномалия» выполнено. Получено ${quest.reward} Купонов.`);
+  return {ok:true,message:`Сидорович внимательно слушает доклад о «${game.secretAnomaly.name}». «Вот это уже интересно. Держи ${quest.reward} Купонов — и пока никому лишнего не рассказывай».`};
+}
+
+export function turnInPudelQuest(game) {
+  if (game.locationId!=='farmstead') return {ok:false,message:'Костя Пудель ждёт у костра на развалинах хутора.'};
+  const quest=game.quests?.find(entry=>entry.id==='pudel-sausage');
+  if (!quest || quest.status!=='active') return {ok:false,message:'Сначала поговори с Костей Пуделем и возьми его просьбу.'};
+  if (!countItem(game.inventory,'sausage')) return {ok:false,message:'Нужна именно диетическая колбаса.'};
+  removeItem(game.inventory,'sausage',1); quest.status='completed'; game.money+=quest.reward; game.player.questsDone=(game.player.questsDone||0)+1; grantReputation(game,3);
+  addLog(game,`Задание «Колбаска для Пуделя» выполнено. Получено ${quest.reward} Купонов.`);
+  return {ok:true,message:`Костя Пудель довольно кивает: «Вот это ты вовремя. Спасибо, сталкер». Получено ${quest.reward} Купонов.`};
+}
+
+export function claimAtpRescueReward(game) {
+  if (game.locationId!=='sidorovich-bunker') return {ok:false,message:'За наградой нужно вернуться к Сидоровичу.'};
+  const state=game.atpRescue||{};
+  if (!state.cleared) return {ok:false,message:'Пока нет подтверждения, что пленники освобождены.'};
+  if (state.rewardClaimed) return {ok:false,message:'Награда за спасение уже получена.'};
+  const a=addItem(game.inventory,'aksu',1); if (!a.ok) return {ok:false,message:`Не удалось получить АКСУ: ${a.reason}`};
+  const b=addItem(game.inventory,'debyt',1); if (!b.ok) { removeItem(game.inventory,'aksu',1); return {ok:false,message:`Не удалось получить костюм «Дебют»: ${b.reason}`}; }
+  state.rewardClaimed=true; addLog(game,'Сидорович выдал за спасение пленников АКСУ и костюм «Дебют».');
+  return {ok:true,message:'Сидорович нехотя, но признаёт услугу: «Забирай. АКСУ и Дебют. И не делай вид, что я это раздаю каждому». Награда получена.'};
+}
+
+export function beginAtpRescue(game) {
+  if (game.locationId!=='atp') return {ok:false,message:'Пленные находятся на первом этаже двухэтажного здания АТП.'};
+  if (game.atpRescue?.cleared) return {ok:false,message:'Бандиты уже отступили, пленники свободны.'};
+  if (game.activeEncounter) return {ok:false,message:'Сначала закончи текущую схватку.'};
+  game.atpRescue ||= {started:false,cleared:false,rewardClaimed:false,remaining:6};
+  game.atpRescue.started=true; game.atpRescue.remaining=6;
+  game.activeEncounter={type:'bandit',name:'Бандитский дозор',hp:65,maxHp:65,damage:10,count:1,faction:'bandit',...npcLook('bandit'),atpAssault:true,atpIndex:1};
+  addLog(game,'Ты решаешь отвлечь бандитов и добраться до комнаты, где держат сталкеров. Схватка начинается.','danger');
+  return {ok:true,encounter:true,message:'Бандиты заметили тебя. Придётся пройти через их дозор, чтобы освободить пленников.'};
+}
+
+export function advanceAtpRescue(game) {
+  const rescue=game.atpRescue;
+  if (!rescue?.started) return false;
+  rescue.remaining=Math.max(0,(rescue.remaining||1)-1);
+  if (rescue.remaining>0) {
+    game.activeEncounter={type:'bandit',name:`Бандит на АТП · ${7-rescue.remaining}/6`,hp:58+Math.floor(Math.random()*15),maxHp:70,damage:9+Math.floor(Math.random()*5),count:1,faction:'bandit',...npcLook('bandit'),atpAssault:true,atpIndex:5-rescue.remaining};
+    addLog(game,'Следующий бандит пытается перекрыть проход.');
+  } else {
+    rescue.started=false; rescue.cleared=true; game.activeEncounter=null;
+    for (const captive of game.ambientNpcs||[]) {
+      if (captive.captured) { captive.captured=false; captive.location='rookie-village'; captive.role='Освобождённый сталкер'; captive.activity='пришёл в деревню и отдыхает после плена'; captive.greeting='Ты вытащил нас оттуда. Мы добрались до деревни. Спасибо, сталкер.'; }
+      if (captive.faction==='bandit' && captive.location==='atp') { captive.location='ravine-tunnel'; captive.role='Отступивший бандит'; captive.activity='отступил с территории АТП'; captive.personalTask='держится подальше от АТП'; }
+    }
+    addLog(game,'На АТП стало тихо. Двое пленных сталкеров освобождены и могут покинуть здание.','success');
+  }
+  return true;
+}
+
+export function toggleCurrentLocationLight(game) {
+  game.locationLights ||= {};
+  const enabled=!game.locationLights[game.locationId];
+  game.locationLights[game.locationId]=enabled;
+  addLog(game,enabled?'Ты включил свет в помещении.':'Ты выключил свет в помещении.','player');
+  return {ok:true,message:enabled?'Свет включён.':'Свет выключен.'};
+}
+
+export function useTrampoline(game) {
+  if (game.locationId!=='farmstead') return {ok:false,message:'Трамплин находится на развалинах хутора.'};
+  const height=Math.round(Math.random()*150)/10;
+  const landingDamage=Math.max(0,Math.ceil(height*.55-2));
+  game.player.hp=Math.max(1,game.player.hp-landingDamage);
+  recordKnowledge(game,'anomalies','trampoline','Трамплин','Гравитационное поле подбрасывает попавшего внутрь на высоту от 0 до 15 метров.');
+  addLog(game,`Трамплин подбрасывает тебя примерно на ${height.toFixed(1)} м. После приземления здоровье ${landingDamage?`снижается на ${landingDamage}`:'не пострадало'}.`,'danger');
+  return {ok:true,message:`Гравитационное поле резко подбрасывает тебя на ${height.toFixed(1)} м и возвращает на землю. ${landingDamage?`Ты теряешь ${landingDamage} здоровья.`:'Приземление обошлось без потерь.'}`};
+}
+
+export function useVortex(game) {
+  if (game.locationId!=='anomaly-dump') return {ok:false,message:'Воронка находится в Тайном лагере.'};
+  game.anomalyCooldowns ||= {vortexUntil:0,carouselUntil:0};
+  const inactiveUntil=Number(game.anomalyCooldowns.vortexUntil||0);
+  if (inactiveUntil>game.clock.worldMinutes) return {ok:true,message:'После разряда воронка временно затихла. Можно быстро пройти по краю.'};
+  recordKnowledge(game,'anomalies','vortex','Воронка','Гравитационная аномалия притягивает предметы и человека к центру, затем сжимает поле и выпускает разряд.');
+  game.vortexCaught={attempts:2};
+  addLog(game,'Воронка тянет к центру. Тебя удерживает гравитационное поле — нужно попытаться вырваться.','danger');
+  return {ok:true,message:'Воронка начинает притягивать тебя. Напиши «вырваться» или «сопротивляться», чтобы попытаться выбраться.'};
+}
+
+export function escapeVortex(game) {
+  if (!game.vortexCaught) return {ok:false,message:'Сейчас тебя не удерживает аномалия.'};
+  if (Math.random()<.62) { game.vortexCaught=null; addLog(game,'Тебе удаётся выбраться из зоны притяжения.','player'); return {ok:true,message:'Ты вырываешься из поля и отползаешь на безопасное расстояние.'}; }
+  game.vortexCaught.attempts-=1;
+  if (game.vortexCaught.attempts<=0) {
+    game.player.hp=Math.max(1,game.player.hp-14); game.vortexCaught=null; game.anomalyCooldowns ||= {vortexUntil:0,carouselUntil:0}; game.anomalyCooldowns.vortexUntil=game.clock.worldMinutes+18;
+    addLog(game,'Воронка сжимается, затем проходит мощный разряд. Поле временно отключается.','danger');
+    return {ok:true,message:'Воронка на короткое время сдавливает поле и выпускает разряд. Ты отбрасываешься в сторону, получаешь 14 урона; аномалия временно неактивна.'};
+  }
+  return {ok:true,message:'Притяжение усиливается, но ещё есть шанс выбраться. Попробуй снова.'};
+}
+
+export function useCarousel(game) {
+  if (game.locationId!=='anomaly-dump') return {ok:false,message:'Карусель находится в Тайном лагере.'};
+  game.anomalyCooldowns ||= {vortexUntil:0,carouselUntil:0};
+  if (Number(game.anomalyCooldowns.carouselUntil||0)>game.clock.worldMinutes) return {ok:true,message:'После разряда поле карусели временно отключено. Можно осторожно пройти.'};
+  recordKnowledge(game,'anomalies','carousel','Карусель','Поле поднимает попавшего внутрь и постепенно ускоряет вращение. После короткого разряда временно затихает.');
+  game.carouselCaught={stage:1,attempts:2};
+  addLog(game,'Поле карусели подхватывает тебя и начинает медленно поднимать над землёй. Вращение ускоряется.','danger');
+  return {ok:true,message:'Карусель поднимает тебя в воздух и постепенно ускоряет вращение. Можно попытаться вырваться — напиши «вырваться». '};
+}
+
+export function escapeCarousel(game) {
+  if (!game.carouselCaught) return {ok:false,message:'Сейчас ты не попал в поле карусели.'};
+  if (Math.random()<.48) { game.carouselCaught=null; addLog(game,'Тебе удаётся выскользнуть из поля карусели.','player'); return {ok:true,message:'Ты вырываешься из вращающегося поля и падаешь на безопасный участок.'}; }
+  game.carouselCaught.attempts-=1; game.carouselCaught.stage=2;
+  if (game.carouselCaught.attempts<=0) {
+    game.carouselCaught=null; game.player.hp=Math.max(1,game.player.hp-24); game.anomalyCooldowns ||= {vortexUntil:0,carouselUntil:0}; game.anomalyCooldowns.carouselUntil=game.clock.worldMinutes+15;
+    addLog(game,'Карусель резко меняет направление, затем поле гаснет после короткого разряда.','danger');
+    return {ok:true,message:'Вращение резко ускоряется и выбрасывает тебя за пределы поля. Ты теряешь 24 здоровья; после разряда аномалия временно отключается.'};
+  }
+  return {ok:true,message:'Вращение становится быстрее. У тебя осталась ещё одна попытка вырваться.'};
 }
 
 export function updateWeather(game) {

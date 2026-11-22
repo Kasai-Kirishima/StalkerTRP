@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { ASSETS, IMAGE_FALLBACKS, FACTIONS, ITEMS, LOCATIONS, EXPLORE_SPOTS, NPCS, AVATAR_OPTIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS, START_BUDGET, MAX_CARRY_KG, STARTER_ITEM_IDS, STARTER_LOADOUT_BY_FACTION, ITEM_ACQUISITION } from '../src/data/catalog.js';
-import { createGame, travelTo, talkToNpc, getAvailableStalkers, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, sitAtCampfire, replyNpc, replyNpcFreeText, getTravelMinutes, getExploreSpots, advanceGame, takeShelter, leaveShelter, openStorage, getActiveLootItems, breakContainer, registerCorpseLoot } from '../src/systems/world.js';
+import { ASSETS, IMAGE_FALLBACKS, FACTIONS, ITEMS, LOCATIONS, EXPLORE_SPOTS, NPCS, AVATAR_OPTIONS, NPC_APPEARANCES, START_BUDGET, MAX_CARRY_KG, STARTER_ITEM_IDS, STARTER_LOADOUT_BY_FACTION, ITEM_ACQUISITION } from '../src/data/catalog.js';
+import { createGame, travelTo, talkToNpc, getAvailableStalkers, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, sitAtCampfire, replyNpc, replyNpcFreeText, getTravelMinutes, getExploreSpots, advanceGame, takeShelter, leaveShelter, openStorage, getActiveLootItems, breakContainer, registerCorpseLoot, getFactionRelation, nameSecretAnomaly, turnInSecretAnomalyQuest, turnInPudelQuest, claimAtpRescueReward, beginAtpRescue, useTrampoline, simulateWorld, useVortex, escapeVortex, useCarousel, escapeCarousel } from '../src/systems/world.js';
 import { addItem, getWeight, canFitLoadout, countItem, useItem, transferItem } from '../src/systems/inventory.js';
 import { beginEncounter, beginWolfDogPack, playerAttack } from '../src/systems/combat.js';
 import { processPlayerAction } from '../src/systems/action-engine.js';
 import { rememberEntity, stemRussianWord, containsReferencePronoun, genderedSubject } from '../src/systems/russian-language.js';
-import { renderMenu, renderLoadout, renderGame, renderModal } from '../src/ui/views.js';
+import { renderMenu, renderLoadout, renderGame, renderModal, renderGameSettings } from '../src/ui/views.js';
 
 assert.equal(FACTIONS.length,3);
 // Survival needs increase over game time and can be managed through free-text RP.
@@ -51,8 +51,9 @@ assert.equal(LOCATIONS.length,18);
 assert.equal(LOCATIONS.filter(location=>location.mapVisible!==false).length,17,'17 labelled map pins should appear over the supplied base map');
 assert.deepEqual([LOCATIONS.find(l=>l.id==='rail-tunnel').x,LOCATIONS.find(l=>l.id==='rail-tunnel').y],[93,37],'east railway tunnel should be right and above locomotive');
 assert.deepEqual([LOCATIONS.find(l=>l.id==='underpass').x,LOCATIONS.find(l=>l.id==='underpass').y],[39,59],'underpass should be right and slightly above the wagon');
-assert.deepEqual(LOCATIONS.find(l=>l.id==='anomaly-dump').hazards,['gravity'],'the secret camp contains the Funnel gravity anomaly');
-assert.equal(LOCATIONS.find(l=>l.id==='anomaly-dump').anomalyName,'Воронка');
+assert.deepEqual(LOCATIONS.find(l=>l.id==='anomaly-dump').anomalies,['carousel','vortex'],'the secret camp has a carousel and vortex');
+assert.equal(LOCATIONS.find(l=>l.id==='anomaly-dump').anomalyName,'Неизвестная аномалия');
+assert.deepEqual(LOCATIONS.find(l=>l.id==='farmstead').anomalies,['trampoline'],'the farmstead has a trampoline anomaly');
 const boltVisualGame=createGame({name:'Болт',faction:'loner'},[],START_BUDGET);
 boltVisualGame.locationId='anomaly-dump';
 addItem(boltVisualGame.inventory,'boltpack',1);
@@ -71,7 +72,8 @@ assert.ok(ITEMS.some(item=>item.id==='ammo545'),'5.45x39 ammo pack must exist');
 assert.ok(ITEMS.some(item=>item.id==='meat_chunk' && item.name.includes('Ломоть мяса')),'Flesh artifact must exist');
 assert.ok(ITEMS.some(item=>item.id==='gravi' && item.name.includes('Грави')),'Gravi artifact must exist');
 assert.ok(LOCATIONS.find(location=>location.id==='elevator').desc.includes('фотографией Чернобыльской АЭС'),'Elevator description must mention the NPP photograph');
-assert.ok(NPCS.every(npc=>!npc.icon),'NPCs must use built-in portrait placeholders');
+assert.ok(NPCS.every(npc=>npc.icon?.includes('/assets/npc/Vneska/')),'key NPCs must use local portraits');
+assert.ok(NPCS.filter(npc=>npc.id!=='sidorovich').every(npc=>npc.appearance?.includes('/assets/npc/Vneska/')),'all supplied key NPC body images must be paired with their portraits');
 assert.ok(ASSETS.menu.startsWith('https://') && ASSETS.pda.includes('kpkfon.webp'));
 assert.ok(ASSETS.areaBackgrounds?.['village-basement']?.includes('fonpodvalderevnanovickov.webp'),'village basement should use its own local background');
 assert.ok(ASSETS.areaBackgrounds?.['village-basement-storage']?.includes('fonpodvalderevnanovickov.webp'));
@@ -84,56 +86,36 @@ assert.ok(fs.existsSync(new URL(ASSETS.pda)),'PDA texture file must be included 
 assert.ok(fs.existsSync(new URL(ASSETS.map)),'clean Cordon map must be included locally');
 assert.ok(Object.values(ASSETS.locationBackgrounds).every(url=>fs.existsSync(new URL(url))),'all 18 location backgrounds must exist in the project');
 assert.ok(Object.values(ASSETS.areaBackgrounds).every(url=>fs.existsSync(new URL(url))),'all interior and sub-area backgrounds must exist in the project');
+assert.ok([...Object.values(ASSETS.npcPortraits).flatMap(value=>Array.isArray(value)?value:[value]),...Object.values(ASSETS.npcBodies).flatMap(value=>Array.isArray(value)?value:[value]),...Object.values(ASSETS.factionInsignias),...Object.values(ASSETS.rankInsignias),...Object.values(ASSETS.questIcons)].filter(Boolean).every(url=>fs.existsSync(new URL(url))),'all imported NPC, insignia, rank and quest images must exist locally');
+
 assert.ok(LOCATIONS.every(location=>getExploreSpots(location.id).length>=3),'each location should expose at least three RP areas including the exterior');
 const activeVisualSources=['src/data/catalog.js','src/ui/views.js','src/systems/world.js','src/systems/combat.js','styles.css'].map(file=>fs.readFileSync(new URL(`../${file}`,import.meta.url),'utf8')).join('\n');
+const costumeFitCss=fs.readFileSync(new URL('../styles.css',import.meta.url),'utf8');
+assert.match(costumeFitCss,/\.armor-inventory-item \.inventory-item-image \.armor-art-image\{[^}]*object-fit:contain;[^}]*object-position:center center;[^}]*transform:none/s,'tall costume art should fit without vertical cropping or stretching');
+assert.match(costumeFitCss,/\.armor-inventory-item \.inventory-item-image\{[^}]*padding:/s,'armor image frame should retain a small safe margin around the silhouette');
+for (const image of ['kozankaicon.webp','zaraicon.webp','berilicon.webp','pz-5icon.webp','debyticon.webp','kosyhaicon.webp','kozanplashicon.webp']) assert.ok(fs.statSync(new URL(`../assets/images/armor/${image}`,import.meta.url)).size>1000,`trimmed costume image ${image} must be included`);
 const imageUrls=[...activeVisualSources.matchAll(/https?:\/\/[^\s'\"`)>]+/g)].map(match=>match[0]).filter(url=>/\.\w{3,4}(?:[?#]|$)|\/images(?:[/?#]|$)|\/upload\//i.test(url));
 assert.ok(imageUrls.every(url=>url===ASSETS.menu),'only the main-menu background may use an external image URL');
 assert.ok(Object.values(IMAGE_FALLBACKS).every(value=>!value),'no remote image fallbacks are allowed');
-assert.equal(NPCS.length,6,'four quest NPCs plus two additional traders');
+assert.equal(NPCS.length,7,'five quest and key NPCs plus two additional traders');
 assert.ok(NPCS.some(n=>n.id==='sidorovich'&&n.trader));
 assert.ok(NPCS.some(n=>n.id==='shnurok'&&n.location==='atp'&&n.trader));
 assert.ok(NPCS.some(n=>n.id==='kapterka'&&n.location==='south-checkpoint'&&n.trader));
-assert.equal(AVATAR_OPTIONS.length,18,'all faction portraits and four key NPC portraits should be present');
-assert.ok(AVATAR_OPTIONS.every(option=>option.src.startsWith('builtin:')),'avatar choices should use built-in symbolic placeholders');
-assert.equal(RADIO_STATIONS.length,3,'each faction base should have its own radio station');
-assert.ok(RADIO_STATIONS.every(station=>station.trackIds.length>=20 && new Set(station.trackIds).size===station.trackIds.length && station.trackIds.every(id=>RADIO_TRACKS.some(track=>track.id===id))),'each base station should contain at least 20 valid unique tracks');
-const stationTrackIds=RADIO_STATIONS.flatMap(station=>station.trackIds);
-assert.ok(new Set(stationTrackIds).size<stationTrackIds.length,'some suitable songs may overlap between stations');
-const banditTracks=RADIO_STATIONS.find(s=>s.id==='bandit-atp-radio').trackIds.map(id=>RADIO_TRACKS.find(track=>track.id===id));
-assert.ok(banditTracks.some(track=>track.title==='Владимирский централ' && track.artist==='Владимир Круг'));
-assert.ok(!RADIO_STATIONS.find(s=>s.id==='loner-village-radio').trackIds.map(id=>RADIO_TRACKS.find(track=>track.id===id)).some(track=>track.title==='Владимирский централ'));
-assert.ok(!RADIO_STATIONS.find(s=>s.id==='military-checkpoint-radio').trackIds.map(id=>RADIO_TRACKS.find(track=>track.id===id)).some(track=>track.title==='Владимирский централ')); 
-assert.equal(PLAYER_TRACKS.length,RADIO_TRACKS.length,'personal player contains the complete unique radio library');
-assert.equal(PLAYER_TRACKS.length,100,'personal player should contain the complete 100-track catalog');
-assert.ok(PLAYER_TRACKS.some(track=>track.title==='Владимирский централ' && track.artist==='Владимир Круг'),'personal player includes bandit-only track');
-assert.ok(!PLAYER_TRACKS.some(track=>track.artist==='Наутилус Помпилиус'),'Nautilus tracks should be fully replaced');
-assert.ok(PLAYER_TRACKS.some(track=>track.artist==='Вячеслав Бутусов' && track.title.includes('Песня идущего домой') && track.year===2004),'Butusov 2004 song should replace Nautilus material');
-assert.ok(PLAYER_TRACKS.filter(track=>track.artist==='Кино').length>=10,'Kino should be represented in the updated playlist');
-assert.ok(PLAYER_TRACKS.filter(track=>track.artist==='Гражданская Оборона').length>=10,'Civil Defence should be represented in the updated playlist');
-assert.ok(RADIO_TRACKS.every(track=>Number.isInteger(track.startSeconds) && track.startSeconds>=0),'every track should have a valid YouTube start offset');
-assert.ok(PLAYER_TRACKS.every(track=>/^[A-Za-z0-9_-]{11}$/.test(track.videoId)),'each track must have a YouTube video ID');
-assert.ok(PLAYER_TRACKS.every(track=>Number.isInteger(track.year) && track.year<=2011),'all songs must be released before 2012');
-assert.ok(PLAYER_TRACKS.every(track=>track.era!==track.artist),'artist name must not be duplicated as era in the player');
-assert.ok(!PLAYER_TRACKS.some(track=>/true stalker|anger of darkness|kreazot-max/i.test(`${track.artist} ${track.title} ${track.label} ${track.id}`)),'no True Stalker soundtrack remains');
-assert.ok(!PLAYER_TRACKS.some(track=>/Дориан|Вечное движение/i.test(`${track.title} ${track.label}`)),'Piknik 2026 album material must be excluded');
-const requiredArtists=['Гражданская Оборона','Пикник','Кино','Король и Шут','Кукрыниксы','Чёрный Обелиск','ДДТ','Ratt','Bon Jovi','ZZ Top','Владимир Круг','Сектор Газа','Сплин','Би-2','Агата Кристи','Инструкция по выживанию','Ария','Жадан і Собаки','Приключения Электроников'];
-assert.ok(requiredArtists.every(artist=>PLAYER_TRACKS.some(track=>track.artist===artist)),'curated CIS-focused library should retain the main requested groups');
-assert.ok(PLAYER_TRACKS.some(track=>track.title==='Египтянин' && track.artist==='Пикник'));
-assert.ok(PLAYER_TRACKS.some(track=>track.title==='Звонімір Бобан' && track.year===2008));
-assert.ok(PLAYER_TRACKS.some(track=>track.title==='Трава у дома' && track.year===2003));
-assert.ok(!PLAYER_TRACKS.some(track=>track.title==='Дориан (Грей)' || track.title==='Вечное движение'));
-assert.ok(!PLAYER_TRACKS.some(track=>track.title==='Чужестранец' && track.artist==='Пикник'),'the previously excluded Piknik track should stay out of the playlist');
-assert.ok(PLAYER_TRACKS.filter(track=>Number.isInteger(track.endSeconds)).every(track=>track.endSeconds>track.startSeconds),'all time-coded segment boundaries must be valid');
-for (const station of RADIO_STATIONS) {
-  const stationSongs=station.trackIds.map(id=>PLAYER_TRACKS.find(track=>track.id===id));
-  assert.ok(stationSongs.every(Boolean));
-  assert.ok(stationSongs.filter(track=>['Bon Jovi','ZZ Top','Ratt'].includes(track.artist)).length<=2,'western rock should remain a minority');
-  assert.ok(Math.max(...Object.values(stationSongs.reduce((counts,track)=>({...counts,[track.artist]:(counts[track.artist]||0)+1}),{})))<=5,'no single artist should dominate a station');
-}
+assert.equal(AVATAR_OPTIONS.length,21,'all faction portraits, including the shared bandit portrait, and four key NPC portraits should be present');
+assert.ok(AVATAR_OPTIONS.every(option=>option.src.includes('/assets/npc/Vneska/')),'avatar choices should use the imported local portraits');
+assert.ok(NPC_APPEARANCES.loner.every(look=>look.icon&&look.appearance),'each loner portrait must pair with its matching body');
+assert.equal(NPC_APPEARANCES.bandit.length,7,'all seven supplied bandit body looks must be represented');
+assert.equal(NPC_APPEARANCES.bandit[3].icon,NPC_APPEARANCES.bandit[4].icon,'the supplied bandit 4-and-5 portrait is shared by both matching body looks');
+assert.ok(NPC_APPEARANCES.military.every(look=>look.icon&&look.appearance),'each military portrait must pair with its matching body');
+assert.ok(Object.values(ASSETS.factionInsignias).every(url=>url.includes('/assets/insignia/')),'each faction must have a local insignia');
+assert.ok(Object.values(ASSETS.rankInsignias).every(url=>url.includes('/assets/insignia/')),'rank badges must use local insignia');
+assert.ok(Object.values(ASSETS.questIcons).every(url=>url.includes('/assets/quests/')),'quest icons must use the imported task artwork');
 assert.ok(ITEMS.length>=32);
 assert.ok(ITEMS.every(item=>!item.image),'inventory items should use local symbolic placeholders instead of image URLs');
 assert.ok(ITEMS.some(item=>item.id==='flesh-eye'&&item.cat==='Добыча'));
-assert.equal(new Set(PLAYER_TRACKS.map(track=>track.id)).size,PLAYER_TRACKS.length,'all music IDs should be unique');
+assert.ok(ITEMS.filter(item=>item.cat==='Броня'&&item.id!=='stalnoishlem').every(item=>item.w*item.h>=6),'wearable suits should occupy at least six inventory cells');
+assert.ok(ITEMS.filter(item=>item.cat==='Броня'&&item.id!=='stalnoishlem').every(item=>item.h>=3),'costume art should have a taller inventory footprint');
+
 assert.ok((await import('node:fs')).readFileSync(new URL('../styles.css',import.meta.url),'utf8').includes('.map-pin{width:34px;height:34px;min-width:34px;min-height:34px;'),'map circles should be larger touch targets');
 
 for (const faction of FACTIONS) {
@@ -170,9 +152,10 @@ for (const checkpoint of ['north-checkpoint','bridge-checkpoint','south-checkpoi
   assert.equal(guards.length,4,`${checkpoint} should spawn a small military guard group`);
   assert.ok(guards.every(npc=>npc.faction==='military'));
 }
-const atpBandits=populationOne.ambientNpcs.filter(npc=>npc.location==='atp');
+const atpBandits=populationOne.ambientNpcs.filter(npc=>npc.location==='atp'&&npc.faction==='bandit');
 assert.equal(atpBandits.length,6,'ATP should spawn six ambient bandits');
 assert.ok(atpBandits.every(npc=>npc.faction==='bandit'));
+assert.equal(populationOne.ambientNpcs.filter(npc=>npc.captured).length,2,'two randomly named captive stalkers should be hidden in the ATP first-floor room');
 assert.equal(new Set(populationOne.ambientNpcs.map(npc=>npc.name)).size,populationOne.ambientNpcs.length,'spawned NPC names should be unique within one game');
 assert.notDeepEqual(populationOne.ambientNpcs.map(npc=>npc.name),populationTwo.ambientNpcs.map(npc=>npc.name),'new game sessions should reroll ambient NPC identities');
 
@@ -206,19 +189,26 @@ assert.equal(searchLocation(game).ok,true,'location loot should respawn');
 const dialogueGame=createGame(character,[],START_BUDGET);
 dialogueGame.locationId='sidorovich-bunker';
 talkToNpc(dialogueGame,'sidorovich');
-const dialogueState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false,radioStationId:'loner-village-radio'},account:{},ui:{tab:'location',modal:null,music:{mode:null,stationId:null,trackId:null,queue:[],index:0,playing:false}},game:dialogueGame};
+const dialogueState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false},account:{},ui:{tab:'location',modal:null,music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game:dialogueGame};
 assert.ok(!renderGame(dialogueState).includes('quest-accept'));
 replyNpc(dialogueGame,'sidorovich','работа');
 const sidorovichDialogue=renderGame(dialogueState);
 assert.ok(sidorovichDialogue.includes('quest-accept'));
 
-// Every base station has at least 20 unique tracks; the personal player has the full library.
-for (const station of RADIO_STATIONS) {
-  assert.ok(station.trackIds.length>=20,`${station.name} must have at least 20 songs`);
-  assert.equal(new Set(station.trackIds).size,station.trackIds.length,`${station.name} must not repeat songs in its playlist`);
-}
-assert.equal(PLAYER_TRACKS.length,RADIO_TRACKS.length,'personal player should contain all curated station songs');
-assert.equal(PLAYER_TRACKS.length,100,'full music library should have 100 unique songs');
+// Local player accepts only files explicitly selected by the player.
+
+// Bandit NPCs use faction-specific Fenya and the correct supplied appearance pair.
+const banditTalkGame=createGame({name:'Проверка фени',faction:'loner'},[],START_BUDGET);
+banditTalkGame.locationId='atp';
+assert.equal(talkToNpc(banditTalkGame,'kefir').ok,true);
+const fenyaReply=replyNpcFreeText(banditTalkGame,'kefir','Что нового слышно?').message;
+assert.ok(/маляв|район|шухер|фарт|хабар/.test(fenyaReply.toLowerCase()),'bandit dialogue should use fenya vocabulary');
+const banditEncounterGame=createGame({name:'Проверка боя',faction:'loner'},[],START_BUDGET);
+beginEncounter(banditEncounterGame,'bandit');
+assert.ok(banditEncounterGame.activeEncounter.icon?.includes('/assets/npc/Vneska/banditicon'));
+assert.ok(banditEncounterGame.activeEncounter.appearance?.includes('/assets/npc/Vneska/bandit'));
+assert.ok(banditEncounterGame.activeEncounter.insignia?.includes('/assets/insignia/bandituicon.webp'));
+assert.equal(processPlayerAction(banditEncounterGame,'послушать музыку').action,'player-open','music command should open the local PDA player');
 
 // Sidorovich's repeatable assignments: tails, debt collector, and Medusa.
 const jobGame=createGame(character,[],START_BUDGET);
@@ -260,7 +250,7 @@ const wolfOffer=replyNpc(wolfQuestGame,'wolf','работа');
 assert.ok(wolfOffer.includes('вагончика') && wolfOffer.includes('пять слепых собак'));
 wolfQuestGame.dialogueHistory=[{role:'npc',text:wolfOffer}];
 assert.ok(wolfQuestGame.dialogueReply.includes('новичков'));
-const wolfDialogueState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false,radioStationId:'loner-village-radio'},account:{},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:null,stationId:null,trackId:null,queue:[],index:0,playing:false}},game:wolfQuestGame};
+const wolfDialogueState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false},account:{},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game:wolfQuestGame};
 assert.ok(renderGame(wolfDialogueState).includes('пять слепых собак'),'Wolf offer must be visible inside the dialogue modal');
 assert.equal(acceptWolfDogQuest(wolfQuestGame).ok,true);
 assert.equal(wolfQuestGame.quests.find(q=>q.id==='wolf-dog-pack').status,'active');
@@ -460,7 +450,7 @@ beginEncounter(game,'bandit');
 const attack=playerAttack(game);
 assert.ok(attack.message.includes('Нож'));
 
-const uiState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false,radioStationId:'loner-village-radio'},account:{},draft:{name:'',birthDate:'',height:'',weight:'',personality:'',biography:'',notes:'',faction:'loner',avatar:''},loadout:{selected:{}},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:null,stationId:null,trackId:null,queue:[],index:0,playing:false}},game};
+const uiState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false},account:{},draft:{name:'',birthDate:'',height:'',weight:'',personality:'',biography:'',notes:'',faction:'loner',avatar:''},loadout:{selected:{}},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game};
 assert.ok(renderMenu(uiState).includes('Играть'));
 assert.ok(renderLoadout(uiState).includes('СТАРТОВАЯ ПОДБОРКА'));
 for (const hidden of ['АКСУ','Пачка патронов 5.45×39','Хвост слепого пса','Глаз плоти','Медуза','Ломоть мяса','Грави','Заря']) assert.ok(!renderLoadout(uiState).includes(hidden),`${hidden} must not appear in the starter screen`);
@@ -473,26 +463,24 @@ assert.ok(renderGame(uiState).includes('aria-label="Разделы КПК"'),'op
 uiState.game.locationId='rookie-village';
 uiState.ui.pdaOpen=false;
 uiState.ui.tab='location';
-const radioHtml=renderGame(uiState);
-assert.ok(radioHtml.includes('Радио Деревни новичков'),'local base radio must appear in the location scene without opening the PDA');
-assert.ok(radioHtml.includes('data-action="radio-base-open"'));
-assert.ok(!radioHtml.includes('data-action="radio-play-track"'),'radio must not allow selecting individual tracks');
-assert.ok(!radioHtml.includes('music-dock'),'the bottom music dock must be removed');
+const locationHtml=renderGame(uiState);
+assert.ok(!locationHtml.includes('Радио Деревни новичков') && !locationHtml.includes('data-action="radio-base-open"'),'there must be no in-location radio controls');
+assert.ok(!/https?:\/\//i.test(locationHtml),'the location scene must not add external music URLs');
+assert.ok(!locationHtml.includes('music-dock'),'the bottom music dock should remain removed');
 const remoteRadioState={...uiState,game:{...uiState.game,locationId:'elevator'}};
-const remoteRadioHtml=renderGame(remoteRadioState);
-assert.ok(!remoteRadioHtml.includes('Радио Деревни новичков') && !remoteRadioHtml.includes('Радио АТП') && !remoteRadioHtml.includes('Радио Южного блокпоста'),'a remote location must not expose a base station');
-assert.ok(!remoteRadioHtml.includes('Очередь станции'),'remote locations must not expose another base playlist');
-uiState.settings.removedPlayerTrackIds=['track-001'];
+assert.ok(!renderGame(remoteRadioState).includes('Радио'),'no location should expose an internet radio station');
 uiState.ui.pdaOpen=true;
 uiState.ui.tab='player';
+uiState.ui.localMusicTracks=[{id:'local-test-1',title:'Тестовая композиция',fileName:'test.ogg',size:1024}];
+uiState.ui.music={mode:'local',trackId:'local-test-1',queue:['local-test-1'],index:0,playing:false};
 const playerHtml=renderGame(uiState);
-assert.ok(playerHtml.includes('Моя подборка'));
-assert.ok(playerHtml.includes('Убранные композиции'));
-assert.ok(playerHtml.includes('player-remove-track'));
-assert.ok(playerHtml.includes('player-restore-track'));
+assert.ok(playerHtml.includes('Локальная библиотека'));
+assert.ok(playerHtml.includes('local-music-files'));
+assert.ok(playerHtml.includes('Добавить музыку с устройства'));
 assert.ok(playerHtml.includes('player-play-track'));
-assert.ok(playerHtml.includes('Владимирский централ'),'personal player should expose every track, including the bandit-only radio exception');
-assert.ok(playerHtml.includes('Песня идущего домой'),'personal player should include the replacement Butusov song');
+assert.ok(playerHtml.includes('без сетевых музыкальных потоков'));
+const musicRuntimeSource=['src/systems/music.js','src/main.js','src/ui/views.js'].map(file=>fs.readFileSync(new URL(`../${file}`,import.meta.url),'utf8')).join('\n');
+assert.ok(!/iframe|videoId|https?:\/\//i.test(musicRuntimeSource),'music runtime must not embed remote players or network streams');
 uiState.ui.tab='trade';
 uiState.ui.tradeNpcId='sidorovich';
 uiState.game.locationId='sidorovich-bunker';
@@ -535,7 +523,7 @@ assert.ok(!contactsMarkup.includes('data-action="trade-open"'),'contacts tab sho
 // Quests are hidden from the quest list until accepted and then show progress.
 const questVisibilityGame=createGame(character,[],START_BUDGET);
 const hiddenQuest=questVisibilityGame.quests.find(q=>q.id!=='wolf-dog-pack');
-const questVisibilityState={screen:'game',characters:[character],activeCharacterId:'smoke',settings:{reducedMotion:false},ui:{tab:'quests',pdaOpen:true,mapView:'map',modal:null,music:{mode:null,stationId:null,trackId:null,queue:[],index:0,playing:false}},game:questVisibilityGame};
+const questVisibilityState={screen:'game',characters:[character],activeCharacterId:'smoke',settings:{reducedMotion:false},ui:{tab:'quests',pdaOpen:true,mapView:'map',modal:null,music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game:questVisibilityGame};
 assert.ok(!renderGame(questVisibilityState).includes(hiddenQuest.title),'unaccepted jobs must stay out of the quest log');
 assert.equal(acceptWorldQuest(questVisibilityGame,hiddenQuest.id).ok,true);
 assert.ok(renderGame(questVisibilityState).includes(hiddenQuest.title),'an accepted job must appear in the quest log');
@@ -629,7 +617,7 @@ assert.equal(getActiveLootItems(crateGame).length,firstCrateCount,'reopening an 
 const corpseId=registerCorpseLoot(crateGame,{type:'bandit',name:'Бандит у насыпи'});
 assert.ok(corpseId && crateGame.activeLoot.title.includes('Бандит у насыпи'),'defeated opponents should have a loot container for the left search pane');
 assert.ok(getActiveLootItems(crateGame).length>=1,'corpse containers should hold items that can be transferred');
-const corpsePanelState={screen:'game',characters:[character],activeCharacterId:'smoke',settings:{reducedMotion:false},ui:{tab:'location',modal:'loot-panel',music:{mode:null,stationId:null,trackId:null,queue:[],index:0,playing:false}},game:crateGame};
+const corpsePanelState={screen:'game',characters:[character],activeCharacterId:'smoke',settings:{reducedMotion:false},ui:{tab:'location',modal:'loot-panel',music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game:crateGame};
 assert.ok(renderModal(corpsePanelState).includes('Вещи погибшего'),'corpse loot should be clearly labelled in the left pane');
 const storageSpot=getExploreSpots('rookie-village').find(entry=>entry.kind==='storage');
 assert.ok(storageSpot,'the Cordon village basement should expose a personal storage spot');
@@ -639,7 +627,7 @@ const atpStorage=getExploreSpots('atp').find(entry=>entry.storageId==='atp-secon
 const barracksStorage=getExploreSpots('south-checkpoint').find(entry=>entry.storageId==='barracks-locker');
 assert.ok(atpStorage && barracksStorage,'ATP second floor and barracks must expose personal storage');
 assert.ok(lootUiGame.squads.length>=8,'the Cordon should have more than the original three squads');
-const lootPanelState={screen:'game',characters:[character],activeCharacterId:'smoke',settings:{reducedMotion:false},ui:{tab:'location',pdaOpen:false,modal:'loot-panel',mapView:'map',music:{mode:null,stationId:null,trackId:null,queue:[],index:0,playing:false}},game:lootUiGame};
+const lootPanelState={screen:'game',characters:[character],activeCharacterId:'smoke',settings:{reducedMotion:false},ui:{tab:'location',pdaOpen:false,modal:'loot-panel',mapView:'map',music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game:lootUiGame};
 const lootMarkup=renderModal(lootPanelState);
 assert.ok(lootMarkup.includes('Найденные вещи') || lootMarkup.includes('Хранилище'));
 assert.ok(lootMarkup.includes('Рюкзак игрока') && lootMarkup.includes('Забрать всё') && lootMarkup.includes('Сложить всё'));
@@ -654,4 +642,139 @@ assert.ok(equipmentMarkup.includes('В слот брони') && equipmentMarkup.
 assert.ok(ITEMS.some(item=>item.id==='berill'&&item.armor>0),'armor catalog should include the Berill suit');
 assert.ok(ITEMS.some(item=>item.id==='pg4'&&item.cat==='Защита'),'gas mask catalog should include PG-4');
 
-console.log('Smoke tests passed: PDA/map modes, quest visibility/progress, local radio, inventory/trade overlays, RP exploration, campfire rest, Wolf quest, profile, combat and existing systems.');
+
+// Faction relations, restricted NPC roaming, and the ATP entrance fee use Coupons.
+assert.equal(getFactionRelation('military','loner'),'hostile');
+assert.equal(getFactionRelation('military','bandit'),'hostile');
+assert.equal(getFactionRelation('bandit','loner'),'neutral');
+const zoneTravelGame=createGame({name:'Купоны',faction:'loner'},[],START_BUDGET);
+zoneTravelGame.locationId='ravine-tunnel'; zoneTravelGame.money=1000;
+const savedRandom=Math.random; Math.random=()=>.99;
+const atpEntry=travelTo(zoneTravelGame,'atp');
+Math.random=savedRandom;
+assert.equal(atpEntry.ok,true);
+assert.equal(zoneTravelGame.money,500,'a loner pays 500 Coupons to enter ATP');
+assert.ok(zoneTravelGame.log.some(entry=>entry.text.includes('500 Купонов')),'the ATP entry fee should be recorded in the game log');
+assert.ok(populationOne.ambientNpcs.filter(npc=>npc.faction==='loner'&&!npc.captured).every(npc=>!['atp','north-checkpoint','bridge-checkpoint','south-checkpoint'].includes(npc.location)),'loners must not spawn inside bandit or military territory');
+
+// Pudel asks for the exact diet sausage, and his quest pays Coupons.
+const pudelGame=createGame({name:'Проверка',faction:'loner'},[],START_BUDGET);
+pudelGame.locationId='farmstead';
+assert.equal(talkToNpc(pudelGame,'kostya-pudel').ok,true);
+assert.ok(NPCS.find(npc=>npc.id==='kostya-pudel').lines.work.includes('диетическая'));
+assert.ok(replyNpcFreeText(pudelGame,'kostya-pudel','Есть работа?').message.includes('вкуснотища'),'Pudel should deliver the requested sausage dialogue when asked for work');
+assert.equal(acceptWorldQuest(pudelGame,'pudel-sausage').ok,true);
+addItem(pudelGame.inventory,'sausage',1);
+assert.equal(turnInPudelQuest(pudelGame).ok,true);
+assert.equal(pudelGame.quests.find(quest=>quest.id==='pudel-sausage').status,'completed');
+
+// The secret anomaly may be named by the player; Sidorovich's briefing is submitted only after returning.
+const anomalyQuestGame=createGame({name:'Исследователь',faction:'loner'},[],START_BUDGET);
+anomalyQuestGame.locationId='sidorovich-bunker';
+talkToNpc(anomalyQuestGame,'sidorovich');
+assert.ok(replyNpcFreeText(anomalyQuestGame,'sidorovich','Есть работа?').message.includes('уникальная'),'Sidorovich should present the New Anomaly briefing');
+assert.equal(acceptWorldQuest(anomalyQuestGame,'signal-dump').ok,true);
+anomalyQuestGame.locationId='anomaly-dump'; anomalyQuestGame.secretAnomaly.observed=true;
+assert.equal(nameSecretAnomaly(anomalyQuestGame,'Сверчок').ok,true);
+assert.equal(anomalyQuestGame.quests.find(quest=>quest.id==='signal-dump').status,'ready');
+anomalyQuestGame.locationId='sidorovich-bunker';
+assert.equal(turnInSecretAnomalyQuest(anomalyQuestGame).ok,true);
+assert.equal(anomalyQuestGame.quests.find(quest=>quest.id==='signal-dump').status,'completed');
+
+// The ATP captive pair is individually talkable after entering their first-floor room.
+const captiveGame=createGame({name:'Освободитель',faction:'loner'},[],START_BUDGET);
+captiveGame.locationId='atp';
+captiveGame.currentAreaId='atp-first-floor-prisoners';
+const captives=getAvailableStalkers(captiveGame).filter(person=>person.captured);
+assert.equal(captives.length,2);
+assert.equal(talkToNpc(captiveGame,captives[0].id).ok,true);
+const captiveReply=replyNpcFreeText(captiveGame,captives[0].id,'Расскажи, как вас захватили?');
+assert.ok(captiveReply.ok && captiveReply.message.includes('Бандиты'));
+
+// The ATP rescue consists of six stages, frees the prisoners and unlocks Sidorovich's reward.
+const rescueGame=createGame({name:'Спасатель',faction:'loner'},[],START_BUDGET);
+rescueGame.locationId='atp'; addItem(rescueGame.inventory,'knife',1);
+assert.equal(beginAtpRescue(rescueGame).ok,true);
+for(let stage=0;stage<6;stage++) {
+  assert.ok(rescueGame.activeEncounter?.atpAssault,`ATP rescue stage ${stage+1} should spawn a bandit`);
+  rescueGame.activeEncounter.hp=1; rescueGame.combatCooldownUntil=0;
+  playerAttack(rescueGame);
+}
+assert.equal(rescueGame.atpRescue.cleared,true);
+assert.equal(rescueGame.ambientNpcs.filter(person=>person.captured).length,0);
+assert.equal(getAvailableStalkers(rescueGame,'atp').some(person=>person.faction==='bandit'),false,'cleared ATP should no longer host its bandit NPCs');
+rescueGame.locationId='sidorovich-bunker';
+assert.equal(claimAtpRescueReward(rescueGame).ok,true);
+assert.equal(countItem(rescueGame.inventory,'aksu'),1);
+assert.equal(countItem(rescueGame.inventory,'debyt'),1);
+
+// The Bear detector can find the Stone Flower at the Secret Camp; the Trampoline toss is capped at 15 m.
+const detectorGame=createGame({name:'Детектор',faction:'loner'},[],START_BUDGET);
+detectorGame.locationId='anomaly-dump'; addItem(detectorGame.inventory,'medved',1);
+const savedRandomForArtifact=Math.random; Math.random=()=>0;
+assert.equal(startArtifactHunt(detectorGame).ok,true);
+assert.equal(chooseArtifactSector(detectorGame,0).found,true);
+Math.random=savedRandomForArtifact;
+assert.equal(countItem(detectorGame.inventory,'stone-flower'),1);
+const trampolineGame=createGame({name:'Трамплин',faction:'loner'},[],START_BUDGET);
+trampolineGame.locationId='farmstead';
+const savedRandomForTrampoline=Math.random; Math.random=()=>.999;
+const trampolineResult=useTrampoline(trampolineGame);
+Math.random=savedRandomForTrampoline;
+assert.equal(trampolineResult.ok,true);
+const trampolineHeight=Number(trampolineResult.message.match(/на ([\d.]+) м/)?.[1]);
+assert.ok(trampolineHeight>=0&&trampolineHeight<=15,'Trampoline height must stay within 0–15 metres');
+
+// Fresh conversation intents cover routes, attractions, notable people, loot, mutants, anomalies and emissions.
+const routeGame=createGame({name:'Маршрут',faction:'loner'},[],START_BUDGET);
+routeGame.locationId='rookie-village'; talkToNpc(routeGame,'wolf');
+const routeReply=replyNpcFreeText(routeGame,'wolf','Как пройти в Тайный лагерь?');
+assert.ok(routeReply.message.includes('Деревня новичков → Лагерь в лесу → Тайный лагерь'));
+for (const phrase of ['Что тут за достопримечательности?','Какие известные люди есть?','Что ты знаешь про мутантов?','Что ты знаешь об аномалиях?','Что ты знаешь о выбросах?','Где можно найти ценный хабар?']) {
+  const reply=replyNpcFreeText(routeGame,'wolf',phrase);
+  assert.ok(reply.ok && reply.message.length>30,`NPC should answer the question: ${phrase}`);
+}
+assert.ok(processPlayerAction(routeGame,'побухать').message.includes('горячим чаем'),'the RP prompt should offer a safe campfire alternative instead of alcohol use');
+const vodkaResult=useItem(routeGame,'vodka');
+assert.equal(vodkaResult.ok,false,'alcohol is not a usable player item');
+
+
+
+// Faction squads may travel through neutral territory but never enter a hostile-controlled area.
+const roamingGame=createGame({name:'Патруль',faction:'loner'},[],START_BUDGET);
+roamingGame.squads=[{id:'test-loner-patrol',name:'Проверочный патруль',faction:'loner',location:'ravine-tunnel',members:2,destination:null}];
+roamingGame.randomTraders=[]; roamingGame.clock.worldMinutes=90; roamingGame.lastSquadMove=0;
+const savedRandomForRoaming=Math.random; Math.random=()=>0;
+simulateWorld(roamingGame);
+Math.random=savedRandomForRoaming;
+assert.ok(!['atp','bridge-checkpoint','south-checkpoint','north-checkpoint'].includes(roamingGame.squads[0].location),'loner squads must not roam into bandit or military territory');
+assert.ok(populationOne.ambientNpcs.every(npc=>!/[«»\"“”]/.test(npc.name)),'spawned NPC nicknames should not be wrapped in quotation marks');
+
+// The PDA gradually exposes encyclopedia/help sections and adjustable sound settings.
+const encyclopediaView=renderGame({...dialogueState,ui:{...dialogueState.ui,pdaOpen:true,tab:'encyclopedia'}});
+assert.ok(encyclopediaView.includes('Энциклопедия Зоны'));
+const helpView=renderGame({...dialogueState,ui:{...dialogueState.ui,pdaOpen:true,tab:'help'}});
+assert.ok(helpView.includes('Помощь сталкеру') && helpView.includes('Карусель') && helpView.includes('Воронка'));
+const soundSettingsView=renderGameSettings({settings:{soundEnabled:true,soundVolume:.4,uiScale:1,reducedMotion:false}});
+assert.ok(soundSettingsView.includes('data-setting="soundEnabled"') && soundSettingsView.includes('data-setting="soundVolume"'));
+
+// Both gravity anomalies allow escape attempts and become temporarily inactive after a discharge.
+const vortexGame=createGame({name:'Проверка воронки',faction:'loner'},[],START_BUDGET);
+vortexGame.locationId='anomaly-dump';
+assert.equal(useVortex(vortexGame).ok,true);
+const savedRandomForVortex=Math.random; Math.random=()=>.99;
+assert.equal(escapeVortex(vortexGame).ok,true);
+const vortexFailure=escapeVortex(vortexGame);
+Math.random=savedRandomForVortex;
+assert.ok(vortexFailure.message.includes('разряд') && vortexGame.anomalyCooldowns.vortexUntil>vortexGame.clock.worldMinutes);
+assert.ok(useVortex(vortexGame).message.includes('временно затихла'));
+const carouselGame=createGame({name:'Проверка карусели',faction:'loner'},[],START_BUDGET);
+carouselGame.locationId='anomaly-dump';
+assert.equal(useCarousel(carouselGame).ok,true);
+const savedRandomForCarousel=Math.random; Math.random=()=>.99;
+assert.equal(escapeCarousel(carouselGame).ok,true);
+const carouselFailure=escapeCarousel(carouselGame);
+Math.random=savedRandomForCarousel;
+assert.ok(carouselFailure.message.includes('выбрасывает') && carouselGame.anomalyCooldowns.carouselUntil>carouselGame.clock.worldMinutes);
+
+console.log('Smoke tests passed: PDA/map modes, imported NPC/faction/quest artwork, local audio player, bandit dialogue, proportional costume inventory layout, quest visibility/progress, trade overlays, RP exploration, profile and combat.');

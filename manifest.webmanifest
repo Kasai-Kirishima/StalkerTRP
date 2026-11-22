@@ -1,7 +1,7 @@
 {
   "name": "STALKER — Путь по Кордону",
   "short_name": "КОРДОН",
-  "description": "STALKER-RP: Кордон, КПК, персонажи и музыкальное радио",
+  "description": "STALKER-RP: Кордон, фракции, задания, аномалии, КПК и радио",
   "lang": "ru",
   "start_url": "./index.html",
   "display": "standalone",

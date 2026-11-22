@@ -1,7 +1,7 @@
 import { LOCATIONS, ITEMS, EXPLORE_SPOTS } from '../data/catalog.js';
-import { addLog, describeLocation, searchLocation, talkToNpc, startArtifactHunt, deactivateAnomaly, getLocation, scoutLocation, getAvailableTraders, getAvailableStalkers, travelTo, startAreaSearch, sitAtCampfire, takeShelter, advanceGame } from './world.js';
+import { addLog, describeLocation, searchLocation, talkToNpc, replyNpcFreeText, startArtifactHunt, deactivateAnomaly, getLocation, scoutLocation, getAvailableTraders, getAvailableStalkers, travelTo, startAreaSearch, sitAtCampfire, takeShelter, advanceGame, nameSecretAnomaly, beginAtpRescue, toggleCurrentLocationLight, useVortex, escapeVortex, useCarousel, escapeCarousel, useTrampoline } from './world.js';
 import { playerAttack, beginEncounter, combatTextAction } from './combat.js';
-import { useItem, countItem } from './inventory.js';
+import { useItem, countItem, removeItem, addItem } from './inventory.js';
 import { containsReferencePronoun, getRememberedEntity, rememberEntity, grammaticalGender, genderedSubject, pronounInDative, tokenizeRussian, stemRussianWord } from './russian-language.js';
 
 const random = (items) => items[Math.floor(Math.random()*items.length)];
@@ -138,14 +138,79 @@ export function processPlayerAction(game, rawText) {
   }
   const pronoun=hasPronounReference(text);
 
+  // Investigation, anomaly naming and rescue actions.
+  const anomalyName=text.match(/(?:назвать|назови|обозначить|дать название)\s+(?:аномалию\s+)?(.{3,32})$/i);
+  if (anomalyName) return {message:nameSecretAnomaly(game,anomalyName[1]).message};
+  if (/(освободить пленник|спасти пленник|начать освобождение|отвлечь бандит)/.test(text)) {
+    const result=beginAtpRescue(game); return {message:result.message,action:result.encounter?'combat':null,encounter:result.encounter};
+  }
+  if (/(вырваться|выбраться|сопротивляться|оттолкнуться)/.test(text) && game.vortexCaught) return {message:escapeVortex(game).message,action:'anomaly'};
+  if (/(вырваться|выбраться|сопротивляться|оттолкнуться)/.test(text) && game.carouselCaught) return {message:escapeCarousel(game).message,action:'anomaly'};
+  if (/(подойти|войти|проверить|наступить|попасть).{0,30}трамплин/.test(text)) return {message:useTrampoline(game).message,action:'anomaly'};
+  if (/(подойти|войти|проверить|коснуться|попасть).{0,30}(воронк|вихр)/.test(text)) return {message:useVortex(game).message,action:'anomaly'};
+  if (/(подойти|войти|проверить|коснуться|попасть).{0,30}карусел/.test(text)) return {message:useCarousel(game).message,action:'anomaly'};
+  if (/(включить|включи|зажечь|зажги).{0,20}(свет|ламп)|(?:свет|ламп).{0,20}(включить|включи|зажечь|зажги)/.test(text)) {
+    if (!/(подвал|бункер|погреб|тоннель|кабина|склад)/.test(`${text} ${game.currentAreaId||''} ${getLocation(game.locationId)?.name||''}`) && game.locationId!=='sidorovich-bunker') return {message:'Выключатель света есть только в некоторых тёмных помещениях.'};
+    return {message:toggleCurrentLocationLight(game).message};
+  }
+  if (/(пожарить|поджарить|приготовить|жарить).{0,28}(еду|колбас|сыр|хлеб)|(?:еду|колбас|сыр|хлеб).{0,20}(на костре|поджарить|пожарить)/.test(text)) {
+    const campfire=EXPLORE_SPOTS.some(spot=>spot.locationId===game.locationId&&spot.kind==='campfire');
+    if (!campfire) return {message:'Готовить можно у костра. Найди ближайшее место отдыха.'};
+    const food=['sausage','yantar-cheese','bread'].find(id=>countItem(game.inventory,id)>0);
+    if (!food) return {message:'Для готовки нужна еда: диетическая колбаса, сырок «Янтарь» или хлеб.'};
+    const result=useItem(game,food); advanceGame(game,5);
+    return {message:`Ты поджарил ${food==='sausage'?'диетическую колбасу':food==='yantar-cheese'?'сырок «Янтарь»':'хлеб'} на костре. ${result.message} Несколько минут прошли в спокойной обстановке.`};
+  }
+  if (/(лечь|ляг|прилечь|откинуться).{0,24}(трав|земл)|(?:на траву|на земле).{0,20}(отдох|полежать)/.test(text)) {
+    if (game.activeEncounter) return {message:'Во время опасности отдыхать нельзя.'};
+    advanceGame(game,10); game.player.stress=Math.max(0,(game.player.stress||0)-6); game.player.stamina=Math.min(100,(game.player.stamina||0)+5);
+    return {message:'Ты лёг на траву, смотришь на небо и немного отдыхаешь. Выносливость восстановлена, напряжение спало.'};
+  }
+  if (/(анекдот|шутк|байк)/.test(text)) {
+    const jokes=['Сталкер спрашивает у торговца: «А скидка будет?» — «Будет. Но сначала найди товар по полной цене».','На Кордоне даже компас иногда показывает на Сидоровича. Видимо, у него магнит для Купонов.','Новичок спрашивает: «Где тут безопасно?» Ему отвечают: «В меню сохранения».','Сталкер говорит: «Я только посмотрю». Через час он уже считает найденные болты и спорит с детектором.'];
+    return {message:`Ты просишь рассказать анекдот. ${random(jokes)}`};
+  }
+  if (/(слушать музыку|послушать музыку|включить музыку|поставить музыку|открыть плеер|музыку в кпк)/.test(text)) return {message:'Открываю локальный музыкальный плеер КПК. Выбери файлы со своего устройства.',action:'player-open'};
+  if (/(побухать|выпить водки|напиться)/.test(text)) return {message:'У костра можно спокойно посидеть с горячим чаем, перекусить и послушать истории местных.'};
+  if (/(украсть|стащить|своровать|обчистить)/.test(text)) {
+    const people=getAvailableStalkers(game,game.locationId).filter(person=>person.id!==game.dialogueNpcId);
+    const target=people.find(person=>person.trader||person.faction!==game.player.faction)||people[0];
+    if (!target) return {message:'Рядом никого нет, у кого можно попытаться что-то стащить.'};
+    const trader=getAvailableTraders(game).find(entry=>entry.id===target.id);
+    const stock=trader?.stock?.filter(entry=>entry.qty>0)||[];
+    if (!stock.length) return {message:`У ${target.name} нечего незаметно забрать.`};
+    const item=stock[Math.floor(Math.random()*stock.length)];
+    if (Math.random()<.38) {
+      const taken=addItem(game.inventory,item.id,1);
+      if (!taken.ok) return {message:`Ты почти стащил вещь, но рюкзак перегружен: ${taken.reason}`};
+      item.qty-=1; if(item.qty<=0) { const index=trader.stock.indexOf(item); if(index>=0) trader.stock.splice(index,1); }
+      game.player.reputation=Math.max(0,(game.player.reputation||0)-3);
+      return {message:`Ты незаметно забрал у ${target.name}: ${ITEMS.find(entry=>entry.id===item.id)?.name||item.id}. Репутация немного снизилась.`};
+    }
+    game.player.reputation=Math.max(0,(game.player.reputation||0)-8);
+    return {message:`${target.name} замечает подозрительное движение и отдёргивает рюкзак. «Руки держи при себе». Репутация снизилась.`};
+  }
+  if (/(подразнить|подколоть|дразнить|пригрозить|угрожать|наехать)/.test(text)) {
+    const current=getAvailableStalkers(game,game.locationId);
+    const target=current.find(person=>person.id===game.dialogueNpcId)||current.find(person=>person.id===named?.entity?.id)||current[0];
+    if (!target) return {message:'Рядом нет собеседника, который услышал бы тебя.'};
+    if (game.dialogueNpcId!==target.id) talkToNpc(game,target.id);
+    const reply=replyNpcFreeText(game,target.id,rawText);
+    return {message:reply.message,action:reply.action||'dialogue',npcId:target.id};
+  }
+  if (/(бартер|предложить обмен|поменяться|обменяться)/.test(text)) {
+    const current=getAvailableStalkers(game,game.locationId);
+    const target=current.find(person=>person.id===game.dialogueNpcId)||current.find(person=>person.id===named?.entity?.id)||current.find(person=>person.trader)||current[0];
+    return target?{message:`Предлагаешь обмен ${target.name}. Открываю торговое окно.`,action:'trade',npcId:target.id}:{message:'Поблизости нет никого для обмена.'};
+  }
+
   // Combat is full-text: resolve the player's narrated move before ordinary RP intents.
   if (game.activeEncounter) {
     const combatResult=combatTextAction(game,rawText);
     return {message:combatResult.message, action:'combat', ok:combatResult.ok};
   }
 
-  if (/(выключ|отключ|глуш).{0,18}радио/.test(text) || /радио.{0,12}(выключ|отключ|глуш)/.test(text)) return {message:'Ты выключаешь местный приёмник.',action:'radio-off'};
-  if (/(включ|вруби|запусти|поставь).{0,18}радио/.test(text) || /радио.{0,12}(включ|запуст)/.test(text)) return {message:'Ты включаешь местное радио.',action:'radio-on'};
+  if (/(выключ|останов|стоп).{0,18}(музык|плеер)/.test(text) || /(музык|плеер).{0,12}(выключ|останов)/.test(text)) return {message:'Воспроизведение остановлено.',action:'player-stop'};
   if (/(укрыл|пряч|спрят|переждать выброс|в укрыти|зайти внутрь)/.test(text)) {
     const spot=EXPLORE_SPOTS.find(entry=>entry.locationId===game.locationId && entry.shelter && entry.aliases?.some(alias=>wordFamily(text,[alias]))) || null;
     const result=takeShelter(game,spot?.id||game.currentAreaId||null);
@@ -154,7 +219,7 @@ export function processPlayerAction(game, rawText) {
 
   // Free-text eating and drinking are ordinary RP actions outside combat.
   if (/(выпил|выпью|выпей|попил|попью|попей|попить|пью воду|сделал глоток|напился|напейся)/.test(text)) {
-    const id=countItem(game.inventory,'water')?'water':countItem(game.inventory,'energy')?'energy':countItem(game.inventory,'vodka')?'vodka':null;
+    const id=countItem(game.inventory,'water')?'water':countItem(game.inventory,'energy')?'energy':null;
     if (!id) return {message:'В рюкзаке нет подходящего напитка.'};
     const result=useItem(game,id); advanceGame(game,1); return {message:`${result.message} Ты потратил минуту на передышку.`};
   }
@@ -259,6 +324,10 @@ export function processPlayerAction(game, rawText) {
       game.activeEncounter.id=attackTarget.id;
       game.activeEncounter.name=attackTarget.name;
       game.activeEncounter.gender=grammaticalGender(attackTarget);
+      game.activeEncounter.faction=attackTarget.faction||game.activeEncounter.faction;
+      game.activeEncounter.icon=attackTarget.icon||game.activeEncounter.icon;
+      game.activeEncounter.appearance=attackTarget.appearance||game.activeEncounter.appearance;
+      game.activeEncounter.insignia=attackTarget.insignia||game.activeEncounter.insignia;
       rememberEntity(game,{...game.activeEncounter,id:attackTarget.id,gender:game.activeEncounter.gender},'creature');
     }
     const enemy=game.activeEncounter;
@@ -279,7 +348,7 @@ export function processPlayerAction(game, rawText) {
     return {message:useItem(game,referencedItem.id).message};
   }
   if (wordFamily(text,['вып','поп','нап','жажд','глот','вод'])) {
-    const id=countItem(game.inventory,'water')?'water':countItem(game.inventory,'energy')?'energy':countItem(game.inventory,'vodka')?'vodka':null;
+    const id=countItem(game.inventory,'water')?'water':countItem(game.inventory,'energy')?'energy':null;
     return {message:id?useItem(game,id).message:'В рюкзаке нет подходящего напитка.'};
   }
   if (wordFamily(text,['поеш','съеш','перекус','голод','хлеб','тушен','колбас','жрат','пожрат','пищ'])) {

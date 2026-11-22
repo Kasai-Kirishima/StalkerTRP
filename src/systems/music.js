@@ -1,94 +1,55 @@
-// Persistent YouTube IFrame API audio host. It is intentionally mounted outside
-// #app so navigation between PDA tabs does not destroy the active music player.
-export function createMusicEngine(onEnded = () => {}) {
-  let player = null;
-  let isReady = false;
-  let apiRequested = false;
-  let pendingTrack = null;
-  let failed = false;
+// Local music engine. Files are read from the player's device and never sent to a server.
+export function createMusicEngine(onEnded = () => {}, onError = () => {}) {
+  let audio = null;
+  let tracks = new Map();
+  let currentUrl = null;
+  let nextId = 1;
 
-  function mountHost() {
-    let host = document.getElementById('zone-music-host');
-    if (host) return host;
-    host = document.createElement('div');
-    host.id = 'zone-music-host';
-    Object.assign(host.style, {
-      position: 'fixed', left: '-230px', top: '0', width: '200px', height: '200px',
-      opacity: '0.01', pointerEvents: 'none', overflow: 'hidden', zIndex: '-1'
-    });
-    const target = document.createElement('div');
-    target.id = 'zone-music-player';
-    host.appendChild(target);
-    document.body.appendChild(host);
-    return host;
+  function ensureAudio() {
+    if (audio) return audio;
+    audio = document.createElement('audio');
+    audio.id = 'zone-local-audio';
+    audio.preload = 'metadata';
+    audio.hidden = true;
+    audio.addEventListener('ended', () => onEnded());
+    audio.addEventListener('error', () => onError('Не удалось воспроизвести выбранный аудиофайл. Проверь формат файла.'));
+    document.body.appendChild(audio);
+    return audio;
   }
 
-  function createPlayer() {
-    if (player || !window.YT?.Player) return;
-    mountHost();
-    player = new window.YT.Player('zone-music-player', {
-      width: '200', height: '200', videoId: '',
-      playerVars: { autoplay: 0, controls: 0, disablekb: 1, fs: 0, playsinline: 1, rel: 0, modestbranding: 1 },
-      events: {
-        onReady: () => {
-          isReady = true;
-          if (pendingTrack) playNow(pendingTrack);
-        },
-        onStateChange: event => {
-          if (event.data === window.YT.PlayerState.ENDED) onEnded();
-        },
-        onError: () => { failed = true; onEnded(); }
-      }
-    });
-  }
-
-  function ensureApi() {
-    if (window.YT?.Player) { createPlayer(); return; }
-    if (apiRequested) return;
-    apiRequested = true;
-    mountHost();
-    const previous = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
-      try { previous?.(); } catch { /* ignore unrelated callback errors */ }
-      createPlayer();
-    };
-    if (!document.querySelector('script[data-zone-youtube-api]')) {
-      const script = document.createElement('script');
-      script.src = 'https://www.youtube.com/iframe_api';
-      script.async = true;
-      script.dataset.zoneYoutubeApi = '1';
-      script.onerror = () => { failed = true; };
-      document.head.appendChild(script);
+  function addFiles(fileList) {
+    const added = [];
+    for (const file of Array.from(fileList || [])) {
+      if (!file || !((file.type || '').startsWith('audio/') || /\.(mp3|m4a|ogg|wav|flac|aac)$/i.test(file.name))) continue;
+      const id = `local-${nextId++}`;
+      const url = URL.createObjectURL(file);
+      tracks.set(id, { url, file });
+      added.push({ id, title: file.name.replace(/\.[^.]+$/, ''), artist: 'Локальный файл', label: file.name, fileName: file.name, size: file.size });
     }
+    return added;
   }
 
-  function playNow(track) {
-    if (!player || !isReady || !track?.videoId) return;
-    failed = false;
-    const options={ videoId:track.videoId, startSeconds:Math.max(0,Number(track.startSeconds)||0) };
-    if (Number.isFinite(track.endSeconds) && track.endSeconds>options.startSeconds) options.endSeconds=track.endSeconds;
-    player.loadVideoById(options);
-    player.setVolume(78);
+  async function play(track) {
+    if (!track?.id || !tracks.has(track.id)) return false;
+    const entry = tracks.get(track.id);
+    const node = ensureAudio();
+    if (currentUrl && currentUrl !== entry.url) node.pause();
+    currentUrl = entry.url;
+    node.src = entry.url;
+    node.volume = node.volume ?? 0.78;
+    node.load();
+    try { await node.play(); return true; }
+    catch (error) { onError('Браузер не разрешил запуск. Нажми «Играть» ещё раз.'); return false; }
   }
 
   return {
-    prepare() { ensureApi(); },
-    play(track) {
-      if (!track?.videoId) return false;
-      pendingTrack = track;
-      ensureApi();
-      if (player && isReady) playNow(track);
-      return true;
-    },
-    pause() { if (player && isReady) player.pauseVideo(); },
-    resume(track = null) {
-      const sameTrack = track && pendingTrack && track.videoId===pendingTrack.videoId && track.startSeconds===pendingTrack.startSeconds && track.endSeconds===pendingTrack.endSeconds;
-      if (player && isReady && sameTrack) player.playVideo();
-      else if (track) this.play(track);
-      else if (player && isReady && pendingTrack) player.playVideo();
-      else if (pendingTrack) this.play(pendingTrack);
-    },
-    stop() { if (player && isReady) player.stopVideo(); pendingTrack = null; },
-    get failed() { return failed; }
+    addFiles,
+    play,
+    pause() { if (audio) audio.pause(); },
+    async resume() { if (!audio) return false; try { await audio.play(); return true; } catch { onError('Нажми «Играть», чтобы продолжить воспроизведение.'); return false; } },
+    stop() { if (audio) { audio.pause(); audio.currentTime = 0; audio.removeAttribute('src'); audio.load(); } currentUrl = null; },
+    setVolume(value) { const normalized = Math.max(0, Math.min(1, Number(value) || 0)); ensureAudio().volume = normalized; },
+    clear() { this.stop(); for (const entry of tracks.values()) URL.revokeObjectURL(entry.url); tracks.clear(); },
+    get count() { return tracks.size; }
   };
 }

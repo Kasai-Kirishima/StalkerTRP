@@ -73,6 +73,7 @@ export function canFitLoadout(selected, id, delta, budget) {
 
 export function useItem(game, id) {
   const item = getItem(id);
+  if (id==='vodka') return { ok:false, message:'Этот предмет не используется персонажем. Его можно оставить в рюкзаке или обменять у торговца.' };
   if (!item?.use || !countItem(game.inventory, id)) return { ok:false, message:'Этот предмет нельзя использовать сейчас.' };
   const result = { ok:true, message:`Использовано: ${item.name}.` };
   if (item.use === 'heal') {
@@ -91,10 +92,6 @@ export function useItem(game, id) {
     game.player.stamina = Math.min(100, game.player.stamina + item.restore);
     game.player.thirst = Math.min(100, game.player.thirst + 4);
     result.message = `Энергетик немного взбодрил тебя.`;
-  } else if (item.use === 'vodka') {
-    game.player.stress = Math.max(0, (game.player.stress || 0) - item.restore);
-    game.player.stamina = Math.max(0, game.player.stamina - 8);
-    result.message = `Горло обожгло. Стало спокойнее, но голова немного кружится.`;
   }
   removeItem(game.inventory, id, 1);
   return result;
