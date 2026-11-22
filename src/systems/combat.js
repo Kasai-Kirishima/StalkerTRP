@@ -2,11 +2,12 @@ import { getItem, countItem, removeItem, addItem } from './inventory.js';
 import { LOCATIONS } from '../data/catalog.js';
 import { addLog } from './world.js';
 import { advanceGame } from './world.js';
+import { rememberEntity } from './russian-language.js';
 
-const weapons = ['gaduka','pm','vm17','sawedoff','knife','rgd5'];
+const weapons = ['aksu','gaduka','pm','vm17','sawedoff','knife','rgd5'];
 
 export function getBestWeapon(inventory, game=null) {
-  const capacity = (ammo) => ammo === 'shells' ? 8 : 12;
+  const capacity = (ammo) => ammo === 'shells' ? 8 : ammo === 'ammo545' ? 30 : 12;
   const found = weapons.map(id => ({ item:getItem(id), count:countItem(inventory,id) })).filter(entry => entry.count > 0 && entry.item && (!entry.item.ammo || (game?.ammoRounds?.[entry.item.ammo] ?? countItem(inventory,entry.item.ammo)*capacity(entry.item.ammo)) > 0));
   found.sort((a,b) => (b.item.damage || 0) - (a.item.damage || 0));
   return found[0]?.item || null;
@@ -14,11 +15,12 @@ export function getBestWeapon(inventory, game=null) {
 
 export function beginEncounter(game, type='blind-dog') {
   if (game.activeEncounter) return false;
-  const name = type === 'military' ? 'Военнослужащий' : type === 'bandit' ? 'Бандит' : type === 'flesh' ? 'Плоть' : 'Слепой пёс';
-  const hp = type === 'military' ? 82 : type === 'bandit' ? 70 : type === 'flesh' ? 76 : 55;
-  const damage = type === 'military' ? 12 : type === 'bandit' ? 10 : type === 'flesh' ? 13 : 9;
+  const name = type === 'military' ? 'Военнослужащий' : type === 'bandit' ? 'Бандит' : type === 'stalker' ? 'Сталкер' : type === 'flesh' ? 'Плоть' : 'Слепой пёс';
+  const hp = type === 'military' ? 82 : type === 'bandit' ? 70 : type === 'stalker' ? 65 : type === 'flesh' ? 76 : 55;
+  const damage = type === 'military' ? 12 : type === 'bandit' ? 10 : type === 'stalker' ? 8 : type === 'flesh' ? 13 : 9;
   const image = '';
   game.activeEncounter = { type, name, hp, maxHp:hp, damage, count:1, imageIndex:0, image };
+  rememberEntity(game, game.activeEncounter, 'creature');
   return true;
 }
 
@@ -28,7 +30,7 @@ export function playerAttack(game) {
   const weapon = getBestWeapon(game.inventory,game);
   if (!weapon) return { ok:false, message:'У тебя нет подходящего оружия. Можно попытаться отступить.' };
   if (weapon.ammo) {
-    const capacity = weapon.ammo === 'shells' ? 8 : 12;
+    const capacity = weapon.ammo === 'shells' ? 8 : weapon.ammo === 'ammo545' ? 30 : 12;
     game.ammoRounds ??= {};
     game.ammoRounds[weapon.ammo] ??= countItem(game.inventory,weapon.ammo) * capacity;
     if (game.ammoRounds[weapon.ammo] <= 0 || !countItem(game.inventory,weapon.ammo)) return { ok:false, message:`Нет боеприпасов для ${weapon.name}.` };
@@ -48,6 +50,7 @@ export function playerAttack(game) {
     game.player.kills += 1;
     game.player.rating += 2;
     game.player.reputation += 2;
+    if (game.lastMentionedEntity?.type==='creature') game.lastMentionedEntity.alive=false;
     game.activeEncounter = null;
     message += ` Угроза устранена. Найдено ${reward} RU.`;
     if (enemy.type==='blind-dog' && Math.random()<.72) {

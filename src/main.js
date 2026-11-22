@@ -18,7 +18,7 @@ const allowedSavedIds=savedMusic.mode==='radio' ? (savedStation?.trackIds||[]) :
 const restoredQueue=(savedMusic.queue||[]).filter(id=>allowedSavedIds.includes(id));
 const restoredIndex=Math.max(0,restoredQueue.indexOf(savedMusic.trackId));
 const restoredMusic=restoredQueue.length ? {...savedMusic,queue:restoredQueue,index:restoredIndex,trackId:restoredQueue[restoredIndex],playing:false} : {mode:null,stationId:null,trackId:null,queue:[],index:0,playing:false};
-state.ui = { ...(state.ui||{}), tab:'location', modal:null, notification:'', music:restoredMusic, tradeNpcId:null, mapLocationId:null };
+state.ui = { ...(state.ui||{}), tab:'location', pdaOpen:false, modal:null, notification:'', music:restoredMusic, tradeNpcId:null, mapLocationId:null };
 let previousScreen = 'menu';
 let toastTimer = null;
 const musicEngine = createMusicEngine(() => advanceMusic(true));
@@ -126,6 +126,7 @@ function startRadio(stationId) {
   state.ui.music={mode:'radio',stationId:station.id,queue,index:0,trackId:queue[0],playing:true};
   state.settings.radioStationId=station.id;
   state.ui.tab='radio';
+  state.ui.pdaOpen=true;
   musicEngine.play(trackById(queue[0]));
   persist(); render();
 }
@@ -235,6 +236,7 @@ function finishLoadout() {
   state.pendingCharacter=null;
   state.account.sessions=(state.account.sessions||0)+1;
   state.ui.tab='location';
+  state.ui.pdaOpen=false;
   state.screen='game';
   describeLocation(state.game);
   persist();
@@ -256,6 +258,7 @@ function selectCharacter(id) {
   state.game=char.game;
   syncRealElapsed(state.game);
   state.ui.tab='location';
+  state.ui.pdaOpen=false;
   state.account.sessions=(state.account.sessions||0)+1;
   state.screen='game';
   persist();
@@ -264,10 +267,10 @@ function selectCharacter(id) {
 
 function applyActionResult(result) {
   if (!result) return;
-  if (result.action==='map' || result.action==='tab-map') state.ui.tab='map';
-  else if (result.action==='inventory') state.ui.tab='inventory';
-  else if (result.action==='quests') state.ui.tab='quests';
-  else if (result.action==='stats') state.ui.tab='stats';
+  if (result.action==='map' || result.action==='tab-map') { state.ui.tab='map'; state.ui.pdaOpen=true; }
+  else if (result.action==='inventory') { state.ui.tab='inventory'; state.ui.pdaOpen=true; }
+  else if (result.action==='quests') { state.ui.tab='quests'; state.ui.pdaOpen=true; }
+  else if (result.action==='stats') { state.ui.tab='stats'; state.ui.pdaOpen=true; }
   else if (result.action==='sleep') state.ui.modal='sleep';
   else if (result.action==='artifact') state.ui.modal=null;
   else if (result.action==='dialogue') state.game.dialogueNpcId=result.npcId;
@@ -304,8 +307,9 @@ root.addEventListener('click', (event) => {
     state.characters=state.characters.filter(c=>c.id!==id);
     persist(); render(); toast('Персонаж удалён.'); return;
   }
-  if (action==='open-avatars') { state.ui.modal='avatars'; return render(); }
-  if (action==='choose-avatar') { state.draft.avatar=button.dataset.src; state.ui.modal=null; persist(); return render(); }
+  if (action==='open-avatars') { state.ui.editAvatar=false; state.ui.modal='avatars'; return render(); }
+  if (action==='profile-choose-avatar') { state.ui.editAvatar=true; state.ui.modal='avatars'; return render(); }
+  if (action==='choose-avatar') { if(state.ui.editAvatar){ const character=state.characters.find(entry=>entry.id===state.activeCharacterId); if(character) character.avatar=button.dataset.src; state.ui.editAvatar=false; } else state.draft.avatar=button.dataset.src; state.ui.modal=null; persist(); return render(); }
   if (action==='reset-avatar') { state.draft.avatar=''; persist(); return render(); }
   if (action==='loadout-add' || action==='loadout-remove') {
     const delta=action==='loadout-add'?1:-1;
@@ -315,14 +319,16 @@ root.addEventListener('click', (event) => {
     persist(); render(); return;
   }
   if (action==='finish-loadout') return finishLoadout();
-  if (action==='tab') { state.ui.tab=tab; if(tab==='radio'){ const localStation=RADIO_STATIONS.find(item=>item.locationId===state.game?.locationId); if(localStation) state.settings.radioStationId=localStation.id; } state.game.dialogueNpcId=null; state.ui.modal=null; persist(); return render(); }
-  if (action==='tab-map') { state.ui.tab='map'; persist(); return render(); }
+  if (action==='pda-toggle') { state.ui.pdaOpen=!state.ui.pdaOpen; if(state.ui.pdaOpen && !state.ui.tab) state.ui.tab='location'; persist(); return render(); }
+  if (action==='tab') { state.ui.pdaOpen=true; state.ui.tab=tab; if(tab==='radio'){ const localStation=RADIO_STATIONS.find(item=>item.locationId===state.game?.locationId); if(localStation) state.settings.radioStationId=localStation.id; } state.game.dialogueNpcId=null; state.ui.modal=null; persist(); return render(); }
+  if (action==='tab-map') { state.ui.pdaOpen=true; state.ui.tab='map'; persist(); return render(); }
   if (action==='inspect') { const text=describeLocation(state.game); addGameLog(text); render(); return; }
   if (action==='search') { advanceGame(state.game,10); const result=searchLocation(state.game); updateWeather(state.game); persist(); render(); toast(result.message,result.ok?'info':'warning'); return; }
   if (action==='scout') { const result=scoutLocation(state.game,id); toast(result.message,result.ok?'info':'warning'); return; }
   if (action==='travel') {
     const result=travelTo(state.game,id);
     state.ui.tab='location';
+    state.ui.pdaOpen=false;
     persist(); render(); toast(result.message,result.encounter?'warning':result.ok?'info':'warning'); return;
   }
   if (action==='artifact-start') {
@@ -353,8 +359,8 @@ root.addEventListener('click', (event) => {
   if (action==='drop-item') {
     if (removeItem(state.game.inventory,id,1)) {
       if (id==='boltpack') state.game.boltsRemaining=Math.max(0,(state.game.boltsRemaining ?? 0)-10);
-      if (['ammo9x18','ammo9x19','shells'].includes(id)) {
-        const capacity=id==='shells'?8:12;
+      if (['ammo9x18','ammo9x19','ammo545','shells'].includes(id)) {
+        const capacity=id==='shells'?8:id==='ammo545'?30:12;
         state.game.ammoRounds[id]=Math.max(0,(state.game.ammoRounds?.[id] ?? 0)-capacity);
       }
       persist(); render(); toast(`Предмет «${getItem(id)?.name||id}» выброшен.`);
@@ -387,10 +393,10 @@ root.addEventListener('click', (event) => {
   if (action==='location-open') { state.ui.mapLocationId=id; state.ui.modal='map-location'; return render(); }
   if (action==='map-modal-travel') {
     const result=travelTo(state.game,id);
-    state.ui.modal=null; state.ui.tab='location'; persist(); render();
+    state.ui.modal=null; state.ui.tab='location'; state.ui.pdaOpen=false; persist(); render();
     toast(result.message,result.encounter?'warning':result.ok?'info':'warning'); return;
   }
-  if (action==='trade-open') { state.ui.tradeNpcId=id; state.ui.tab='trade'; state.ui.modal=null; persist(); return render(); }
+  if (action==='trade-open') { state.ui.tradeNpcId=id; state.ui.tab='trade'; state.ui.pdaOpen=true; state.ui.modal=null; persist(); return render(); }
   if (action==='trade-back') { state.ui.tradeNpcId=null; persist(); return render(); }
   if (action==='trade-buy') {
     const result=buyFromTrader(state.game,button.dataset.traderId,button.dataset.itemId);
@@ -418,7 +424,7 @@ root.addEventListener('click', (event) => {
   if (action==='music-dock-toggle') { toggleMusic(); return; }
   if (action==='settings-open-radio') {
     if (!state.game) { toast('Сначала выбери или создай персонажа.','warning'); return; }
-    state.screen='game'; state.ui.tab='radio';
+    state.screen='game'; state.ui.tab='radio'; state.ui.pdaOpen=true;
     const station=RADIO_STATIONS.find(entry=>entry.locationId===state.game.locationId);
     if (station) state.settings.radioStationId=station.id;
     persist(); render(); return;
@@ -459,6 +465,13 @@ root.addEventListener('change', async (event) => {
       state.draft.avatar=dataUrl; persist(); render(); toast('Портрет добавлен.');
     } catch { toast('Не удалось загрузить изображение.','warning'); }
   }
+  if (event.target.id==='profile-avatar-upload' && event.target.files?.[0]) {
+    try {
+      const dataUrl=await resizeImage(event.target.files[0]);
+      const character=state.characters.find(entry=>entry.id===state.activeCharacterId);
+      if (character) { character.avatar=dataUrl; persist(); render(); toast('Иконка персонажа обновлена.'); }
+    } catch { toast('Не удалось загрузить изображение.','warning'); }
+  }
   if (event.target.id==='save-upload' && event.target.files?.[0]) {
     try {
       const imported=await importSave(event.target.files[0]);
@@ -484,6 +497,21 @@ root.addEventListener('submit', (event) => {
     state.pendingCharacter=characterFromDraft();
     state.loadout={selected:{}};
     setScreen('loadout');
+  }
+  if (event.target.id==='profile-edit-form') {
+    event.preventDefault();
+    const form=new FormData(event.target);
+    const character=state.characters.find(entry=>entry.id===state.activeCharacterId);
+    if (!character) { toast('Активный персонаж не найден.','warning'); return; }
+    const name=String(form.get('name')||'').trim();
+    if (!name) { toast('Имя не может быть пустым.','warning'); return; }
+    character.name=name;
+    character.height=String(form.get('height')||'');
+    character.weight=String(form.get('weight')||'');
+    character.personality=String(form.get('personality')||'');
+    character.biography=String(form.get('biography')||'');
+    character.notes=String(form.get('notes')||'');
+    persist(); render(); toast('Личное дело обновлено.');
   }
   if (event.target.id==='action-form') {
     event.preventDefault();

@@ -137,3 +137,51 @@
 .faction-icon-symbol{font-size:25px;line-height:1;display:grid;place-items:center;width:28px;height:28px}
 .avatar-wrap{background:radial-gradient(circle at 50% 35%,#4a5638,#222b20 72%)}
 .item-emoji{display:inline-grid;place-items:center;min-width:30px;min-height:26px;font-size:22px;color:var(--acid)}
+
+/* PDA access flow: the world view stays focused until the device is opened. */
+.game-shell{display:block;min-height:100vh;background:#10140f}
+.game-main{width:100%;min-height:100vh}
+.pda-toggle-button{white-space:nowrap;padding:9px 13px;background:#657143;border:1px solid #a0ad68;color:#f0f2dc;border-radius:3px;font-size:12px;font-weight:700}
+.pda-toggle-button:hover{background:#77834c}
+.pda-top-tabs-wrap{padding:9px 16px 10px;background:linear-gradient(180deg,#1b2419,#151c14);border-bottom:1px solid #48543a;box-shadow:0 4px 12px #0005}
+.pda-tabs-heading{display:flex;justify-content:space-between;gap:10px;align-items:center;margin:0 2px 7px;color:#c5d08f;font:11px 'Share Tech Mono',monospace;letter-spacing:.11em}
+.pda-tabs-heading small{font-size:9px;color:#899477}
+.game-nav{display:flex;gap:6px;padding:0;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:thin;scrollbar-color:#69764a #151c14}
+.nav-tab{display:flex;flex:0 0 auto;align-items:center;justify-content:center;gap:7px;min-width:94px;padding:9px 11px;border:1px solid #394532;border-radius:3px;background:#171e16;color:#aab19c;text-align:center;white-space:nowrap}
+.nav-tab>span{width:auto;font-size:16px;color:#a9b36d}
+.nav-tab b{font-size:11px;font-weight:500}
+.nav-tab.active{background:linear-gradient(180deg,rgba(177,188,93,.22),rgba(177,188,93,.07));border-color:#7b8954;color:#f0f2df}
+.nav-tab.active>span{color:#e1e98e}
+.game-content.pda-closed-content{padding-top:19px}
+.game-content.pda-open-content{padding-top:17px}
+.map-frame{width:min(100%,500px);aspect-ratio:1/2;min-height:0;margin:0 auto 18px;background:#0b100b}
+.map-frame>img{object-fit:fill;filter:saturate(.78) contrast(1.02)}
+.map-pin{width:34px;height:34px;min-width:34px;min-height:34px;background:rgba(125,132,130,.54)}
+.map-pin.current{width:38px;height:38px;min-width:38px;min-height:38px}
+@media(max-width:760px){
+  .game-shell{display:block;min-height:100dvh}
+  .game-main{min-height:100dvh}
+  .game-topbar{gap:8px;padding:8px 10px;flex-wrap:wrap}
+  .topbar-player{min-width:0;flex:1}
+  .topbar-status{margin-left:0;order:3;width:100%;justify-content:space-between;gap:6px;font-size:9px}
+  .topbar-buttons{margin-left:auto;gap:5px}
+  .pda-toggle-button{font-size:10px;padding:8px 9px}
+  .pda-top-tabs-wrap{padding:8px 8px 9px}
+  .game-nav{gap:5px}
+  .nav-tab{min-width:82px;padding:8px 8px;gap:5px;flex-direction:row}
+  .nav-tab>span{font-size:15px}
+  .nav-tab b{font-size:10px}
+  .game-content{padding:11px 10px 16px}
+  .map-frame{width:min(100%,420px);aspect-ratio:1/2;min-height:0}
+  .map-pin{width:36px;height:36px;min-width:36px;min-height:36px}
+  .map-pin.current{width:40px;height:40px;min-width:40px;min-height:40px}
+}
+@media(max-width:390px){
+  .topbar-player{flex-basis:44%}
+  .topbar-buttons{flex-basis:100%;justify-content:flex-end}
+  .game-nav .nav-tab{min-width:76px;padding:7px 6px}
+  .nav-tab b{font-size:9px}
+}
+
+
+.profile-edit-form{margin-top:16px}.profile-edit-form .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.profile-edit-form label{display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:.85rem}.profile-edit-form input,.profile-edit-form textarea{width:100%;min-width:0;background:rgba(0,0,0,.24);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:10px;font:inherit}.profile-avatar-edit{display:flex;align-items:center;gap:12px;margin-top:14px}.profile-edit-form .form-actions{display:flex;justify-content:flex-end;margin-top:14px}@media(max-width:600px){.profile-edit-form .form-grid{grid-template-columns:1fr}}

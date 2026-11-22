@@ -1,21 +1,29 @@
 import assert from 'node:assert/strict';
-import { ASSETS, IMAGE_FALLBACKS, FACTIONS, ITEMS, LOCATIONS, NPCS, AVATAR_OPTIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS, START_BUDGET, MAX_CARRY_KG } from '../src/data/catalog.js';
-import { createGame, travelTo, talkToNpc, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, replyNpc } from '../src/systems/world.js';
+import { ASSETS, IMAGE_FALLBACKS, FACTIONS, ITEMS, LOCATIONS, NPCS, AVATAR_OPTIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS, START_BUDGET, MAX_CARRY_KG, STARTER_ITEM_IDS, ITEM_ACQUISITION } from '../src/data/catalog.js';
+import { createGame, travelTo, talkToNpc, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, replyNpc, getTravelMinutes } from '../src/systems/world.js';
 import { addItem, getWeight, canFitLoadout, countItem } from '../src/systems/inventory.js';
 import { beginEncounter, playerAttack } from '../src/systems/combat.js';
 import { processPlayerAction } from '../src/systems/action-engine.js';
+import { rememberEntity, stemRussianWord, containsReferencePronoun, genderedSubject } from '../src/systems/russian-language.js';
 import { renderMenu, renderLoadout, renderGame, renderModal } from '../src/ui/views.js';
 
 assert.equal(FACTIONS.length,3);
 assert.equal(LOCATIONS.length,18);
 assert.equal(LOCATIONS.filter(location=>location.mapVisible!==false).length,17,'17 labelled map pins should appear over the supplied base map');
-assert.deepEqual([LOCATIONS.find(l=>l.id==='rail-tunnel').x,LOCATIONS.find(l=>l.id==='rail-tunnel').y],[93,38],'east railway tunnel should be right and above locomotive');
-assert.deepEqual([LOCATIONS.find(l=>l.id==='underpass').x,LOCATIONS.find(l=>l.id==='underpass').y],[38,59],'underpass should be right and slightly above the wagon');
+assert.deepEqual([LOCATIONS.find(l=>l.id==='rail-tunnel').x,LOCATIONS.find(l=>l.id==='rail-tunnel').y],[93,37],'east railway tunnel should be right and above locomotive');
+assert.deepEqual([LOCATIONS.find(l=>l.id==='underpass').x,LOCATIONS.find(l=>l.id==='underpass').y],[39,59],'underpass should be right and slightly above the wagon');
 assert.deepEqual(LOCATIONS.find(l=>l.id==='anomaly-dump').hazards,['gravity'],'the secret camp contains the Funnel gravity anomaly');
 assert.equal(LOCATIONS.find(l=>l.id==='anomaly-dump').anomalyName,'Воронка');
 assert.ok(LOCATIONS.every(location=>!location.image),'location backgrounds must not use external images');
 assert.ok(ASSETS.map.endsWith('cordon-clean.webp'),'map must use the clean map provided by the user');
+assert.ok(getTravelMinutes('atp','stop') < getTravelMinutes('north-checkpoint','south-checkpoint'),'travel estimates must scale with real map distance');
+assert.equal(getTravelMinutes('atp','stop'),5,'very short marked-map walks should take about five minutes');
 assert.ok(ITEMS.every(item=>!item.image),'items must not have external or local image URLs');
+assert.ok(ITEMS.some(item=>item.id==='aksu' && item.ammo==='ammo545'),'AKSU must use 5.45x39 ammunition');
+assert.ok(ITEMS.some(item=>item.id==='ammo545'),'5.45x39 ammo pack must exist');
+assert.ok(ITEMS.some(item=>item.id==='meat_chunk' && item.name.includes('Ломоть мяса')),'Flesh artifact must exist');
+assert.ok(ITEMS.some(item=>item.id==='gravi' && item.name.includes('Грави')),'Gravi artifact must exist');
+assert.ok(LOCATIONS.find(location=>location.id==='elevator').desc.includes('фотографией Чернобыльской АЭС'),'Elevator description must mention the NPP photograph');
 assert.ok(NPCS.every(npc=>!npc.icon),'NPCs must use built-in portrait placeholders');
 assert.ok(ASSETS.menu.startsWith('https://') && ASSETS.pda===null);
 assert.equal(ASSETS.menu,'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS5OXJVGkhNyzTjS2YABky-DUSo45VdfMiDvddnm2NsexQfHmc4giGVzRY&s=10','main-menu must use only the user-provided external background');
@@ -52,7 +60,7 @@ assert.ok(ITEMS.length>=32);
 assert.ok(ITEMS.every(item=>!item.image),'inventory items should use local symbolic placeholders instead of image URLs');
 assert.ok(ITEMS.some(item=>item.id==='flesh-eye'&&item.cat==='Добыча'));
 assert.equal(new Set(PLAYER_TRACKS.map(track=>track.id)).size,PLAYER_TRACKS.length,'all music IDs should be unique');
-assert.ok((await import('node:fs')).readFileSync(new URL('../styles.css',import.meta.url),'utf8').includes('width:30px;height:30px;min-width:30px;min-height:30px;'),'map circles should be larger touch targets');
+assert.ok((await import('node:fs')).readFileSync(new URL('../styles.css',import.meta.url),'utf8').includes('.map-pin{width:34px;height:34px;min-width:34px;min-height:34px;'),'map circles should be larger touch targets');
 
 for (const faction of FACTIONS) {
   const character={name:'Проверка',faction:faction.id};
@@ -77,7 +85,13 @@ const game=createGame(character,[],START_BUDGET);
 addItem(game.inventory,'binoculars',1);
 assert.equal(scoutLocation(game,'trailer').ok,true);
 assert.equal(travelTo(game,'south-checkpoint').ok,false,'non-adjacent travel must be blocked');
-assert.equal(travelTo(game,'stop').ok,true);
+const expectedWalk=getTravelMinutes(game.locationId,'stop');
+const offsetBeforeWalk=game.clock.timeOffsetMinutes;
+const walkResult=travelTo(game,'stop');
+assert.equal(walkResult.ok,true);
+assert.equal(walkResult.travelMinutes,expectedWalk);
+assert.equal(game.clock.timeOffsetMinutes-offsetBeforeWalk,expectedWalk,'travel must advance the clock by the distance-based estimate');
+assert.ok(walkResult.message.includes(`Путь занял ${expectedWalk} мин.`));
 assert.equal(searchLocation(game).ok,true);
 assert.equal(searchLocation(game).ok,false,'location loot should have a cooldown');
 game.clock.worldMinutes += 181;
@@ -149,6 +163,13 @@ const sell=sellToTrader(shopGame,'sidorovich','bread',1);
 assert.equal(sell.ok,true);
 assert.equal(countItem(shopGame.inventory,'bread'),breadBefore);
 assert.ok(shopGame.money>moneyBefore-buy.price);
+addItem(shopGame.inventory,'flesh-eye',1);
+assert.equal(sellToTrader(shopGame,'sidorovich','flesh-eye',1).ok,true);
+assert.ok(!getAvailableTraders(shopGame,'sidorovich-bunker').find(t=>t.id==='sidorovich').stock.some(entry=>entry.id==='flesh-eye'),'mutant trophies may be sold but must not be placed back on sale');
+const legacyStockGame=createGame({name:'Старое сохранение',faction:'loner'},[],START_BUDGET);
+legacyStockGame.traders.find(t=>t.id==='sidorovich').stock.push({id:'tail',qty:2,price:400},{id:'medusa',qty:1,price:650});
+const migratedSidorovich=getAvailableTraders(legacyStockGame,'sidorovich-bunker').find(t=>t.id==='sidorovich');
+assert.ok(migratedSidorovich.stock.every(entry=>!['tail','flesh-eye','medusa','meat_chunk','gravi'].includes(entry.id)),'legacy saves must be migrated off mutant/artifact sale stock');
 
 // Trader locations: Shnurok on ATP, military quartermaster at southern checkpoint.
 shopGame.locationId='atp';
@@ -187,6 +208,90 @@ const fleshFight=playerAttack(mutantGame);
 Math.random=originalRandom;
 assert.equal(fleshFight.finished,true);
 assert.equal(countItem(mutantGame.inventory,'flesh-eye'),1);
+const dogGame=createGame(character,[],START_BUDGET);
+addItem(dogGame.inventory,'knife',1);
+beginEncounter(dogGame,'blind-dog');
+dogGame.activeEncounter.hp=1;
+const dogRandom=Math.random;
+Math.random=()=>0;
+const dogFight=playerAttack(dogGame);
+Math.random=dogRandom;
+assert.equal(dogFight.finished,true);
+assert.equal(countItem(dogGame.inventory,'tail'),1,'blind dogs drop their own tail as a combat trophy');
+
+
+// Starter equipment is deliberately limited; rare goods, mutant parts and artifacts are excluded.
+assert.ok(STARTER_ITEM_IDS.length < ITEMS.length,'starter selection must be smaller than the full item catalogue');
+assert.deepEqual(ITEM_ACQUISITION.mutantDrops,['tail','flesh-eye']);
+assert.deepEqual(ITEM_ACQUISITION.artifactHunt,['medusa','meat_chunk','gravi']);
+assert.ok(ITEM_ACQUISITION.traderOnly.every(id=>!STARTER_ITEM_IDS.includes(id)));
+assert.ok(ITEM_ACQUISITION.searchOnly.every(id=>!STARTER_ITEM_IDS.includes(id)));
+for (const restricted of ['aksu','ammo545','psz5','aurora','optik','zarya','otklik','flash','tail','flesh-eye','medusa','meat_chunk','gravi']) {
+  assert.ok(!STARTER_ITEM_IDS.includes(restricted),`${restricted} must not be in starter selection`);
+  assert.equal(canFitLoadout({},restricted,1,START_BUDGET).ok,false,`${restricted} must be blocked from starter selection`);
+}
+for (const itemId of STARTER_ITEM_IDS) assert.ok(ITEMS.some(item=>item.id===itemId),`starter item ${itemId} must exist`);
+assert.ok(ITEMS.every(item=>!['tail','flesh-eye','medusa','meat_chunk','gravi'].includes(item.id) || ['Добыча','Артефакты'].includes(item.cat)));
+assert.ok(LOCATIONS.every(location=>(location.loot||[]).every(id=>!['tail','flesh-eye','medusa','meat_chunk','gravi'].includes(id))), 'mutant parts/artifacts must not appear in ordinary stash search');
+const initialShopGame=createGame(character,[],START_BUDGET);
+for (const trader of getAvailableTraders(initialShopGame,'sidorovich-bunker').concat(getAvailableTraders(initialShopGame,'atp'),getAvailableTraders(initialShopGame,'south-checkpoint'))) {
+  assert.ok((trader.stock||[]).every(stock=>!['tail','flesh-eye','medusa','meat_chunk','gravi'].includes(stock.id)), 'trader shelves must not directly sell mutant trophies or artifacts');
+}
+
+// Russian cases and gendered pronouns: a named referent can be addressed by он/она/оно in different cases.
+assert.equal(stemRussianWord('поговорила').startsWith('поговор'),true);
+assert.equal(containsReferencePronoun('подойди к нему'),true);
+assert.equal(containsReferencePronoun('поговори с ней'),true);
+assert.equal(containsReferencePronoun('осмотри его'),true);
+assert.equal(containsReferencePronoun('расскажи об этом'),true);
+const pronounGame=createGame({name:'Язык',faction:'loner'},[],START_BUDGET);
+assert.equal(processPlayerAction(pronounGame,'поговори с Волком').action,'dialogue');
+assert.equal(processPlayerAction(pronounGame,'поговори с ним').action,'dialogue','masculine pronoun in dative should resolve to the last-mentioned NPC');
+rememberEntity(pronounGame,{id:'flesh',name:'Плоть',type:'flesh',gender:'f'},'creature');
+const femaleInspect=processPlayerAction(pronounGame,'осмотри её').message;
+assert.ok(femaleInspect.includes('Она') && femaleInspect.includes('Плоть'),'feminine pronoun should resolve and agree with the mutant name');
+rememberEntity(pronounGame,{id:'anomaly-dump',name:'Тайный лагерь',gender:'m'},'location');
+assert.ok(processPlayerAction(pronounGame,'осмотри его').message.includes('Тайный лагерь'),'masculine accusative pronoun should resolve to a remembered location');
+const combatPronounGame=createGame({name:'Язык',faction:'loner'},[],START_BUDGET);
+rememberEntity(combatPronounGame,{id:'blind-dog',name:'Слепой пёс',type:'blind-dog',gender:'m'},'creature');
+assert.equal(processPlayerAction(combatPronounGame,'напади на него').action,'combat','masculine pronoun should resolve in an attack command');
+const feminineCombatGame=createGame({name:'Язык',faction:'loner'},[],START_BUDGET);
+rememberEntity(feminineCombatGame,{id:'flesh',name:'Плоть',type:'flesh',gender:'f'},'creature');
+assert.equal(processPlayerAction(feminineCombatGame,'ударь её').action,'combat','feminine pronoun should resolve in an attack command');
+assert.equal(genderedSubject({name:'Волк',id:'wolf'}),'Он');
+assert.equal(genderedSubject({name:'Плоть',id:'flesh'}),'Она');
+assert.equal(genderedSubject({name:'АТП',id:'atp'}),'Оно');
+const neuterGame=createGame({name:'Язык',faction:'loner'},[],START_BUDGET);
+rememberEntity(neuterGame,{id:'atp',name:'АТП',gender:'n'},'location');
+assert.ok(processPlayerAction(neuterGame,'это').message.startsWith('Оно — это АТП'),'neuter pronoun should resolve to an inanimate neuter referent');
+const wolfCasesGame=createGame({name:'Язык',faction:'loner'},[],START_BUDGET);
+for (const command of ['поговори с Волком','спроси у Волка','обратись к Волку','подойди к Волку']) {
+  wolfCasesGame.locationId='rookie-village';
+  const response=processPlayerAction(wolfCasesGame,command);
+  assert.equal(response.action,'dialogue',`NPC case form should resolve: ${command}`);
+}
+const sidorovichCasesGame=createGame({name:'Язык',faction:'loner'},[],START_BUDGET);
+sidorovichCasesGame.locationId='sidorovich-bunker';
+for (const command of ['поговори с Сидоровичем','спроси у Сидоровича','подойди к Сидоровичу']) {
+  assert.equal(processPlayerAction(sidorovichCasesGame,command).action,'dialogue',`Sidorovich case form should resolve: ${command}`);
+}
+assert.ok(processPlayerAction(wolfCasesGame,'расскажи про него').message.includes('Волк'),'genitive pronoun should refer to the last-mentioned NPC');
+assert.equal(processPlayerAction(wolfCasesGame,'подойди к нему').action,'dialogue','dative pronoun should resolve when approaching a remembered NPC');
+const militaryPronounGame=createGame({name:'Язык',faction:'military'},[],START_BUDGET);
+militaryPronounGame.locationId='south-checkpoint';
+assert.equal(processPlayerAction(militaryPronounGame,'спроси у Каптёрки').action,'dialogue');
+assert.equal(processPlayerAction(militaryPronounGame,'подойди к ней').action,'dialogue','feminine dative pronoun should resolve to a remembered female NPC');
+assert.ok(processPlayerAction(militaryPronounGame,'где она?').message.includes('Южный блокпост'),'feminine pronoun should preserve the remembered referent in a question');
+assert.equal(processPlayerAction(militaryPronounGame,'ударь её').action,'combat','a remembered female NPC can be targeted with a feminine pronoun');
+assert.equal(militaryPronounGame.activeEncounter.name,'Каптёрка');
+assert.equal(militaryPronounGame.activeEncounter.gender,'f');
+
+
+const sleepGame=createGame({name:'Язык',faction:'loner'},[],START_BUDGET);
+assert.equal(processPlayerAction(sleepGame,'спроси у Волка').action,'dialogue','спроси must not be confused with спать');
+assert.equal(processPlayerAction(sleepGame,'переночуй').action,'sleep','переночуй must be parsed as sleep, not movement');
+const exploreGame=createGame({name:'Язык',faction:'loner'},[],START_BUDGET);
+assert.ok(processPlayerAction(exploreGame,'поищи припасы').message.length>0,'search command with пoищи should be recognized');
 
 // Combat still falls back to a melee weapon when a firearm has no rounds.
 addItem(game.inventory,'knife',1);
@@ -195,10 +300,16 @@ beginEncounter(game,'bandit');
 const attack=playerAttack(game);
 assert.ok(attack.message.includes('Нож'));
 
-const uiState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false,radioStationId:'loner-village-radio'},account:{},draft:{name:'',birthDate:'',height:'',weight:'',personality:'',biography:'',notes:'',faction:'loner',avatar:''},loadout:{selected:{}},ui:{tab:'location',modal:null,music:{mode:null,stationId:null,trackId:null,queue:[],index:0,playing:false}},game};
+const uiState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false,radioStationId:'loner-village-radio'},account:{},draft:{name:'',birthDate:'',height:'',weight:'',personality:'',biography:'',notes:'',faction:'loner',avatar:''},loadout:{selected:{}},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:null,stationId:null,trackId:null,queue:[],index:0,playing:false}},game};
 assert.ok(renderMenu(uiState).includes('Играть'));
-assert.ok(renderLoadout(uiState).includes('КАТАЛОГ'));
-assert.ok(renderGame(uiState).includes('game-shell'));
+assert.ok(renderLoadout(uiState).includes('СТАРТОВАЯ ПОДБОРКА'));
+for (const hidden of ['АКСУ','Пачка патронов 5.45×39','Хвост слепого пса','Глаз плоти','Медуза','Ломоть мяса','Грави','Заря']) assert.ok(!renderLoadout(uiState).includes(hidden),`${hidden} must not appear in the starter screen`);
+const closedPdaHtml=renderGame(uiState);
+assert.ok(closedPdaHtml.includes('Открыть КПК'));
+assert.ok(!closedPdaHtml.includes('aria-label="Разделы КПК"'),'PDA tabs must stay hidden until the device is opened');
+assert.ok(closedPdaHtml.includes('Текущая локация') || closedPdaHtml.includes('ДЕЙСТВИЯ'));
+uiState.ui.pdaOpen=true;
+assert.ok(renderGame(uiState).includes('aria-label="Разделы КПК"'),'opening the PDA should reveal tabs across the top');
 uiState.ui.tab='radio';
 const radioHtml=renderGame(uiState);
 assert.ok(radioHtml.includes('Радио Кордон'));
@@ -217,7 +328,7 @@ assert.ok(tradeHtml.includes('Товар торговца') && tradeHtml.include
 uiState.ui.tab='map';
 uiState.ui.tradeNpcId=null;
 const mapHtml=renderGame(uiState);
-assert.ok(mapHtml.includes('cordon-clean.webp'));
+assert.ok(mapHtml.includes('cordon-clean.webp'),'the clean user map must render as the PDA map base layer');
 assert.ok(mapHtml.includes('data-action="location-open"'));
 uiState.ui.modal='map-location';
 uiState.ui.mapLocationId='anomaly-dump';
@@ -226,4 +337,7 @@ assert.ok(mapModal.includes('Тайный лагерь') && mapModal.includes('�
 uiState.ui.modal='avatars';
 const avatarModal=renderModal(uiState);
 assert.ok(avatarModal.includes('Сидорович') && avatarModal.includes('Волк') && avatarModal.includes('Кефир') && avatarModal.includes('Дмитрий Дзержинский'));
-console.log('Smoke tests passed: repeatable Sidorovich jobs, 20+ unique tracks per station, player library, map, trade, combat and previous systems.');
+uiState.ui.tab='stats';
+const statsHtml=renderGame(uiState);
+assert.ok(statsHtml.includes('profile-edit-form') && statsHtml.includes('Выбрать значок'),'PDA statistics must provide editable character dossier');
+console.log('Smoke tests passed: quests, radio, map, profile editor, AKSU/ammo, artifacts, trade, combat and previous systems.');

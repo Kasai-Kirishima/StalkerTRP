@@ -4,7 +4,7 @@
 - Фон главного меню: https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS5OXJVGkhNyzTjS2YABky-DUSo45VdfMiDvddnm2NsexQfHmc4giGVzRY&s=10
 
 ## Локальное изображение
-- Чистая карта Кордона: `assets/images/cordon-clean.webp` (встроена в архив).
+- Чистая карта Кордона без подписей: `assets/images/cordon-clean.webp` (встроена в архив и используется как подложка карты КПК).
 
 ## Без внешних изображений
 - КПК и экраны — CSS-оформление.

@@ -1,4 +1,4 @@
-import { ITEMS, MAX_CARRY_KG } from '../data/catalog.js';
+import { ITEMS, MAX_CARRY_KG, STARTER_ITEM_IDS } from '../data/catalog.js';
 
 export const getItem = (id) => ITEMS.find(item => item.id === id);
 
@@ -40,6 +40,7 @@ export function countItem(inventory, id) {
 export function canFitLoadout(selected, id, delta, budget) {
   const item = getItem(id);
   if (!item) return { ok:false, reason:'Неизвестный предмет.' };
+  if (delta > 0 && !STARTER_ITEM_IDS.includes(id)) return { ok:false, reason:'Этот предмет нельзя взять в стартовую подборку. Его можно найти в Зоне или приобрести у подходящего торговца.' };
   const nextQty = (selected[id] || 0) + delta;
   if (nextQty < 0) return { ok:false, reason:'Количество не может быть отрицательным.' };
   const next = { ...selected };

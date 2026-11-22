@@ -1,11 +1,11 @@
-const CACHE_NAME = 'cordon-pda-v8-offline-images';
+const CACHE_NAME = 'cordon-pda-v11-russian-cases-loot-sources';
 const APP_SHELL = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './assets/icons/radioactive.svg', './assets/images/cordon-clean.webp',
   './src/main.js', './src/ui/views.js', './src/core/storage.js',
   './src/data/catalog.js', './src/systems/game-clock.js', './src/systems/music.js',
   './src/systems/inventory.js', './src/systems/world.js',
-  './src/systems/combat.js', './src/systems/action-engine.js'
+  './src/systems/combat.js', './src/systems/action-engine.js', './src/systems/russian-language.js'
 ];
 self.addEventListener('install', event => {
   event.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(APP_SHELL)).then(() => self.skipWaiting()));

@@ -1,15 +1,33 @@
 import { LOCATIONS, FACTIONS, SQUADS, ITEMS, QUESTS, NPCS } from '../data/catalog.js';
 import { advanceTime, createClock, getGameDateTime, syncRealElapsed } from './game-clock.js';
 import { addItem, getItem, removeItem, countItem } from './inventory.js';
+import { rememberEntity } from './russian-language.js';
 
 const pick = (array) => array[Math.floor(Math.random() * array.length)];
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 export const getLocation = (id) => LOCATIONS.find(location => location.id === id);
 export const getFaction = (id) => FACTIONS.find(faction => faction.id === id);
 
+// Estimated walking time uses the actual Cordon map proportions (768×1536).
+// The map is treated as roughly 2 m per source pixel; average Zone walking
+// speed is reduced to 3 km/h for mud, debris, detours and cautious movement.
+export function getTravelMinutes(fromId, toId) {
+  const from = getLocation(fromId);
+  const to = getLocation(toId);
+  if (!from || !to || from.id === to.id) return 0;
+  const dx = ((Number(from.x) || 0) - (Number(to.x) || 0)) * 7.68;
+  const dy = ((Number(from.y) || 0) - (Number(to.y) || 0)) * 15.36;
+  const mapPixels = Math.hypot(dx, dy);
+  const metres = mapPixels * 2;
+  const rawMinutes = metres / 3000 * 60;
+  // Round to a five-minute interval so the estimate reads naturally in the PDA.
+  return Math.max(5, Math.round(rawMinutes / 5) * 5);
+}
+
 
 const RANDOM_TRADER_NAMES = ['Серый','Муха','Гвоздь','Тихий','Пахарь','Клык','Рыжий','Шустрый','Филин','Крот'];
-const RANDOM_TRADER_STOCK = ['bread','water','canned','sausage','bandage','ammo9x18','ammo9x19','shells','knife','vodka','tail','flesh-eye','medusa','boltpack','flash','ai2','antirad'];
+const getItemName = (id) => ({medusa:'Медуза',meat_chunk:'Ломоть мяса',gravi:'Грави'}[id] || id);
+const RANDOM_TRADER_STOCK = ['bread','water','canned','sausage','bandage','ammo9x18','ammo9x19','ammo545','shells','knife','vodka','boltpack','ai2','antirad','binoculars','pm'];
 
 function makeStock(ids, multiplier=1) {
   return [...new Set(ids)].map(id=>{
@@ -44,6 +62,10 @@ function ensureTraderRecords(game) {
     game.randomTraders=records.random;
   }
   if (!Array.isArray(game.randomTraders)) game.randomTraders=createTraderRecords().random;
+  const forbiddenResale=new Set(['tail','flesh-eye','medusa','meat_chunk','gravi']);
+  for (const trader of [...game.traders,...game.randomTraders]) {
+    if (Array.isArray(trader.stock)) trader.stock=trader.stock.filter(entry=>!forbiddenResale.has(entry.id));
+  }
 }
 
 function findTrader(game, traderId) {
@@ -55,7 +77,7 @@ function findTrader(game, traderId) {
 }
 
 function updatePurchasedCounters(game, itemId, direction=1) {
-  if (['ammo9x18','ammo9x19','shells'].includes(itemId)) {
+  if (['ammo9x18','ammo9x19','ammo545','shells'].includes(itemId)) {
     const amount=itemId==='shells'?8:12;
     game.ammoRounds ??= {};
     game.ammoRounds[itemId]=Math.max(0,(game.ammoRounds[itemId]||0)+amount*direction);
@@ -74,7 +96,7 @@ export function createGame(character, starterInventory = [], money = 0) {
     },
     money,
     inventory:starterInventory.map(entry => ({ ...entry })),
-    ammoRounds:{ ammo9x18:countItem(starterInventory,'ammo9x18')*12, ammo9x19:countItem(starterInventory,'ammo9x19')*12, shells:countItem(starterInventory,'shells')*8 },
+    ammoRounds:{ ammo9x18:countItem(starterInventory,'ammo9x18')*12, ammo9x19:countItem(starterInventory,'ammo9x19')*12, ammo545:countItem(starterInventory,'ammo545')*30, shells:countItem(starterInventory,'shells')*8 },
     boltsRemaining:countItem(starterInventory,'boltpack')*10,
     locationId:faction?.spawn || 'rookie-village',
     quests:QUESTS.map(quest => ({ ...quest, status:'available' })),
@@ -175,6 +197,7 @@ export function advanceGame(game, minutes) {
 export function describeLocation(game, locationId = game.locationId) {
   const location = getLocation(locationId);
   if (!location) return 'Ты не можешь определить своё местоположение.';
+  rememberEntity(game, location, 'location');
   const time = getGameDateTime(game.clock);
   const squads = game.squads.filter(squad => squad.location === locationId);
   const extras = [
@@ -186,7 +209,7 @@ export function describeLocation(game, locationId = game.locationId) {
   ];
   const hazardText = location.hazards?.length ? location.hazards.map(h => h === 'radiation' ? 'В районе чувствуется радиационный фон.' : 'Рядом ощущается нестабильное гравитационное поле.').join(' ') : '';
   const squadText = squads.length ? ` Здесь находится: ${squads.map(s => s.name).join(', ')}.` : '';
-  const text = `${location.desc} ${pick(extras)} ${hazardText}${squadText} Погода: ${game.weather.toLowerCase()}. ${time.time}.`;
+  const text = `${location.name}. ${location.desc} ${pick(extras)} ${hazardText}${squadText} Погода: ${game.weather.toLowerCase()}. ${time.time}.`;
   game.currentDescription = text;
   return text;
 }
@@ -212,7 +235,8 @@ export function searchLocation(game, { corpse=false } = {}) {
   } else if (item) {
     const quantity = ['bread','water','ammo9x18','bandage'].includes(lootId) && Math.random() < .25 ? 2 : 1;
     const result = addItem(game.inventory, lootId, quantity);
-    if (result.ok && ['ammo9x18','ammo9x19','shells'].includes(lootId)) game.ammoRounds[lootId] = (game.ammoRounds[lootId] || 0) + quantity * (lootId === 'shells' ? 8 : 12);
+    if (result.ok) { game.lastMentionedItemId=lootId; rememberEntity(game,item,'item'); }
+    if (result.ok && ['ammo9x18','ammo9x19','ammo545','shells'].includes(lootId)) game.ammoRounds[lootId] = (game.ammoRounds[lootId] || 0) + quantity * (lootId === 'shells' ? 8 : lootId === 'ammo545' ? 30 : 12);
     if (result.ok && lootId === 'boltpack') game.boltsRemaining = (game.boltsRemaining || 0) + quantity * 10;
     message = result.ok ? `${corpse ? 'В вещах погибшего' : 'В укромном месте'} найдено: ${item.name}${quantity > 1 ? ` ×${quantity}` : ''}.` : `Ты заметил ${item.name}, но не смог забрать: ${result.reason}`;
   } else {
@@ -230,12 +254,13 @@ export function travelTo(game, destinationId) {
   if (!current || !destination) return { ok:false, message:'Неизвестный маршрут.' };
   if (!current.neighbors.includes(destinationId)) return { ok:false, message:'Прямого пути туда нет. Проверь соседние переходы на карте.' };
   if (game.activeEncounter) return { ok:false, message:'Сначала разберись с текущей угрозой.' };
-  advanceGame(game, 30 + Math.floor(Math.random()*20));
+  const travelMinutes = getTravelMinutes(current.id, destination.id);
+  advanceGame(game, travelMinutes);
   game.locationId = destinationId;
   game.distanceTravelled += 1;
   if (!game.player.locationsVisited.includes(destinationId)) game.player.locationsVisited.push(destinationId);
   game.visitedAt[destinationId] = game.clock.worldMinutes;
-  addLog(game, `Ты переместился: ${current.name} → ${destination.name}.`);
+  addLog(game, `Ты добрался пешком: ${current.name} → ${destination.name}. В пути: ${travelMinutes} мин.`);
   progressQuest(game, `visit:${destinationId}`);
   describeLocation(game);
   let hazardNotice = '';
@@ -260,9 +285,9 @@ export function travelTo(game, destinationId) {
       : { type:'blind-dog', name:'Слепой пёс', hp:55, maxHp:55, damage:7+Math.floor(Math.random()*7), count:Math.random()<.3?2:1, imageIndex:Math.floor(Math.random()*2) };
     const message = useFlesh ? 'Из-за развалин выходит Плоть. Мутант тяжело переступает копытами и готовится к атаке.' : 'Из-за укрытия выскакивает слепой пёс! Он замечает тебя и готовится броситься.';
     addLog(game, message, 'danger');
-    return { ok:true, message:message + hazardNotice, encounter:true };
+    return { ok:true, message:`Путь занял ${travelMinutes} мин. ${message}${hazardNotice}`, encounter:true, travelMinutes };
   }
-  return { ok:true, message:`Ты добрался до локации «${destination.name}». ${describeLocation(game)}${hazardNotice}` };
+  return { ok:true, message:`Путь занял ${travelMinutes} мин. Ты добрался до локации «${destination.name}». ${describeLocation(game)}${hazardNotice}`, travelMinutes };
 }
 
 export function scoutLocation(game, destinationId) {
@@ -336,6 +361,7 @@ export function talkToNpc(game, npcId) {
   if (npc.location !== game.locationId) return { ok:false, message:`${npc.name} сейчас не здесь. По последним сведениям он находится: ${getLocation(npc.location)?.name||'неизвестно'}.` };
   game.dialogueNpcId = npcId;
   game.dialogueTopic = null;
+  rememberEntity(game, npc, 'npc');
   const jobs=getSidorovichJobState(game);
   if (npcId==='sidorovich' && jobs.active?.type==='collector' && jobs.active.targetNpcId) { /* player returned to the quest giver */ }
   if (npcId!=='sidorovich' && jobs.active?.type==='collector' && jobs.active.targetNpcId===npcId) {
@@ -405,6 +431,12 @@ export function sellToTrader(game, traderId, itemId, quantity=1) {
   if (!removeItem(game.inventory,itemId,qty)) return { ok:false, message:'Не удалось изъять предмет из рюкзака.' };
   game.money+=price*qty;
   updatePurchasedCounters(game,itemId,-1*qty);
+  // Mutant trophies and artifacts are bought from the player, but never returned to sale stock.
+  if (['Добыча','Артефакты'].includes(item.cat)) {
+    const message=`Продано ${item.name} ×${qty} торговцу ${found.trader.name}. Получено ${price*qty} RU.`;
+    addLog(game,message);
+    return {ok:true,message,price:price*qty};
+  }
   let stock=found.record.stock.find(entry=>entry.id===itemId);
   if (!stock) {
     stock={id:itemId,qty:0,price:Math.max(price+1,Math.ceil(item.price*(found.trader.priceMultiplier||1.1)))};
@@ -444,7 +476,8 @@ export function startArtifactHunt(game) {
   const location = getLocation(game.locationId);
   if (!location?.hazards?.length) return { ok:false, message:'Здесь нет заметных аномальных сигналов.' };
   if (!countItem(game.inventory, 'otklik')) return { ok:false, message:'Для мини-игры нужен детектор «Отклик».' };
-  game.artifactHunt = { target:Math.floor(Math.random()*3), attempts:0, found:false, locationId:location.id };
+  const pool = location.hazards.includes('gravity') ? ['medusa','gravi'] : location.id==='atp' ? ['gravi','medusa'] : ['medusa','meat_chunk'];
+  game.artifactHunt = { target:Math.floor(Math.random()*3), attempts:0, found:false, locationId:location.id, artifactId:pool[Math.floor(Math.random()*pool.length)] };
   return { ok:true, message:'Детектор ожил. Выбери один из трёх секторов, ориентируясь на усиление сигнала.' };
 }
 
@@ -454,12 +487,13 @@ export function chooseArtifactSector(game, sector) {
   hunt.attempts += 1;
   if (sector === hunt.target) {
     hunt.found = true;
-    const loot = addItem(game.inventory, 'medusa', 1);
+    const artifactId = hunt.artifactId || 'medusa';
+    const loot = addItem(game.inventory, artifactId, 1);
     if (loot.ok) {
       game.player.artifacts += 1;
       grantReputation(game, 3);
       progressQuest(game, `artifact:${hunt.locationId}`);
-      const message = 'Сигнал резко усилился. Под слоем мусора обнаружен артефакт «Медуза». Его удалось аккуратно извлечь.';
+      const message = `Сигнал резко усилился. Под слоем мусора обнаружен артефакт «${getItemName(artifactId)}». Его удалось аккуратно извлечь.`;
       addLog(game, message);
       return { ok:true, found:true, message };
     }
