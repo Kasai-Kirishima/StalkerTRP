@@ -5,6 +5,9 @@ import { canFitLoadout, getInventoryCost, getLoadoutWeight, addItem, getItem, ge
 import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, breakContainer, replyNpcFreeText, takeShelter, leaveShelter, sitAtCampfire, getExploreSpots, getActiveLootItems, openStorage, turnInPudelQuest, turnInSecretAnomalyQuest, claimAtpRescueReward, beginAtpRescue, generateStalkerName } from './systems/world.js';
 import { playerAttack, defend, flee, beginWolfDogPack, reloadWeapon, aimWeapon, dodge, throwGrenade, throwBoltInCombat, useItemInCombat, selectWeapon } from './systems/combat.js';
 import { createMusicEngine } from './systems/music.js';
+import { BUNDLED_MUSIC_TRACKS } from './data/bundled-music.js';
+import { getRadioStationForLocation } from './data/radio-stations.js';
+import { extractAudioFilesFromZip } from './systems/music-archive.js';
 import { buyFromTrader, sellToTrader } from './systems/world.js';
 import { processPlayerAction } from './systems/action-engine.js';
 import { getGameDateTime } from './systems/game-clock.js';
@@ -21,6 +24,7 @@ state.ui = { ...(state.ui||{}), tab:'location', pdaOpen:false, modal:null, notif
 let previousScreen = 'menu';
 let toastTimer = null;
 const musicEngine = createMusicEngine(() => advanceMusic(true), message => toast(message, 'warning'));
+state.ui.localMusicTracks = musicEngine.addBundledTracks(BUNDLED_MUSIC_TRACKS);
 const soundEngine = createSoundEngine(() => state.settings || {});
 
 function persist() {
@@ -95,6 +99,13 @@ function setScreen(screen) {
 }
 
 function render() {
+  if (state.game && state.ui.music?.mode==='radio') {
+    const currentStation=getRadioStationForLocation(state.game.locationId);
+    if (!currentStation || currentStation.id!==state.ui.music.stationId) {
+      musicEngine.stop();
+      state.ui.music={mode:'local',trackId:null,queue:[],index:0,playing:false,stationId:null};
+    }
+  }
   document.documentElement.style.setProperty('--ui-scale', state.settings.uiScale || 1);
   document.body.classList.toggle('reduced-motion', !!state.settings.reducedMotion);
   let html = '';
@@ -150,12 +161,31 @@ function availablePlayerTracks() { return state.ui.localMusicTracks||[]; }
 function startPlayerTrack(trackId) {
   const tracks=availablePlayerTracks();
   const start=tracks.findIndex(track=>track.id===trackId);
-  if (start<0) { toast('Сначала выбери аудиофайлы с устройства.','warning'); return; }
+  if (start<0) { toast('Выбери композицию из музыкальной библиотеки.','warning'); return; }
   const queue=tracks.map(track=>track.id);
   const ordered=[...queue.slice(start),...queue.slice(0,start)];
-  state.ui.music={mode:'local',queue:ordered,index:0,trackId:ordered[0],playing:true};
+  state.ui.music={mode:'local',stationId:null,queue:ordered,index:0,trackId:ordered[0],playing:true};
   musicEngine.play(trackById(ordered[0]));
   persist(); render();
+}
+
+function startBaseRadio() {
+  const station=getRadioStationForLocation(state.game?.locationId);
+  if (!station) { toast('В этой локации нет базовой радиостанции.','warning'); return; }
+  const tracks=availablePlayerTracks().filter(track=>track.source==='local' || (track.source==='bundled' && (!track.stations?.length || track.stations.includes(station.id))));
+  if (!tracks.length) { toast('В папке assets/music пока нет встроенных аудиозаписей. Добавь туда треки и выполни npm run music:manifest.','warning'); return; }
+  const ordered=shuffled(tracks);
+  state.ui.music={mode:'radio',stationId:station.id,queue:ordered.map(track=>track.id),index:0,trackId:ordered[0].id,playing:true};
+  musicEngine.play(ordered[0]);
+  persist(); render();
+}
+
+function toggleBaseRadio() {
+  const station=getRadioStationForLocation(state.game?.locationId);
+  if (!station) { toast('В этой локации нет базовой радиостанции.','warning'); return; }
+  const music=state.ui.music||{};
+  if (music.mode==='radio' && music.stationId===station.id && music.trackId) toggleMusic();
+  else startBaseRadio();
 }
 
 function advanceMusic(automatic=false,direction=1) {
@@ -640,7 +670,9 @@ root.addEventListener('click', (event) => {
     const result=sellToTrader(state.game,button.dataset.traderId,button.dataset.itemId,1);
     persist(); render(); toast(result.message,result.ok?'success':'warning'); return;
   }
-  if (action==='player-stop') { stopMusic(); return; }
+  if (action==='player-stop' || action==='radio-stop') { stopMusic(); return; }
+  if (action==='radio-toggle') { toggleBaseRadio(); return; }
+  if (action==='radio-next') { if (state.ui.music?.mode==='radio') advanceMusic(false,1); else startBaseRadio(); return; }
   if (action==='player-play-track') {
     if(state.ui.music?.mode==='local' && state.ui.music.trackId===id) toggleMusic();
     else startPlayerTrack(id);
@@ -673,7 +705,22 @@ root.addEventListener('change', async (event) => {
   if (event.target.id==='local-music-files' && event.target.files?.length) {
     const added=musicEngine.addFiles(event.target.files);
     state.ui.localMusicTracks=[...(state.ui.localMusicTracks||[]),...added];
-    persist(); render(); toast(added.length?`Добавлено файлов: ${added.length}.`:'Не нашёл поддерживаемые аудиофайлы.','info'); return;
+    persist(); render(); toast(added.length?`Добавлено файлов: ${added.length}. Они доступны и в радио баз.`:'Не нашёл поддерживаемые аудиофайлы.','info'); return;
+  }
+  if (event.target.id==='local-music-archive' && event.target.files?.length) {
+    const archive=event.target.files[0];
+    event.target.value='';
+    try {
+      toast('Читаю ZIP-архив локально…','info');
+      const files=await extractAudioFilesFromZip(archive);
+      const added=musicEngine.addFiles(files);
+      state.ui.localMusicTracks=[...(state.ui.localMusicTracks||[]),...added];
+      persist(); render();
+      toast(`Импортировано треков: ${added.length}. Они доступны в плеере и радио баз.`,'success');
+    } catch (error) {
+      toast(error?.message||'Не удалось прочитать музыкальный архив.','warning');
+    }
+    return;
   }
   if (event.target.name==='faction') { state.draft.faction=event.target.value; state.draft.avatar=''; state.draft.appearance=''; persist(); render(); return; }
   const field=event.target.dataset.field;
@@ -875,6 +922,6 @@ setInterval(()=>{
   updateClockDisplays();
 },15000);
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=293').catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=295').catch(()=>{}));
 }
 render();

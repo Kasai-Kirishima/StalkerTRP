@@ -3,6 +3,7 @@ import { getWeight, countItem, getItem } from '../systems/inventory.js';
 import { getGameDateTime, formatElapsed } from '../systems/game-clock.js';
 import { getLocation, getAvailableTraders, getAvailableStalkers, getStalkerById, getSidorovichJobState, getTravelMinutes, getExploreSpots } from '../systems/world.js';
 import { getBestWeapon } from '../systems/combat.js';
+import { getRadioStationForLocation } from '../data/radio-stations.js';
 
 export const esc = (value='') => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const money = (value) => `${Number(value || 0).toLocaleString('ru-RU')} Купонов`;
@@ -170,6 +171,13 @@ function gameNav(active) {
 
 function renderLocation(game, character, state) {
   const location=getLocation(game.locationId);
+  const radioStation=getRadioStationForLocation(game.locationId);
+  const musicState=state.ui.music||{};
+  const radioTracks=(state.ui.localMusicTracks||[]).filter(track=>radioStation && (track.source==='local' || (track.source==='bundled' && (!track.stations?.length || track.stations.includes(radioStation.id)))));
+  const radioSelected=!!(radioStation && musicState.mode==='radio' && musicState.stationId===radioStation.id && musicState.trackId);
+  const radioIsActive=!!(radioSelected && musicState.playing);
+  const radioTrack=(state.ui.localMusicTracks||[]).find(track=>track.id===musicState.trackId);
+  const radioPanel=radioStation?`<section class="base-radio-panel ${radioIsActive?'playing':''}"><div class="base-radio-heading"><div><div class="eyebrow">РАДИОБАЗА · ЛОКАЛЬНЫЙ ЭФИР</div><h3>${esc(radioStation.name)}</h3><p>${esc(radioStation.description)}</p></div><span class="base-radio-indicator"><i></i>${radioIsActive?'В ЭФИРЕ':radioSelected?'ПАУЗА':'ГОТОВО'}</span></div><div class="base-radio-controls"><div class="base-radio-track"><b>${radioSelected?esc(radioTrack?.title||'Композиция'):radioTracks.length?`${radioTracks.length} композиций в библиотеке`:'Нет встроенных треков'}</b><small>${radioTracks.length?'Встроенные и импортированные локальные треки':'Добавь музыку через КПК → Плеер'}</small></div>${btn(radioIsActive?'Ⅱ Пауза':radioSelected?'▶ Продолжить эфир':'▶ Включить эфир','radio-toggle','button primary',radioTracks.length?'':'disabled')}${btn('Следующая ▸','radio-next','button ghost',radioTracks.length>1?'':'disabled')}${btn('■ Выключить','radio-stop','button ghost',radioSelected?'':'disabled')}</div></section>`:'';
   const npcs=getAvailableStalkers(game,game.locationId);
   const squads=game.squads.filter(squad=>squad.location===game.locationId);
   const time=getGameDateTime(game.clock);
@@ -236,6 +244,7 @@ function renderLocation(game, character, state) {
     <div class="scene-topline"><div class="scene-gm"><small>GAME MASTER · ${esc(location?.name||'КОРДОН')}</small><p>${esc(gmText)}</p></div><div class="scene-clock"><b>${time.time}</b><span>${esc(time.date)}</span><small>${esc(game.weather||'Пасмурно')}</small></div></div>
     ${emissionBanner}<div class="scene-vitals"><span>♥ ${game.player.hp}/${game.player.maxHp}</span><span>⚡ ${Math.round(game.player.stamina)}%</span><span class="${game.player.hunger>=75?'vital-warning':''}">🍞 Голод ${Math.round(game.player.hunger)}%</span><span class="${game.player.thirst>=75?'vital-warning':''}">💧 Жажда ${Math.round(game.player.thirst)}%</span><span>☢ ${countItem(game.inventory,'pripyat-dosimeter')?`Припять: ${Math.round(game.player.radiation)}%`:`${Math.round(game.player.radiation)}%`}</span>${countItem(game.inventory,'medved')?`<span>📡 Медведь: ${location?.anomalies?.length?'есть отклик':'тихо'}</span>`:''}${emissionCountdown}</div>
     ${hazards}${enemyStage}${combatEffect}${quickCombat}
+    ${radioPanel}
     <div class="scene-footer"><div class="scene-places"><div class="scene-entry-actions">${btn("Места и обыск", "explore-open", "button small ghost")}${btn("Напольный фонарик", "flashlight-toggle", "button small ghost", `aria-pressed="${!!state?.ui?.flashlight}"`)}${hiddenLocationAction}${rescueButton}</div>${areaPanel}<div class="scene-interactions">${npcRows||'<span class="scene-no-contacts">Поблизости никого не видно.</span>'}${npcs.length>2?btn(`Контакты · ещё ${npcs.length-2}`,'contacts-open','button tiny ghost'):npcs.length?btn('Все контакты','contacts-open','button tiny ghost'):''}</div></div>${weaponHud}</div>
   </section>`;
 }
@@ -341,12 +350,16 @@ function renderPlayer(state) {
   const tracks=state.ui.localMusicTracks||[];
   const current=tracks.find(track=>track.id===music.trackId);
   const active=!!music.trackId;
-  const trackRows=tracks.map((track,index)=>`<article class="player-track ${track.id===music.trackId?'selected':''}"><span class="player-track-number">${String(index+1).padStart(2,'0')}</span><div class="player-track-meta"><b>${esc(track.title)}</b><small>${esc(track.fileName||track.label||'Локальный файл')} · ${(track.size/1048576).toFixed(1)} МБ</small></div>${btn(track.id===music.trackId&&music.playing?'Ⅱ':'▶','player-play-track','button tiny '+(track.id===music.trackId?'primary':'ghost'),`data-id="${track.id}"`)}</article>`).join('');
-  const folderPicker='<label class="button primary" for="local-music-files">＋ Добавить музыку с устройства</label><input id="local-music-files" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav,.flac,.aac" multiple webkitdirectory directory hidden>';
-  return `<div class="tab-page player-page"><div class="tab-heading"><div><div class="eyebrow">КПК · ЛОКАЛЬНЫЙ ПЛЕЕР</div><h2>Музыка</h2><p>Выбери папку Music на своём устройстве или отдельные аудиофайлы. Музыка воспроизводится прямо в браузере, без сетевых музыкальных потоков.</p></div><span class="player-status ${active&&music.playing?'live':''}"><i></i>${active&&music.playing?'ВОСПРОИЗВЕДЕНИЕ':active?'ПАУЗА':'ОЖИДАНИЕ'}</span></div>
-    <section class="player-now panel"><div class="eyebrow">СЕЙЧАС ИГРАЕТ</div><h3>${esc(current?.title||'Ничего не выбрано')}</h3><p>${esc(current?.fileName||'Добавь локальные композиции из папки Music')}</p><div class="player-controls">${btn('◂ Предыдущая','player-prev','button ghost',active?'':'disabled')}${btn(active?(music.playing?'Ⅱ Пауза':'▶ Продолжить'):'▶ Выбери композицию','player-toggle','button primary',active?'':'disabled')}${btn('Следующая ▸','player-next','button ghost',active?'':'disabled')}${btn('■ Стоп','player-stop','button ghost',active?'':'disabled')}</div><small>${tracks.length?`Файлов в библиотеке: ${tracks.length}`:'Локальная библиотека пока пуста.'}</small></section>
-    <section class="player-library panel"><div class="panel-title"><h3>Локальная библиотека</h3><span>${tracks.length} файлов</span></div><div class="local-music-actions">${folderPicker}<small>Поддерживаются MP3, M4A, OGG, WAV, FLAC и AAC. В Chromium можно выбрать сразу целую папку Music.</small></div><div class="player-track-list">${trackRows||'<div class="empty-state">Пока нет загруженных композиций. Выбери папку Music на своём устройстве.</div>'}</div></section>
-    <p class="player-disclaimer">Файлы остаются на твоём устройстве. После перезагрузки страницы выбери папку снова — браузер не сохраняет доступ к локальным файлам автоматически.</p>
+  const bundledCount=tracks.filter(track=>track.source==='bundled').length;
+  const personalCount=tracks.filter(track=>track.source!=='bundled').length;
+  const modeLabel=music.mode==='radio'?'Радио базы':'Плеер КПК';
+  const trackRows=tracks.map((track,index)=>`<article class="player-track ${track.id===music.trackId?'selected':''}"><span class="player-track-number">${String(index+1).padStart(2,'0')}</span><div class="player-track-meta"><b>${esc(track.title)}</b><small>${esc(track.source==='bundled'?'Встроено в игру':track.fileName||track.label||'Локальный файл')} · ${track.source==='bundled'?'аудиотека игры':`${(track.size/1048576).toFixed(1)} МБ`}</small></div>${btn(track.id===music.trackId&&music.playing?'Ⅱ':'▶','player-play-track','button tiny '+(track.id===music.trackId?'primary':'ghost'),`data-id="${track.id}"`)}</article>`).join('');
+  const folderPicker='<label class="button primary" for="local-music-files">＋ Выбрать папку Music</label><input id="local-music-files" type="file" accept="audio/*,.mp3,.m4a,.ogg,.wav,.flac,.aac" multiple webkitdirectory directory hidden><label class="button ghost" for="local-music-archive">＋ Импортировать ZIP</label><input id="local-music-archive" type="file" accept=".zip,application/zip" hidden>';
+  const nowPlayingSub=music.mode==='radio'?'Эфир базовой радиостанции':current?.source==='bundled'?'Встроенная композиция игры':current?.fileName||'Локальный файл';
+  return `<div class="tab-page player-page"><div class="tab-heading"><div><div class="eyebrow">КПК · МУЗЫКАЛЬНЫЙ ПЛЕЕР</div><h2>Музыка</h2><p>Встроенные композиции игры и музыка из твоей папки или ZIP-архива. Импортированные треки доступны и радиостанциям на базах.</p></div><span class="player-status ${active&&music.playing?'live':''}"><i></i>${active&&music.playing?'ВОСПРОИЗВЕДЕНИЕ':active?'ПАУЗА':'ОЖИДАНИЕ'}</span></div>
+    <section class="player-now panel"><div class="eyebrow">${modeLabel.toUpperCase()} · СЕЙЧАС ИГРАЕТ</div><h3>${esc(current?.title||'Ничего не выбрано')}</h3><p>${esc(nowPlayingSub)}</p><div class="player-controls">${btn('◂ Предыдущая','player-prev','button ghost',active?'':'disabled')}${btn(active?(music.playing?'Ⅱ Пауза':'▶ Продолжить'):'▶ Выбери композицию','player-toggle','button primary',active?'':'disabled')}${btn('Следующая ▸','player-next','button ghost',active?'':'disabled')}${btn('■ Стоп','player-stop','button ghost',active?'':'disabled')}</div><small>Встроено в игру: ${bundledCount} · добавлено с устройства: ${personalCount}</small></section>
+    <section class="player-library panel"><div class="panel-title"><h3>Музыкальная библиотека</h3><span>${tracks.length} треков</span></div><div class="local-music-actions">${folderPicker}<small>Поддерживаются MP3, M4A, OGG, WAV, FLAC и AAC. Можно выбрать папку Music или ZIP-архив: распаковка происходит прямо в браузере, файлы никуда не загружаются. Импортированные треки работают в плеере и на радио баз до закрытия/перезагрузки игры.</small></div><div class="player-track-list">${trackRows||'<div class="empty-state">Библиотека пуста. Выбери папку Music или импортируй ZIP-архив с компьютера.</div>'}</div></section>
+    <p class="player-disclaimer">Встроенная музыка остаётся частью игры и работает офлайн. Личные файлы не загружаются на сервер и не копируются в сборку; после перезапуска страницы их потребуется импортировать снова.</p>
   </div>`;
 }
 

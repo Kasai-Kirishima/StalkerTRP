@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cordon-pda-v2930-npc-pda-ui';
+const CACHE_NAME = 'cordon-pda-v2950-local-zip-music-radio';
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -149,6 +149,8 @@ const APP_SHELL = [
   "./assets/quests/zadanistalker3.webp",
   "./src/core/storage.js",
   "./src/data/catalog.js",
+  "./src/data/bundled-music.js",
+  "./src/data/radio-stations.js",
   "./src/main.js",
   "./src/systems/action-engine.js",
   "./src/systems/combat.js",
@@ -156,6 +158,7 @@ const APP_SHELL = [
   "./src/systems/game-clock.js",
   "./src/systems/inventory.js",
   "./src/systems/music.js",
+  "./src/systems/music-archive.js",
   "./src/systems/npc-ai.js",
   "./src/systems/russian-language.js",
   "./src/systems/sound.js",

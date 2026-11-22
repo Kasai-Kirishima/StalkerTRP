@@ -8,6 +8,10 @@ import { generateDialogueReply, findRoute, matchLocationTarget, isRouteQuestion 
 import { rememberEntity, stemRussianWord, containsReferencePronoun, genderedSubject } from '../src/systems/russian-language.js';
 import { buildNpcAiPayload, requestNpcAiReply, isValidNpcAiEndpoint } from '../src/systems/npc-ai.js';
 import { renderMenu, renderCreate, renderLoadout, renderGame, renderModal, renderGameSettings } from '../src/ui/views.js';
+import { getRadioStationForLocation, RADIO_STATIONS } from '../src/data/radio-stations.js';
+import { BUNDLED_MUSIC_TRACKS } from '../src/data/bundled-music.js';
+import { createMusicEngine } from '../src/systems/music.js';
+import { extractAudioFilesFromZip } from '../src/systems/music-archive.js';
 const fs = await import('node:fs');
 const pathModule = await import('node:path');
 const { fileURLToPath } = await import('node:url');
@@ -297,9 +301,10 @@ for (const faction of FACTIONS) {
 
 // Starter economy supports a practical multi-item kit and distinct leather jacket/cosukha art.
 assert.equal(START_BUDGET,5000,'starting budget should allow one practical faction kit without funding an advanced loadout');
-assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=293"),'service worker registration URL should refresh with the release');
+assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=295"),'service worker registration URL should refresh with the release');
 const serviceWorkerSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8');
-assert.ok(serviceWorkerSource.includes('cordon-pda-v2930-npc-pda-ui'),'service worker cache name should change for the current release');
+assert.ok(serviceWorkerSource.includes('./src/data/bundled-music.js')&&serviceWorkerSource.includes('./src/data/radio-stations.js'),'offline shell should cache the built-in music manifest and base radio station data');
+assert.ok(serviceWorkerSource.includes('cordon-pda-v2950-local-zip-music-radio'),'service worker cache name should change for the current release');
 const swUrl=new URL('../sw.js',import.meta.url);
 const precachePaths=[...serviceWorkerSource.matchAll(/\"(\.\/[^\"]+)\"/g)].map(match=>match[1]);
 assert.ok(precachePaths.length>=150,'the offline shell should include the expanded artwork bundle');
@@ -694,7 +699,18 @@ uiState.game.locationId='rookie-village';
 uiState.ui.pdaOpen=false;
 uiState.ui.tab='location';
 const locationHtml=renderGame(uiState);
-assert.ok(!locationHtml.includes('Радио Деревни новичков') && !locationHtml.includes('data-action="radio-base-open"'),'there must be no in-location radio controls');
+assert.ok(locationHtml.includes('Радио Деревни новичков') && locationHtml.includes('data-action="radio-toggle"'),'Rookie Village should expose its local base radio panel');
+assert.ok(locationHtml.includes('Добавь музыку через КПК → Плеер') && locationHtml.includes('data-action="radio-toggle"'),'base radio should direct the player to import local music when the library is empty');
+assert.equal(getRadioStationForLocation('atp')?.id,'bandit-atp','the ATP bandit base should have its own radio station');
+assert.equal(getRadioStationForLocation('forest-camp')?.id,'loner-forest','the forest camp should have a local radio station');
+assert.ok(getRadioStationForLocation('north-checkpoint') && getRadioStationForLocation('bridge-checkpoint') && getRadioStationForLocation('south-checkpoint'),'military checkpoints should share the military radio network');
+assert.equal(getRadioStationForLocation('elevator'),null,'ordinary travel locations should not expose base radios');
+assert.equal(RADIO_STATIONS.length,4,'the Cordon should have four base radio networks');
+for(const track of BUNDLED_MUSIC_TRACKS) assert.ok(fs.existsSync(new URL(track.url)),`bundled music file should exist: ${track.fileName}`);
+const originalDocument=globalThis.document;
+const fakeAudio={listeners:{},src:'',paused:true,addEventListener(type,fn){this.listeners[type]=fn;},load(){},async play(){this.paused=false;return true;},pause(){this.paused=true;},removeAttribute(name){if(name==='src')this.src='';}};
+globalThis.document={createElement(tag){assert.equal(tag,'audio');return fakeAudio;},body:{appendChild(){}}};
+try { const engine=createMusicEngine(); const sample={id:'bundled-smoke',title:'Проверочный эфир',url:'./assets/music/smoke.ogg',fileName:'smoke.ogg',stations:['loner-village']}; const [meta]=engine.addBundledTracks([sample]); assert.equal(meta.source,'bundled'); assert.equal(engine.count,1); assert.equal(await engine.play(meta),true); assert.equal(fakeAudio.src,sample.url); engine.stop(); engine.clear(); } finally { if(originalDocument===undefined) delete globalThis.document; else globalThis.document=originalDocument; }
 assert.ok(!/https?:\/\//i.test(locationHtml),'the location scene must not add external music URLs');
 assert.ok(!locationHtml.includes('music-dock'),'the bottom music dock should remain removed');
 assert.ok(locationHtml.includes('npc-scene-portrait') && locationHtml.includes('npc-scene-body') && locationHtml.includes('npc-talk-icon'),'nearby NPCs should have separate portrait/body cells and a talk icon');
@@ -725,13 +741,15 @@ uiState.ui.tab='player';
 uiState.ui.localMusicTracks=[{id:'local-test-1',title:'Тестовая композиция',fileName:'test.ogg',size:1024}];
 uiState.ui.music={mode:'local',trackId:'local-test-1',queue:['local-test-1'],index:0,playing:false};
 const playerHtml=renderGame(uiState);
-assert.ok(playerHtml.includes('Локальная библиотека'));
+assert.ok(playerHtml.includes('Музыкальная библиотека'));
 assert.ok(playerHtml.includes('local-music-files'));
-assert.ok(playerHtml.includes('Добавить музыку с устройства'));
+assert.ok(playerHtml.includes('Выбрать папку Music') && playerHtml.includes('local-music-archive') && playerHtml.includes('Импортировать ZIP')); 
 assert.ok(playerHtml.includes('player-play-track'));
-assert.ok(playerHtml.includes('без сетевых музыкальных потоков'));
-const musicRuntimeSource=['src/systems/music.js','src/main.js','src/ui/views.js'].map(file=>fs.readFileSync(new URL(`../${file}`,import.meta.url),'utf8')).join('\n');
+assert.ok(playerHtml.includes('Импортированные треки доступны и радиостанциям на базах')); 
+const musicRuntimeSource=['src/systems/music.js','src/systems/music-archive.js','src/main.js','src/ui/views.js'].map(file=>fs.readFileSync(new URL(`../${file}`,import.meta.url),'utf8')).join('\n');
 assert.ok(!/iframe|videoId|youtube\.com|youtu\.be|spotify\.com|radio\./i.test(musicRuntimeSource),'music runtime must not embed remote players or network radio streams');
+assert.ok(musicRuntimeSource.includes('addBundledTracks') && musicRuntimeSource.includes("source==='bundled'"),'PDA and base radios should share the same bundled-track audio engine');
+assert.ok(musicRuntimeSource.includes('extractAudioFilesFromZip') && musicRuntimeSource.includes("track.source==='local'"),'locally imported ZIP tracks should be usable by base radio stations');
 uiState.ui.tab='trade';
 uiState.ui.tradeNpcId='sidorovich';
 uiState.game.locationId='sidorovich-bunker';
@@ -1155,3 +1173,30 @@ const aiFailed=await requestNpcAiReply({endpoint:'https://example.test/npc-chat'
 assert.equal(aiFailed.ok,false,'an unavailable AI endpoint must leave the local dialogue fallback available');
 
 console.log('Smoke tests passed: PDA/map modes, imported NPC/faction/quest artwork, local audio player, bandit dialogue, proportional costume inventory layout, quest visibility/progress, trade overlays, RP exploration, profile and combat.');
+
+// The in-browser ZIP importer reads audio locally and handles regular ZIP central directories.
+function makeStoredZip(fileName, content) {
+  const encoder=new TextEncoder();
+  const name=encoder.encode(fileName);
+  const data=content instanceof Uint8Array?content:new Uint8Array(content);
+  const local=new Uint8Array(30+name.length+data.length);
+  const localView=new DataView(local.buffer);
+  localView.setUint32(0,0x04034b50,true); localView.setUint16(4,20,true);
+  localView.setUint16(8,0,true); localView.setUint32(18,data.length,true); localView.setUint32(22,data.length,true);
+  localView.setUint16(26,name.length,true); local.set(name,30); local.set(data,30+name.length);
+  const central=new Uint8Array(46+name.length);
+  const centralView=new DataView(central.buffer);
+  centralView.setUint32(0,0x02014b50,true); centralView.setUint16(4,20,true); centralView.setUint16(6,20,true);
+  centralView.setUint16(10,0,true); centralView.setUint32(20,data.length,true); centralView.setUint32(24,data.length,true);
+  centralView.setUint16(28,name.length,true); centralView.setUint32(42,0,true); central.set(name,46);
+  const end=new Uint8Array(22); const endView=new DataView(end.buffer);
+  endView.setUint32(0,0x06054b50,true); endView.setUint16(8,1,true); endView.setUint16(10,1,true);
+  endView.setUint32(12,central.length,true); endView.setUint32(16,local.length,true);
+  const zip=new Blob([local,central,end]); Object.defineProperty(zip,'name',{value:'test-music.zip'}); return zip;
+}
+const tinyMusicZip=makeStoredZip('Music/test-track.mp3',new Uint8Array([0x49,0x44,0x33,0x00]));
+const importedZipTracks=await extractAudioFilesFromZip(tinyMusicZip);
+assert.equal(importedZipTracks.length,1,'ZIP import should extract supported audio files');
+assert.equal(importedZipTracks[0].name,'test-track.mp3');
+assert.equal(importedZipTracks[0].size,4);
+assert.equal(importedZipTracks[0].type,'audio/mpeg');

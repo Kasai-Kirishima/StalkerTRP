@@ -1511,3 +1511,22 @@ html { zoom: var(--ui-scale, 1); }
  .name-generator-row{grid-template-columns:1fr}
  .name-generator-row .button{width:100%}
 }
+
+/* Base radios use the same built-in audio library as the PDA player. */
+.base-radio-panel{display:grid;gap:11px;margin:12px 0;padding:12px 14px;background:linear-gradient(110deg,rgba(30,43,25,.96),rgba(14,21,14,.96));border:1px solid #586747;box-shadow:0 8px 24px #0005}
+.base-radio-panel.playing{border-color:#9aaa61;box-shadow:0 0 0 1px #9aaa6122,0 8px 24px #0005}
+.base-radio-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.base-radio-heading h3{margin:3px 0 4px;color:#e3e9c8;font-size:16px}
+.base-radio-heading p{margin:0;color:#aab897;font-size:10px;line-height:1.45}
+.base-radio-indicator{display:flex;align-items:center;gap:6px;white-space:nowrap;color:#9da98d;font:9px 'Share Tech Mono',monospace}
+.base-radio-indicator i{width:7px;height:7px;border-radius:50%;background:#66714e;box-shadow:0 0 0 2px #66714e33}
+.base-radio-panel.playing .base-radio-indicator{color:#d8e69c}
+.base-radio-panel.playing .base-radio-indicator i{background:#d8e69c;box-shadow:0 0 0 3px #d8e69c33,0 0 9px #d8e69c}
+.base-radio-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding-top:9px;border-top:1px solid #394a32}
+.base-radio-track{display:grid;gap:3px;min-width:180px;flex:1}
+.base-radio-track b{color:#e2e9cf;font-size:11px}
+.base-radio-track small{color:#94a382;font-size:9px}
+.base-radio-controls .button{min-height:32px;padding:6px 10px;font-size:10px}
+.player-library .player-track-meta small{font-size:9px;color:#a0ad8d}
+.player-library .player-track-number{font-variant-numeric:tabular-nums}
+@media(max-width:680px){.base-radio-heading{display:grid}.base-radio-controls{align-items:stretch}.base-radio-track{flex-basis:100%}.base-radio-controls .button{flex:1}}
