@@ -1,7 +1,6 @@
 import { getItem, countItem, removeItem, addItem, useItem } from './inventory.js';
 import { LOCATIONS } from '../data/catalog.js';
-import { addLog } from './world.js';
-import { advanceGame } from './world.js';
+import { addLog, advanceGame, registerCorpseLoot } from './world.js';
 import { rememberEntity } from './russian-language.js';
 
 const weapons = ['aksu','gaduka','pm','vm17','sawedoff','knife'];
@@ -102,6 +101,7 @@ export function throwGrenade(game) {
   let message=`Ты бросаешь РГД-5. Взрыв наносит ${damage} урона.`;
   if (enemy.hp<=0) { const reward=40+Math.floor(Math.random()*80); game.money+=reward; game.player.kills+=1; game.player.rating+=2; game.player.reputation+=2; if(enemy.type==='blind-dog'&&Math.random()<.72)addItem(game.inventory,'tail',1); if(enemy.type==='flesh'&&Math.random()<.48)addItem(game.inventory,'flesh-eye',1); if(enemy.wolfDogPack&&game.wolfDogQuest?.status==='active'){game.wolfDogQuest.killed=Math.min(game.wolfDogQuest.total||5,(game.wolfDogQuest.killed||0)+1);const quest=game.quests?.find(entry=>entry.id==='wolf-dog-pack');if(quest)quest.progress=game.wolfDogQuest.killed;const remain=(game.wolfDogQuest.total||5)-game.wolfDogQuest.killed;if(remain>0){game.activeEncounter={type:'blind-dog',name:'Слепой пёс',hp:55,maxHp:55,damage:8+Math.floor(Math.random()*5),count:1,imageIndex:0,image:'',wolfDogPack:true,packIndex:game.wolfDogQuest.killed+1};message+=` Уничтожено ${game.wolfDogQuest.killed}/5. Выбегает следующая собака.`;}else{game.wolfDogQuest.status='ready';if(quest)quest.status='ready';}} if(!enemy.wolfDogPack||game.wolfDogQuest?.killed>=5)game.activeEncounter=null; message+=` Противник повержен. Найдено ${reward} RU.`; }
   else { const reply=enemyReply(game,enemy,.5); message+=` ${reply.message}`; }
+  if (enemy.hp<=0 && !game.activeEncounter) registerCorpseLoot(game,enemy);
   addLog(game,message,enemy.hp>0?'danger':'system'); return {ok:true,message};
 }
 
@@ -218,6 +218,7 @@ export function playerAttack(game) {
         message += ' Все пять собак у вагончика уничтожены. Вернись к Волку в деревню новичков.';
       }
     }
+    if (!game.activeEncounter) registerCorpseLoot(game,enemy);
     addLog(game, message);
     return { ok:true, finished:true, message };
   }

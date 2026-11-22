@@ -2,6 +2,7 @@ import { LOCATIONS, FACTIONS, SQUADS, ITEMS, QUESTS, NPCS, EXPLORE_SPOTS } from 
 import { advanceTime, createClock, getGameDateTime, syncRealElapsed } from './game-clock.js';
 import { addItem, getItem, removeItem, countItem } from './inventory.js';
 import { rememberEntity } from './russian-language.js';
+import { generateDialogueReply } from './dialogue-engine.js';
 
 const pick = (array) => array[Math.floor(Math.random() * array.length)];
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -107,6 +108,14 @@ export function createGame(character, starterInventory = [], money = 0) {
     searchedAt:{},
     searchedAreas:{},
     pendingDiscovery:null,
+    activeLoot:null,
+    lootContainers:{},
+    brokenCrates:{},
+    stashes:{
+      'cordon-basement':[{id:'bandage',qty:1},{id:'canned',qty:2},{id:'water',qty:1}],
+      'atp-second-floor':[{id:'ammo9x18',qty:2},{id:'boltpack',qty:1},{id:'flash',qty:1}],
+      'barracks-locker':[{id:'ammo545',qty:1},{id:'milmed',qty:1},{id:'antirad',qty:1}]
+    },
     dialogueHistory:[],
     lootRespawnMinutes:180,
     squads:SQUADS.map(squad => ({ ...squad })),
@@ -356,6 +365,60 @@ export function getExploreSpots(locationId) {
   return existing;
 }
 
+export function getActiveLootItems(game) {
+  const active=game?.activeLoot;
+  if (!active) return [];
+  if (active.kind==='storage') return game.stashes?.[active.sourceId] || [];
+  return game.lootContainers?.[active.sourceId]?.items || [];
+}
+
+export function breakContainer(game, spotId) {
+  const spot=getExploreSpots(game.locationId).find(entry=>entry.id===spotId);
+  if(!spot||spot.kind!=='breakable') return {ok:false,message:'Здесь нет ящика, который можно вскрыть.'};
+  game.brokenCrates ||= {};
+  game.lootContainers ||= {};
+  if(!game.brokenCrates[spotId]) {
+    const pool=[...new Set(spot.loot||[])].filter(id=>getItem(id));
+    const shuffled=pool.sort(()=>Math.random()-.5);
+    const count=Math.min(shuffled.length,1+Math.floor(Math.random()*3));
+    game.lootContainers[spotId]={items:shuffled.slice(0,count).map(id=>({id,qty:1})),searchedAt:game.clock.worldMinutes};
+    game.brokenCrates[spotId]=true;
+    advanceGame(game,4);
+    addLog(game,`Ты вскрыл ящик: ${spot.name}. Внутри обнаружились вещи.`);
+  }
+  game.activeLoot={kind:'loot',sourceId:spotId,title:spot.name};
+  return {ok:true,message:game.lootContainers[spotId]?.items?.length?'Ящик вскрыт. Осмотри содержимое.':'Ящик уже вскрыт и пуст.'};
+}
+
+export function registerCorpseLoot(game, enemy) {
+  if (!enemy) return null;
+  game.lootContainers ||= {};
+  game.corpseCounter=(game.corpseCounter||0)+1;
+  const corpseId=`corpse-${game.corpseCounter}`;
+  const pools={
+    'blind-dog':['tail','meat_chunk','water'],
+    flesh:['flesh-eye','meat_chunk','canned'],
+    military:['ammo545','bandage','water','flash','pa8'],
+    bandit:['ammo9x18','bread','vodka','bandage','flash'],
+    stalker:['ammo9x18','bread','water','bandage','flash'],
+    default:['bread','water','bandage','flash']
+  };
+  const pool=pools[enemy.type]||pools.default;
+  const shuffled=[...new Set(pool)].filter(id=>getItem(id)).sort(()=>Math.random()-.5);
+  const count=Math.min(shuffled.length,1+Math.floor(Math.random()*3));
+  game.lootContainers[corpseId]={items:shuffled.slice(0,count).map(id=>({id,qty:1})),searchedAt:game.clock.worldMinutes,corpse:true};
+  game.activeLoot={kind:'loot',sourceId:corpseId,title:`Вещи: ${enemy.name||'погибшего'}`};
+  addLog(game,`Ты можешь обыскать останки: ${enemy.name||'противника'}.`);
+  return corpseId;
+}
+
+export function openStorage(game, storageId, title='Личное хранилище') {
+  game.stashes ||= {};
+  if (!Array.isArray(game.stashes[storageId])) game.stashes[storageId]=[];
+  game.activeLoot={kind:'storage',sourceId:storageId,title};
+  return {ok:true,message:`Открыто хранилище: ${title}.`};
+}
+
 export function shelterForCurrentLocation(game) { return takeShelter(game); }
 
 export function startAreaSearch(game, spotId) {
@@ -363,23 +426,32 @@ export function startAreaSearch(game, spotId) {
   if (!spot) return {ok:false,message:'Неизвестное место для исследования.'};
   if (spot.locationId!==game.locationId) return {ok:false,message:'Это место находится в другой локации.'};
   if (spot.kind==='campfire') return sitAtCampfire(game,spotId);
+  if (spot.kind==='storage') return openStorage(game,spot.storageId,spot.name);
+  if (spot.kind==='breakable') return breakContainer(game,spotId);
   game.currentAreaId=spotId;
+  game.lootContainers ||= {};
   game.searchedAreas ||= {};
   const now=game.clock.worldMinutes;
-  const last=game.searchedAreas[spotId];
-  const cooldown=180;
-  if (last!==undefined && now-last<cooldown) {
-    const hours=Math.ceil((cooldown-(now-last))/60);
-    return {ok:false,message:`Ты уже внимательно осматривал это место. Повторно проверить его можно примерно через ${hours} ч.`};
+  const previous=game.lootContainers[spotId];
+  if (!previous || (!previous.items?.length && now-(previous.searchedAt||0)>=180)) {
+    const pool=[...new Set(spot.loot||[])].filter(id=>getItem(id));
+    if (!pool.length) return {ok:false,message:'Здесь больше нечего искать.'};
+    const shuffled=pool.sort(()=>Math.random()-.5);
+    const count=Math.min(shuffled.length,1+Math.floor(Math.random()*4));
+    const items=shuffled.slice(0,count).map(id=>({id,qty:1+((Math.random()>.82)?1:0)}));
+    game.lootContainers[spotId]={items,searchedAt:now};
+    game.searchedAreas[spotId]=now;
+  } else if (!previous.items?.length) {
+    const hours=Math.ceil((180-(now-(previous.searchedAt||now)))/60);
+    return {ok:false,message:`Здесь уже всё обыскали. Новые вещи могут появиться примерно через ${Math.max(1,hours)} ч.`};
   }
-  const pool=[...new Set(spot.loot||[])].filter(id=>getItem(id));
-  if (!pool.length) return {ok:false,message:'Здесь больше нечего искать.'};
-  const shuffled=pool.sort(()=>Math.random()-.5);
-  const options=shuffled.slice(0,Math.min(4,shuffled.length)).map(id=>({id,name:getItem(id).name,description:getItem(id).desc||'Старая находка.'}));
+  game.activeLoot={kind:'loot',sourceId:spotId,title:spot.name};
+  const items=game.lootContainers[spotId].items;
+  const options=items.map(entry=>({id:entry.id,name:getItem(entry.id)?.name||entry.id,description:getItem(entry.id)?.desc||'Старая находка.'}));
   game.pendingDiscovery={spotId,options,createdAt:now};
   advanceGame(game,6);
-  addLog(game,`Ты исследуешь: ${spot.name}. Нашёл несколько вещей, которые можно проверить.`);
-  return {ok:true,spot,options,message:`Ты внимательно осмотрел: ${spot.name}. Среди мусора и старых вещей заметны несколько находок. Выбери, что забрать.`};
+  addLog(game,`Ты обыскал: ${spot.name}. Найденные вещи можно забрать или оставить.`);
+  return {ok:true,spot,items,options,message:items.length?`Обыск завершён: найдено ${items.length} видов вещей.`:'В этом месте ничего не осталось.'};
 }
 
 export function claimAreaFind(game, itemId) {
@@ -389,6 +461,9 @@ export function claimAreaFind(game, itemId) {
   if (!choice) return {ok:false,message:'Такой находки в этом месте нет.'};
   const result=addItem(game.inventory,itemId,1);
   if (!result.ok) return {ok:false,message:`Не удалось забрать находку: ${result.reason}`};
+  const container=game.lootContainers?.[pending.spotId];
+  const lootStack=container?.items?.find(entry=>entry.id===itemId);
+  if(lootStack){lootStack.qty-=1;if(lootStack.qty<=0)container.items.splice(container.items.indexOf(lootStack),1);}
   if (['ammo9x18','ammo9x19','ammo545','shells'].includes(itemId)) {
     const capacity=itemId==='shells'?8:itemId==='ammo545'?30:12;
     game.ammoRounds ||= {};
@@ -615,16 +690,19 @@ export function replyNpcFreeText(game,npcId,rawText) {
   if (!text) return {ok:false,message:'Напиши, что хочешь сказать.'};
   let answer='';
   const includes=(...roots)=>roots.some(root=>text.includes(root));
+  const generated=generateDialogueReply(npc,game,rawText);
   if (includes('работ','задан','квест','поруч','помощ','дело','подработ')) {
     game.dialogueTopic='работа';
     answer=replyNpc(game,npcId,'работа');
-  } else if (includes('привет','здравств','добрый день','здорово','салют')) {
+  } else if (generated) {
+    answer=generated.answer;
+  } else if (includes('привет','здравств','добрый день','здорово','салют','хай','ку','доброго','вечер добрый')) {
     answer=pick(npcId==='sidorovich'?['Ну, здравствуй. Не стой на пороге, говори, что нужно.','И тебе не хворать. Только без пустых разговоров.']:npcId==='wolf'?['Здорово, сталкер. Как дорога?','Привет. Рад, что вернулся целым.']:['Здорово. Что хотел?','Слышу тебя. Говори.']);
-  } else if (includes('спасибо','благодар','выручил','выручили')) {
+  } else if (includes('спасибо','благодар','выручил','выручили','респект','красава')) {
     answer=pick(['Да ладно, не стоит. Главное — сам не подставляйся.','Бывает. В Зоне ещё пригодится взаимовыручка.','Не за что. Смотри в оба и береги голову.']);
-  } else if (includes('пока','прощай','увидимся','до встречи','бывай')) {
+  } else if (includes('пока','прощай','увидимся','до встречи','бывай','счастливо','удачи')) {
     answer=pick(['Давай. И не задерживайся на открытом месте.','Бывай, сталкер. Ещё пересечёмся.','Удачи. Смотри, чтобы Зона не поймала тебя врасплох.']);
-  } else if (includes('кто ты','как тебя зовут','расскажи о себе','твое имя')) {
+  } else if (includes('кто ты','как тебя зовут','расскажи о себе','твое имя','ты кто','представься')) {
     answer=`Я ${npc.name}. ${npc.role||'Местный'} на Кордоне. ${npc.greeting||'Делаю своё дело и не лезу куда не просят.'}`;
   } else if (includes('где','куда','как пройти','путь','дорог','направлен')) {
     const place=LOCATIONS.find(entry=>entry.name.toLowerCase().split(/\s+/).some(word=>word.length>3 && text.includes(word)));
@@ -636,7 +714,7 @@ export function replyNpcFreeText(game,npcId,rawText) {
   } else if (includes('торгов','купить','продать','цена','товар','патрон','оружие','снаряж')) {
     if (npc.trader) answer='Можешь посмотреть мой товар и своё снаряжение в торговом окне. Цены указаны рядом с каждой вещью.';
     else answer=npcId==='wolf'?'За покупками иди к Сидоровичу. Я тут слежу, чтобы новички не влипали в неприятности.':'Торговля — не ко мне. Поговори со снабженцем или местным торговцем.';
-  } else if (includes('слух','слышал','новост','что происходит','обстановка','опасно')) {
+  } else if (includes('слух','слышал','новост','что происходит','обстановка','опасно','что нового','как дела','как жизнь','погода')) {
     const rumor=npc.lines?.rumors||npc.lines?.situation||npc.lines?.advice||'Пока ничего определённого не слышал. На Кордоне обстановка меняется быстро.';
     answer=rumor;
   } else if (includes('зон','кордон','чернобыл','припят','выброс','катастроф')) {
@@ -646,7 +724,7 @@ export function replyNpcFreeText(game,npcId,rawText) {
   } else if (includes('почему','зачем','как думаешь','что думаешь','считаешь')) {
     answer=pick(['Сложно сказать наверняка. На Кордоне мало кто знает всю картину.','Я бы не спешил с выводами. Сначала собери факты, потом решай.','У каждого своя правда. Посмотри, кому выгодно то, о чём ты спрашиваешь.']);
   } else {
-    const fallback=npcId==='sidorovich'?['Хм. Понимаю, о чём ты, но давай ближе к делу. Тебе нужны припасы, работа или информация?','Не люблю гадать. Скажи конкретнее: про Зону, товар или поручения?']:npcId==='wolf'?['Понял тебя. Но на Кордоне лучше говорить прямо — что именно случилось?','Слушаю. Хочешь совет, помощь или просто поделиться новостями?']:['Я тебя услышал. Только давай без загадок — что именно ты хочешь узнать?','Может быть. Скажи чуть подробнее, тогда отвечу по делу.'];
+    const fallback=npcId==='sidorovich'?['Хм. Понимаю, о чём ты, но давай ближе к делу. Тебе нужны припасы, работа или информация?','Не люблю гадать. Скажи конкретнее: про Зону, товар или поручения?','Слова словами, сталкер. Если есть конкретика — выкладывай.','Сейчас у меня голова занята делами. Сформулируй вопрос покороче.']:npcId==='wolf'?['Понял тебя. Но на Кордоне лучше говорить прямо — что именно случилось?','Слушаю. Хочешь совет, помощь или просто поделиться новостями?','Не торопись. Давай разберёмся по порядку, что ты имеешь в виду.','Видал всякое, но пока не понял, к чему ты клонишь.']:['Я тебя услышал. Только давай без загадок — что именно ты хочешь узнать?','Может быть. Скажи чуть подробнее, тогда отвечу по делу.','Хм, звучит знакомо. Но деталей маловато, чтобы делать выводы.','Не уловил мысль. Перефразируй — я не телепат.'];
     answer=pick(fallback);
   }
   game.dialogueReply=answer;

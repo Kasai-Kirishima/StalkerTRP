@@ -507,3 +507,65 @@ body.bolt-throwing:after{content:'🔩';position:fixed;z-index:1500;left:15%;bot
 
 .emission-banner.warning{border-color:#cfad4e;background:rgba(82,62,20,.88);color:#f7e7b1}.emission-banner.warning b{color:#ffe08a}.scene-vitals .vital-warning{border-color:#c78b46;background:rgba(75,43,18,.82);color:#ffdfa2;animation:vital-pulse 2.2s ease-in-out infinite}@keyframes vital-pulse{50%{box-shadow:0 0 10px rgba(235,160,57,.22)}}
 @media(prefers-reduced-motion:reduce){.scene-vitals .vital-warning{animation:none}}
+/* User-requested interface scale control */
+html { zoom: var(--ui-scale, 1); }
+/* Portable armor and respirator icon pack */
+
+/* v16: two-panel loot, persistent stashes and equipment loadout */
+.loot-management-modal{position:relative;width:min(1120px,100%);max-height:calc(100dvh - 24px);overflow:auto;padding:clamp(12px,2vw,22px);margin:auto;background:#10170f;border:1px solid #65764b;box-shadow:0 18px 60px #000c}
+.loot-panel{display:flex;flex-direction:column;gap:12px;min-height:0}
+.loot-panel-head{display:flex;justify-content:space-between;align-items:flex-start;gap:15px;padding-right:36px}
+.loot-panel-head h2{margin:3px 0 4px;font-size:clamp(22px,3vw,31px);color:#e3e9d1}
+.loot-panel-head p{margin:0;color:#9da98d;font-size:12px}
+.loot-panel-head .modal-close{position:absolute;right:15px;top:12px}
+.loot-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px;background:#192216;border:1px solid #3f4e35}
+.loot-toolbar>span{margin-left:auto;color:#b9c5a7;font-size:11px}
+.loot-columns{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;min-height:250px}
+.loot-column{min-width:0;padding:10px;background:#151e13;border:1px solid #526341;transition:border-color .15s,background .15s}
+.loot-column.drop-ready,.inventory-grid-clear.drop-ready{border-color:#c6d48b;background-color:#24301d;box-shadow:inset 0 0 0 2px #899b58}
+.loot-column-head{display:flex;justify-content:space-between;align-items:center;gap:8px;padding-bottom:8px;border-bottom:1px solid #3a4930}
+.loot-column-head h3{margin:0;color:#dce5c6;font-size:14px}
+.loot-column-head small{color:#a4b18e;font-size:10px}
+.loot-item-list{display:grid;gap:6px;margin-top:8px;min-height:190px;align-content:start}
+.loot-item{display:flex;align-items:center;gap:8px;min-width:0;padding:7px;background:linear-gradient(120deg,#263321,#182216);border:1px solid #44553a;cursor:grab}
+.loot-item:active{cursor:grabbing}
+.loot-item-image{display:grid;place-items:center;flex:0 0 40px;width:40px;height:40px;background:#10170f;border:1px solid #49583c}
+.loot-item-image img,.loot-item-image .item-emoji{max-width:34px;max-height:34px;object-fit:contain;font-size:24px}
+.loot-item-info{display:grid;gap:3px;min-width:0;flex:1}
+.loot-item-info b{overflow:hidden;text-overflow:ellipsis;color:#e1e9d4;font-size:11px}
+.loot-item-info small{color:#9eac8d;font-size:9px}
+.loot-panel-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-top:8px;border-top:1px solid #3e4d34}
+.loot-panel-foot small{color:#9eaa8c;font-size:10px}
+.equipment-loadout{display:grid;gap:8px;padding:10px;background:#151e13;border:1px solid #4b5c3c}
+.equipment-strip-heading,.quick-slots-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;color:#dbe5c9}
+.equipment-strip-heading b,.quick-slots-heading b{font-size:12px;letter-spacing:.06em;text-transform:uppercase}
+.equipment-strip-heading small,.quick-slots-heading small{color:#9ca98a;font-size:10px}
+.equipment-slots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.equipment-slot,.quick-slot{display:grid;justify-items:center;align-content:start;gap:4px;min-width:0;padding:7px 5px;background:#0f160e;border:1px dashed #586b44;color:#cbd7b4;cursor:pointer}
+.equipment-slot.filled,.quick-slot.filled{border-style:solid;border-color:#71854f;background:#202c1a}
+.equipment-slot small{font-size:8px;letter-spacing:.07em;color:#9caa85}
+.equipment-slot>span,.quick-slot>span{display:grid;place-items:center;min-height:35px;font-size:22px}
+.equipment-slot img,.quick-slot img{max-width:38px;max-height:36px;object-fit:contain}
+.equipment-slot b,.quick-slot b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:9px}
+.quick-slots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:7px}
+.quick-slot{position:relative;min-height:64px}
+.quick-slot small{position:absolute;top:4px;left:6px;color:#d4df9a;font-size:9px}
+.quick-slot>span{min-height:34px}
+.item-art-image{display:block;max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain}
+.inventory-item-image .item-art-image{max-width:100%;max-height:58px}
+.inventory-item-actions{flex-wrap:wrap}
+@media(max-width:700px){.loot-management-modal{max-height:calc(100dvh - 8px);padding:10px}.loot-columns{grid-template-columns:1fr;gap:8px}.loot-column{padding:8px}.loot-item-list{min-height:110px}.loot-panel-foot{align-items:flex-start;flex-direction:column}.loot-toolbar>span{width:100%;margin-left:0}.equipment-strip-heading,.quick-slots-heading{align-items:flex-start;flex-direction:column;gap:2px}}
+@media(max-width:430px){.equipment-slot{padding:5px 2px}.equipment-slot small{font-size:7px}.equipment-slot b,.quick-slot b{font-size:8px}.equipment-slot img,.quick-slot img{max-width:30px;max-height:30px}.loot-item{gap:5px;padding:5px}.loot-item-image{flex-basis:32px;width:32px;height:32px}.loot-item-image img{max-width:28px;max-height:28px}.loot-item-info b{font-size:10px}.loot-panel-head p{font-size:10px}}
+/* A slightly denser vertical rhythm leaves more of the current scene visible. */
+.tab-page{padding-bottom:12px}
+.tab-heading{margin-bottom:12px}
+.panel{margin-bottom:10px}
+.game-content{padding-bottom:12px}
+
+/* Compact exploration controls and contact-name generator */
+.scene-entry-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.scene-entry-actions .button{min-height:28px;padding:5px 8px;font-size:9px}
+.generated-stalker-name{display:grid;gap:3px;margin-top:9px;padding:8px 10px;background:#121b10;border:1px solid #596b3d;color:#e6edcf}
+.generated-stalker-name small{font:8px 'Share Tech Mono',monospace;letter-spacing:.12em;color:#aab981}
+.generated-stalker-name b{font-size:14px}
+@media(max-width:430px){.scene-entry-actions .button{font-size:8px;padding:4px 6px}.scene-places{max-width:calc(100% - 118px)}}

@@ -3,6 +3,7 @@ const STORAGE_KEY = 'cordon-pda-save-v1';
 export const DEFAULT_SETTINGS = {
   radioStationId: 'loner-village-radio',
   reducedMotion: false,
+  uiScale: 1,
   removedPlayerTrackIds: []
 };
 

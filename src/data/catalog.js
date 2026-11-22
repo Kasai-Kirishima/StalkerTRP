@@ -33,6 +33,9 @@ export const ASSETS = {
     'village-house': new URL('../../assets/images/location-backgrounds/fonderevnanovickov%20vhod.webp', import.meta.url).href,
     'village-shed': new URL('../../assets/images/location-backgrounds/fonderevnanovickov%20vhod.webp', import.meta.url).href,
     'village-basement': new URL('../../assets/images/location-backgrounds/fonpodvalderevnanovickov.webp', import.meta.url).href,
+    'village-basement-storage': new URL('../../assets/images/location-backgrounds/fonpodvalderevnanovickov.webp', import.meta.url).href,
+    'atp-second-floor-storage': new URL('../../assets/images/location-backgrounds/fonatp.webp', import.meta.url).href,
+    'barracks-personal-storage': new URL('../../assets/images/location-backgrounds/fonygblokpost.webp', import.meta.url).href,
     'bunker-basement': new URL('../../assets/images/location-backgrounds/fonpodvalsidorovic.webp', import.meta.url).href,
     'elevator-office': new URL('../../assets/images/location-backgrounds/fonelevator.webp', import.meta.url).href,
     'forest-tent': new URL('../../assets/images/location-backgrounds/fonlagervlesy.webp', import.meta.url).href,
@@ -40,6 +43,23 @@ export const ASSETS = {
     'atp-garage': new URL('../../assets/images/location-backgrounds/fonatp.webp', import.meta.url).href,
     'south-barracks': new URL('../../assets/images/location-backgrounds/fonygblokpost.webp', import.meta.url).href,
     'trailer-inside': new URL('../../assets/images/location-backgrounds/fonvagoncik.webp', import.meta.url).href
+  },
+  armor: {
+    aurora: new URL('../../assets/images/armor/protivogazavroraicon.webp', import.meta.url).href,
+    optik: new URL('../../assets/images/armor/protivogazoptikicon.webp', import.meta.url).href,
+    psz5: new URL('../../assets/images/armor/pz-5icon.webp', import.meta.url).href,
+    zarya: new URL('../../assets/images/armor/zaraicon.webp', import.meta.url).href,
+    leather: new URL('../../assets/images/armor/kosyhaicon.webp', import.meta.url).href,
+    biker: new URL('../../assets/images/armor/kozanplashicon.webp', import.meta.url).href,
+    milmed: new URL('../../assets/images/armor/debyticon.webp', import.meta.url).href,
+    berill: new URL('../../assets/images/armor/berilicon.webp', import.meta.url).href,
+    kosyha: new URL('../../assets/images/armor/kosyhaicon.webp', import.meta.url).href,
+    kozanka: new URL('../../assets/images/armor/kozankaicon.webp', import.meta.url).href,
+    kozanplash: new URL('../../assets/images/armor/kozanplashicon.webp', import.meta.url).href,
+    stalnoishlem: new URL('../../assets/images/armor/stalnoishlemicon.webp', import.meta.url).href,
+    pa8: new URL('../../assets/images/armor/protivogazpa-8icon.webp', import.meta.url).href,
+    pa10: new URL('../../assets/images/armor/protivogazpa-10icon.webp', import.meta.url).href,
+    pg4: new URL('../../assets/images/armor/protivogazpg-4icon.webp', import.meta.url).href
   },
   map: new URL('../../assets/images/cordon-clean.webp', import.meta.url).href,
   factions: {
@@ -101,7 +121,16 @@ export const ITEMS = [
   { id:'gaduka', name:'Гадюка-5', price:3400, weight:3.1, w:3,h:2, cat:'Оружие', desc:'Пистолет-пулемёт под патрон 9×19 мм.', image:'', damage:26, weapon:'smg', ammo:'ammo9x19' },
   { id:'aksu', name:'АКСУ', price:4800, weight:2.7, w:3,h:2, cat:'Оружие', desc:'Компактный автомат под патрон 5.45×39 мм. Удобен в тесных помещениях, но уступает полноразмерным автоматам в точности на дальних дистанциях.', image:'', damage:31, weapon:'rifle', ammo:'ammo545' },
   { id:'optik', name:'Противогаз «Оптик»', price:3900, weight:1.4, w:2,h:2, cat:'Защита', desc:'Продвинутая маска с улучшенным обзором.', image:'' },
-  { id:'zarya', name:'Заря', price:5200, weight:6.5, w:3,h:3, cat:'Броня', desc:'Защитный костюм для опасных вылазок.', image:'', armor:30 }
+  { id:'zarya', name:'Заря', price:5200, weight:6.5, w:3,h:3, cat:'Броня', desc:'Защитный костюм для опасных вылазок.', image:'', armor:30 },
+  { id:'berill', name:'Бронекостюм «Берилл»', price:6200, weight:7.2, w:3,h:3, cat:'Броня', desc:'Тяжёлый защитный комплект с усиленной бронёй.', image:'', armor:34 },
+  { id:'debyt', name:'Защитный костюм «Дебют»', price:1800, weight:3.6, w:2,h:2, cat:'Броня', desc:'Простой защитный комплект для первых вылазок.', image:'', armor:12 },
+  { id:'kosyha', name:'Кожаная куртка', price:1050, weight:2.5, w:2,h:2, cat:'Броня', desc:'Лёгкая куртка с простыми защитными вставками.', image:'', armor:9 },
+  { id:'kozanka', name:'Бандитская бронекуртка', price:1450, weight:3.1, w:2,h:2, cat:'Броня', desc:'Усиленная куртка, которую носят некоторые группировки.', image:'', armor:13 },
+  { id:'kozanplash', name:'Плащ с защитными вставками', price:2200, weight:4.2, w:2,h:3, cat:'Броня', desc:'Плотный плащ с дополнительными защитными слоями.', image:'', armor:16 },
+  { id:'stalnoishlem', name:'Стальной шлем', price:1650, weight:2.1, w:2,h:2, cat:'Броня', desc:'Защитный шлем для опасных переходов.', image:'', armor:8 },
+  { id:'pa8', name:'Противогаз ПА-8', price:950, weight:1.1, w:2,h:2, cat:'Защита', desc:'Фильтрующий противогаз базового класса.', image:'' },
+  { id:'pa10', name:'Противогаз ПА-10', price:1350, weight:1.25, w:2,h:2, cat:'Защита', desc:'Противогаз с улучшенной посадкой и фильтрацией.', image:'' },
+  { id:'pg4', name:'Противогаз ПГ-4', price:1750, weight:1.4, w:2,h:2, cat:'Защита', desc:'Защитная маска для длительных переходов в загрязнённых районах.', image:'' }
 ];
 
 export const LOCATIONS = [
@@ -155,8 +184,8 @@ export const EXPLORE_SPOTS = [
   {id:'forest-tent',locationId:'forest-camp',name:'Палатка проводников',aliases:['палатка','тент','лежанка'],kind:'search',description:'В палатке остались следы недавней стоянки и несколько забытых вещей.',shelter:true,loot:['bread','water','bandage','flash','energy']},
   {id:'atp-garage',locationId:'atp',name:'Гараж АТП',aliases:['гараж','бокс','ремонтный бокс','мастерская'],kind:'search',description:'Между подъёмником и верстаками лежат детали и брошенный инструмент.',shelter:true,loot:['boltpack','ammo9x19','flash','knife','water']},
   {id:'atp-office',locationId:'atp',name:'Контора АТП',aliases:['контора','офис','диспетчерская'],kind:'search',description:'В помещении старые бумаги, металлический шкаф и несколько выдвинутых ящиков.',shelter:true,loot:['flash','vodka','ammo9x18','bandage','canned']},
-  {id:'south-barracks',locationId:'south-checkpoint',name:'Казарма блокпоста',aliases:['казарма','казармы','комната солдат'],kind:'search',description:'В казарме стоят койки и личные шкафчики. Без разрешения военных лучше не задерживаться.',shelter:true,loot:['ammo545','bandage','water','canned','flash']},
-  {id:'south-storage',locationId:'south-checkpoint',name:'Склад снабжения',aliases:['склад','каптерка','каптёрка','кладовая'],kind:'search',description:'Закрытая кладовая с ящиками снабжения. Часть запасов может быть забыта или списана.',shelter:true,loot:['ammo545','ammo9x19','milmed','antirad','boltpack']},
+  {id:'south-barracks',locationId:'south-checkpoint',name:'Казарма блокпоста',aliases:['казарма','казармы','комната солдат'],kind:'search',description:'В казарме стоят койки и личные шкафчики. Без разрешения военных лучше не задерживаться.',shelter:true,loot:['ammo545','bandage','water','canned','flash','pa8','stalnoishlem']},
+  {id:'south-storage',locationId:'south-checkpoint',name:'Склад снабжения',aliases:['склад','каптерка','каптёрка','кладовая'],kind:'search',description:'Закрытая кладовая с ящиками снабжения. Часть запасов может быть забыта или списана.',shelter:true,loot:['ammo545','ammo9x19','milmed','antirad','boltpack','pg4','psz5']},
   {id:'bridge-post',locationId:'bridge-checkpoint',name:'Пост под мостом',aliases:['пост','караулка','укрытие'],kind:'search',description:'Под бетонной опорой устроено небольшое укрытие. В щелях и ящиках можно найти оставленные вещи.',shelter:true,loot:['ammo9x19','bandage','water','flash']},
   {id:'underpass-niche',locationId:'underpass',name:'Боковая ниша перехода',aliases:['ниша','закуток','углубление'],kind:'search',description:'В боковой нише скопились мусор и принесённые водой предметы.',shelter:true,loot:['ammo9x18','ai2','water','flash']},
   {id:'north-checkpoint-store',locationId:'north-checkpoint',name:'Служебный сарай блокпоста',aliases:['сарай блокпоста','служебный сарай','хозблок'],kind:'search',description:'Низкая пристройка за бетонными блоками. Внутри пахнет машинным маслом, на полках стоят пустые канистры.',shelter:true,loot:['water','boltpack','ammo9x18','bandage']},
@@ -167,6 +196,13 @@ export const EXPLORE_SPOTS = [
   {id:'secret-camp-perimeter',locationId:'anomaly-dump',name:'Край тайного лагеря',aliases:['край лагеря','край свалки','периметр лагеря'],kind:'search',description:'С внешнего края тайного лагеря видны обломки палатки и следы недавней стоянки. Рядом ощущается гравитационная аномалия.',shelter:false,loot:['flash','water','bandage','boltpack']},
   {id:'underpass-stairs',locationId:'underpass',name:'Лестничный спуск',aliases:['лестница','лестничный спуск','ступени'],kind:'search',description:'По ступеням стекает вода. В углах задержались бумага, пустые упаковки и мелкие вещи.',shelter:true,loot:['ammo9x18','water','bandage','flash']},
   {id:'village-basement',locationId:'rookie-village',name:'Подвал старого дома',aliases:['подвал','погреб деревни','подвал старого дома','в подвале'],kind:'search',description:'Низкий подвал старого домика. На стенах выступила сырость, у дальней стены остались деревянные ящики.',shelter:true,loot:['canned','water','bandage','flash','ammo9x18']}
+  ,{id:'village-basement-storage',locationId:'rookie-village',name:'Подвал Кордона · личный ящик',aliases:['личный ящик подвала','хранилище в подвале','ящик в подвале'],kind:'storage',storageId:'cordon-basement',description:'В дальнем углу подвала стоит крепкий ящик. Его можно использовать как личное хранилище.',shelter:true,loot:[]}
+  ,{id:'atp-second-floor-storage',locationId:'atp',name:'Второй этаж АТП · тайник',aliases:['второй этаж','этаж атп','тайник второго этажа'],kind:'storage',storageId:'atp-second-floor',description:'На втором этаже за лестничной площадкой стоит металлический ящик. Место укрыто от случайных глаз.',shelter:true,loot:[]}
+  ,{id:'barracks-personal-storage',locationId:'south-checkpoint',name:'Казарма · личный шкаф',aliases:['личный шкаф','шкаф в казарме','хранилище казармы'],kind:'storage',storageId:'barracks-locker',description:'У стены казармы закреплён личный металлический шкаф для снаряжения.',shelter:true,loot:[]}
+  ,{id:'village-wooden-crate',locationId:'rookie-village',name:'Заколоченный ящик у сарая',aliases:['заколоченный ящик','ящик у сарая'],kind:'breakable',description:'Старый деревянный ящик прибит досками. Внутри что-то перекатывается.',loot:['bandage','canned','ammo9x18','bread']}
+  ,{id:'atp-locked-crate',locationId:'atp',name:'Запертый ящик на втором этаже',aliases:['запертый ящик','ящик второго этажа','ящик на атп'],kind:'breakable',description:'Тяжёлый ящик оставили у стены второго этажа. Крышка перекошена, но ещё держится.',loot:['ammo9x19','boltpack','vodka','bandage','pm']}
+  ,{id:'barracks-supply-crate',locationId:'south-checkpoint',name:'Ящик снабжения в казарме',aliases:['ящик снабжения','ящик в казарме'],kind:'breakable',description:'Небольшой армейский ящик с потёртой маркировкой. Пломба давно сорвана, крышка застряла.',loot:['ammo545','bandage','antirad','pa8']}
+
 ];
 
 export const NPCS = [
@@ -345,7 +381,15 @@ export const QUESTS = [
 export const SQUADS = [
   { id:'squad-loners', name:'Патруль одиночек', faction:'loner', location:'rookie-village', members:3, destination:null },
   { id:'squad-bandits', name:'Группа Кефира', faction:'bandit', location:'atp', members:4, destination:null },
-  { id:'squad-military', name:'Военный патруль', faction:'military', location:'south-checkpoint', members:3, destination:null }
+  { id:'squad-military', name:'Военный патруль', faction:'military', location:'south-checkpoint', members:3, destination:null },
+  { id:'squad-loners-road', name:'Дорожная артель', faction:'loner', location:'stop', members:4, destination:'farmstead' },
+  { id:'squad-loners-forest', name:'Тихий дозор', faction:'loner', location:'forest-camp', members:3, destination:'anomaly-dump' },
+  { id:'squad-bandits-scavengers', name:'Сборщики Кефира', faction:'bandit', location:'atp', members:5, destination:'pig-farm' },
+  { id:'squad-bandits-ambush', name:'Дорожные шакалы', faction:'bandit', location:'bridge-checkpoint', members:3, destination:'atp' },
+  { id:'squad-military-north', name:'Северный дозор', faction:'military', location:'north-checkpoint', members:4, destination:'locomotive' },
+  { id:'squad-military-patrol', name:'Мобильная группа', faction:'military', location:'south-checkpoint', members:5, destination:'bridge-checkpoint' },
+  { id:'squad-stalkers-traders', name:'Вольные ходоки', faction:'loner', location:'farmstead', members:2, destination:'rookie-village' },
+  { id:'squad-bandits-rovers', name:'Бродяги с насыпи', faction:'bandit', location:'ravine-tunnel', members:3, destination:'locomotive' }
 ];
 
 // Only common, low-tier equipment can be selected before the first outing.
@@ -356,7 +400,7 @@ export const STARTER_ITEM_IDS = [
   'sawedoff','pm','binoculars'
 ];
 export const ITEM_ACQUISITION = {
-  traderOnly: ['aksu','ammo545','vm17','gaduka','psz5','aurora','optik','zarya','biker','leather'],
+  traderOnly: ['aksu','ammo545','vm17','gaduka','psz5','aurora','optik','zarya','biker','leather','berill','debyt','kosyha','kozanka','kozanplash','stalnoishlem','pa8','pa10','pg4'],
   searchOnly: ['flash'],
   traderOrSearch: ['otklik','milmed'],
   mutantDrops: ['tail','flesh-eye'],

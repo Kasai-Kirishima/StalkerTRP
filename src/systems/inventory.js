@@ -33,6 +33,25 @@ export function removeItem(inventory, id, qty = 1) {
   return true;
 }
 
+
+// Move items between the player's backpack and a loot container. The backpack
+// keeps its normal weight limit; stashes and corpses have no artificial cap.
+export function transferItem(source, destination, id, qty = 1, destinationIsPlayer = false) {
+  const sourceStack = source.find(entry => entry.id === id);
+  const item = getItem(id);
+  if (!sourceStack || !item || qty <= 0) return { ok:false, reason:'Предмет больше недоступен.' };
+  const amount = Math.min(sourceStack.qty, Math.floor(qty));
+  if (destinationIsPlayer && getWeight(destination) + item.weight * amount > MAX_CARRY_KG) {
+    return { ok:false, reason:`Не хватает места: лимит рюкзака — ${MAX_CARRY_KG} кг.` };
+  }
+  const targetStack = destination.find(entry => entry.id === id);
+  if (targetStack) targetStack.qty += amount;
+  else destination.push({ id, qty:amount, uid:`${id}-${Date.now()}-${Math.random().toString(16).slice(2,6)}` });
+  sourceStack.qty -= amount;
+  if (sourceStack.qty <= 0) source.splice(source.indexOf(sourceStack), 1);
+  return { ok:true, qty:amount };
+}
+
 export function countItem(inventory, id) {
   return inventory.find(entry => entry.id === id)?.qty || 0;
 }

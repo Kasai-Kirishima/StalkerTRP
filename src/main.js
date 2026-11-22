@@ -1,8 +1,8 @@
 import { loadState, saveState, createInitialState, exportSave, importSave } from './core/storage.js';
 import { ASSETS, FACTIONS, START_BUDGET, MAX_CARRY_KG, NPCS, ITEMS, LOCATIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS } from './data/catalog.js';
 import { renderMenu, renderAccount, renderCharacters, renderCreate, renderLoadout, renderGame, renderGameSettings, renderModal, esc } from './ui/views.js';
-import { canFitLoadout, getInventoryCost, getLoadoutWeight, addItem, getItem, getWeight, removeItem, useItem } from './systems/inventory.js';
-import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, replyNpcFreeText, takeShelter, leaveShelter, sitAtCampfire, getExploreSpots } from './systems/world.js';
+import { canFitLoadout, getInventoryCost, getLoadoutWeight, addItem, getItem, getWeight, removeItem, useItem, transferItem } from './systems/inventory.js';
+import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, breakContainer, replyNpcFreeText, takeShelter, leaveShelter, sitAtCampfire, getExploreSpots, getActiveLootItems, openStorage } from './systems/world.js';
 import { playerAttack, defend, flee, beginWolfDogPack, reloadWeapon, aimWeapon, dodge, throwGrenade, throwBoltInCombat, useItemInCombat, selectWeapon } from './systems/combat.js';
 import { createMusicEngine } from './systems/music.js';
 import { buyFromTrader, sellToTrader } from './systems/world.js';
@@ -67,6 +67,7 @@ function setScreen(screen) {
 }
 
 function render() {
+  document.documentElement.style.setProperty('--ui-scale', state.settings.uiScale || 1);
   document.body.classList.toggle('reduced-motion', !!state.settings.reducedMotion);
   let html = '';
   switch (state.screen) {
@@ -195,6 +196,42 @@ function addGameLog(message, type='system') {
   persist();
 }
 
+function adjustTransferredAmmo(itemId, qty, toPlayer) {
+  const capacity=itemId==='shells'?8:itemId==='ammo545'?30:12;
+  if (['ammo9x18','ammo9x19','ammo545','shells'].includes(itemId)) {
+    state.game.ammoRounds ||= {};
+    const delta=capacity*qty*(toPlayer?1:-1);
+    state.game.ammoRounds[itemId]=Math.max(0,(state.game.ammoRounds[itemId]||0)+delta);
+  }
+  if (itemId==='boltpack') state.game.boltsRemaining=Math.max(0,(state.game.boltsRemaining||0)+10*qty*(toPlayer?1:-1));
+}
+
+function transferLootItem(itemId, direction='take', qty=1) {
+  const game=state.game, active=game?.activeLoot;
+  if (!active) return {ok:false,reason:'Окно обыска уже закрыто.'};
+  const sourceItems=getActiveLootItems(game);
+  const taking=direction==='take';
+  const from=taking?sourceItems:game.inventory;
+  const to=taking?game.inventory:sourceItems;
+  const result=transferItem(from,to,itemId,qty,taking);
+  if (result.ok) adjustTransferredAmmo(itemId,result.qty,taking);
+  return result;
+}
+
+function transferAllLoot(direction='take') {
+  const game=state.game, active=game?.activeLoot;
+  if (!active) return {ok:false,moved:0,message:'Окно обыска уже закрыто.'};
+  const source=getActiveLootItems(game);
+  const from=direction==='take'?source:game.inventory;
+  const snapshot=from.map(entry=>({id:entry.id,qty:entry.qty}));
+  let moved=0, skipped=0;
+  for (const entry of snapshot) {
+    const result=transferLootItem(entry.id,direction,entry.qty);
+    if (result.ok) moved+=result.qty; else skipped++;
+  }
+  return {ok:true,moved,skipped,message:moved?`Перемещено предметов: ${moved}${skipped?`. Не поместилось: ${skipped} видов.`:'.'}`:'Нечего перемещать.'};
+}
+
 function beginNewCharacter() {
   state.draft = { name:'', birthDate:'', height:'', weight:'', personality:'', biography:'', notes:'', faction:'loner', avatar:'' };
   state.pendingCharacter = null;
@@ -313,6 +350,13 @@ root.addEventListener('click', (event) => {
   if (action==='exit') { state.ui.modal='exit'; return render(); }
   if (action==='close-modal') { state.ui.modal=null; state.ui.exploreSpotId=null; return render(); }
   if (action==='close-dialogue') { state.game.dialogueNpcId=null; persist(); return render(); }
+  if (action==='flashlight-toggle') { state.ui.flashlight=!state.ui.flashlight; persist(); return render(); }
+  if (action==='generate-stalker-name') {
+    const first=['Макс','Саня','Клим','Боря','Борис','Феликс','Антон','Олег','Андрей','Александр','Макар','Алекс','Артём','Павел','Пётр','Никита','Марк','Константин','Костя','Колян','Егор','Нестор','Гриша','Григорий','Захар','Хома','Фома','Валентин','Ваня','Иван','Вася','Василий','Роман','Ростик','Ростислав','Роберт','Леон','Лев','Лёва','Леонтий','Олесь','Леша','Дмитрий','Дима','Денис','Жора','Ян','Степан','Славик','Слава','Игнат','Тимур','Трофим','Юра','Юрик'];
+    const nick=['Йодированный','Йог','Циммерман','Центнер','Упырь','Урод','Уваров','Клименко','Костлявый','Косатка','Косой','Кислый','Китель','Енот','Наркоман','Новичок','Нудный','Нужный','Нежный','Негодяй','Гидра','Гравий','Гром','Гримлин','Гитарист','Горбун','Горбачёв','Шестёрка','Шестун','Шумахер','Щель','Щука','Запойный','Запор','Затвор','Землянин','Земляника','Зомби','Хомяк','Храбрый','Хитрый','Хрупкий','Хрен','Фитиль','Фаланга','Факел','Вентиль','Велик','Велосипедист','Ветер','Высокий','Волосатый','Вареник','Волков','Веник','Анаконда','Автомат','Арбат','Астана','Алкаш','Плохиш','Печь','Печень','Пастух','Пудель','Пистон','Петля','Петельман','Пубертат','Паровозов','Пушкин','Проволока','Переулок','Простой','Римский','Румун','Работящий','Робот','Рифмач','Рихтер','Рыболов','Рык','Онегин','Осечка','Ослов','Одессит','Люфт','Лифт','Ловкач','Лимонка','Лимон','Любитель','Лентяй','Ломка','Джа','Дагер','Диггер','Дагестан','Давидов','Демьянов','Дикарь','Дисциплина','Жопа','Жирный','Жук','Эвтаназия','Якут','Якорь','Ямантау','Чехов','Черкасов','Черчилль','Чемберлен','Читатель','Чтец','Чума','Чумной','Чаплин','Чарка','Сиплый','Старик','Семисотка','Смуглый','Струна','Макаревич','Марка','Моряк','Морпех','Масло','Мент','Метла','Мунтян','Мутный','Миксер','Мир','Иркутск','Икра','Туфель','Тупой','Тик','Беляев','Белка','Балбес','Болтун','Булка','Бык','Башмак','Ботинок','Бедный','Бухой','Бахмут','Баклажан','Бояр','Барин','Брест','Будапешт','Белый','Бледный','Буча','Юрта'];
+    state.ui.generatedName=first[Math.floor(Math.random()*first.length)]+' «'+nick[Math.floor(Math.random()*nick.length)]+'»';
+    persist(); render(); toast(state.ui.generatedName); return;
+  }
   if (action==='close-sleep') { state.ui.modal=null; return render(); }
   if (action==='close-artifact') { state.game.artifactHunt=null; persist(); return render(); }
   if (action==='select-character') return selectCharacter(id);
@@ -336,7 +380,57 @@ root.addEventListener('click', (event) => {
   if (action==='pda-toggle') { if(!state.ui.pdaOpen && state.game.activeEncounter){toast('Во время боя КПК недоступен. Сначала выберись из схватки.','warning');return;} state.ui.pdaOpen=!state.ui.pdaOpen; if(state.ui.pdaOpen && !['location','map','stats','player','messages','quests','contacts'].includes(state.ui.tab)) state.ui.tab='location'; persist(); return render(); }
   if (action==='inventory-open') { state.ui.modal='inventory-panel'; state.ui.pdaOpen=false; persist(); return render(); }
   if (action==='explore-open') { state.ui.modal='explore-spots'; persist(); return render(); }
-  if (action==='explore-spot') { const result=startAreaSearch(state.game,id); if(result.ok&&result.options){state.ui.modal='explore-find';} else if(result.ok){state.ui.modal=null;} persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
+  if (action==='explore-spot') {
+    const spot=getExploreSpots(state.game.locationId).find(entry=>entry.id===id);
+    if(spot?.kind==='storage') { state.game.currentAreaId=id; state.game.currentDescription=spot.description; const result=openStorage(state.game,spot.storageId,spot.name); state.ui.modal='loot-panel'; persist(); render(); toast(result.message,'success'); return; }
+    if(spot?.kind==='breakable') { state.game.currentAreaId=id; state.game.currentDescription=spot.description; const result=breakContainer(state.game,id); if(result.ok) state.ui.modal='loot-panel'; persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
+    if(spot?.kind==='campfire') { const result=sitAtCampfire(state.game,id); persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
+    if(state.game.player.sheltered && state.game.player.shelterSpotId!==id) leaveShelter(state.game);
+    state.game.currentAreaId=id; state.game.currentDescription=spot?.description||'';
+    persist(); render(); toast(`Ты переместился к месту: ${spot?.name||'осмотр'}.`,'info'); return;
+  }
+  if (action==='loot-transfer') {
+    const result=transferLootItem(button.dataset.itemId,button.dataset.direction||'take',Number(button.dataset.qty)||1);
+    persist(); render(); toast(result.ok?'Предмет перемещён.':result.reason,result.ok?'success':'warning'); return;
+  }
+  if (action==='loot-take-all' || action==='loot-store-all') {
+    const result=transferAllLoot(action==='loot-take-all'?'take':'store');
+    persist(); render(); toast(result.message,result.moved?'success':'info'); return;
+  }
+  if (action==='loot-close') { state.game.activeLoot=null; state.ui.modal=null; persist(); render(); return; }
+  if (action==='slot-assign') {
+    const item=getItem(id); if(!item||!countItem(state.game.inventory,id)){toast('Предмет отсутствует в рюкзаке.','warning');return;}
+    const slots=state.game.equipmentSlots ||= {primary1:null,primary2:null,pistol:null,knife:null,quick:[null,null,null,null]};
+    let slot=button.dataset.slot;
+    if(!slot) {
+      if(item.weapon==='pistol') slot='pistol';
+      else if(item.weapon==='melee') slot='knife';
+      else if(['rifle','shotgun','smg'].includes(item.weapon)) slot=!slots.primary1||slots.primary1===id?'primary1':!slots.primary2||slots.primary2===id?'primary2':'primary1';
+      else if(item.use) { const index=slots.quick.findIndex(value=>!value); slot=`quick${index>=0?index:0}`; }
+    }
+    if(slot?.startsWith('quick')) { const index=Number(slot.replace('quick','')); if(index>=0&&index<4) slots.quick[index]=id; }
+    else if(['primary1','primary2','pistol','knife'].includes(slot)) slots[slot]=id;
+    else {toast('Для этого предмета нет подходящего слота.','warning');return;}
+    if(item.weapon&&item.weapon!=='grenade') selectWeapon(state.game,id);
+    if(item.armor) { state.game.player.armorId=id; state.game.player.armor=item.armor; }
+    if(getItem(id)?.cat==='Защита') state.game.player.maskId=id;
+    persist(); render(); toast(`${item.name} помещён в слот.`,'success'); return;
+  }
+  if (action==='slot-select') {
+    const slot=button.dataset.slot; const slots=state.game.equipmentSlots||{}; const selected=slot?.startsWith('quick')?slots.quick?.[Number(slot.replace('quick',''))]:slots[slot];
+    const item=getItem(selected); if(!item||!countItem(state.game.inventory,selected)){toast('Этот слот пуст или предмет отсутствует в рюкзаке.','warning');return;}
+    if(item.weapon&&item.weapon!=='grenade') { const result=selectWeapon(state.game,selected); persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
+    if(item.use) { const result=useItem(state.game,selected); persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
+    if(item.armor) { state.game.player.armorId=selected; state.game.player.armor=item.armor; }
+    if(item.cat==='Защита') state.game.player.maskId=selected;
+    persist(); render(); toast(`Выбрано: ${item.name}.`,'success'); return;
+  }
+  if (action==='equip-armor') {
+    if(!getItem(id)?.armor||!countItem(state.game.inventory,id)){toast('Такой брони нет в рюкзаке.','warning');return;}
+    state.game.player.armorId=state.game.player.armorId===id?null:id;
+    state.game.player.armor=state.game.player.armorId?(getItem(id)?.armor||0):0;
+    persist();render();toast(state.game.player.armorId?`Надета броня: ${getItem(id).name}.`:'Броня снята.','success');return;
+  }
   if (action==='explore-pick') { const result=claimAreaFind(state.game,id); if(result.ok) state.ui.modal=null; persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
   if (action==='tab') { const allowed=['location','map','stats','player','messages','quests','contacts']; if(!allowed.includes(tab)) return; state.ui.pdaOpen=true; state.ui.tab=tab; state.game.dialogueNpcId=null; state.ui.modal=null; persist(); return render(); }
   if (action==='tab-map') { state.ui.pdaOpen=true; state.ui.tab='map'; state.ui.mapView=state.ui.mapView||'map'; persist(); return render(); }
@@ -376,10 +470,15 @@ root.addEventListener('click', (event) => {
     state.game.currentDescription=spot.description;
     persist(); render(); toast(`Ты переместился к месту: ${spot.name}.`, 'info'); return;
   }
+  if (action==='break-crate') {
+    const result=breakContainer(state.game,id||state.game.currentAreaId);
+    if(result.ok) state.ui.modal='loot-panel';
+    persist();render();toast(result.message,result.ok?'success':'warning');return;
+  }
   if (action==='scene-search') {
     const spotId=id||state.game.currentAreaId;
     const result=startAreaSearch(state.game,spotId);
-    if(result.ok&&result.options) state.ui.modal='explore-find';
+    if(result.ok) state.ui.modal='loot-panel';
     persist();render();toast(result.message,result.ok?'info':'warning');return;
   }
   if (action==='scene-back') { state.game.currentAreaId=null; leaveShelter(state.game); state.game.currentDescription=getLocation(state.game.locationId)?.desc||''; persist();render();return; }
@@ -387,12 +486,13 @@ root.addEventListener('click', (event) => {
   if (action==='toggle-weapon-side') { state.settings.weaponHudSide=state.settings.weaponHudSide==='left'?'right':'left'; persist(); render(); return; }
   if (action==='combat-reload' || action==='combat-aim' || action==='combat-dodge' || action==='combat-grenade' || action==='combat-bolt') {
     const result=action==='combat-reload'?reloadWeapon(state.game):action==='combat-aim'?aimWeapon(state.game):action==='combat-dodge'?dodge(state.game):action==='combat-grenade'?throwGrenade(state.game):throwBoltInCombat(state.game);
+    if (!state.game.activeEncounter && state.game.activeLoot) state.ui.modal='loot-panel';
     persist(); render(); toast(result.message,result.ok?'info':'warning'); return;
   }
   if (action==='combat-use-item') { const result=useItemInCombat(state.game,id); persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
   if (action==='equip-weapon') { const result=selectWeapon(state.game,id); persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
   if (action==='equip-mask') {
-    if(!['aurora','optik'].includes(id)||!countItem(state.game.inventory,id)){toast('Такого противогаза нет в рюкзаке.','warning');return;}
+    if(getItem(id)?.cat!=='Защита'||!countItem(state.game.inventory,id)){toast('Такого противогаза нет в рюкзаке.','warning');return;}
     state.game.player.maskId=state.game.player.maskId===id?null:id;
     persist();render();toast(state.game.player.maskId?`Надет противогаз «${getItem(id)?.name||id}».`:'Противогаз снят.','success');return;
   }
@@ -419,6 +519,7 @@ root.addEventListener('click', (event) => {
   }
   if (action==='combat-attack' || action==='combat-defend' || action==='combat-flee') {
     const result=action==='combat-attack'?playerAttack(state.game):action==='combat-defend'?defend(state.game):flee(state.game);
+    if (!state.game.activeEncounter && state.game.activeLoot) state.ui.modal='loot-panel';
     persist(); render(); toast(result.message,result.ok?'info':'warning'); return;
   }
   if (action==='talk') {
@@ -519,6 +620,7 @@ root.addEventListener('input', (event) => {
   }
   const setting=event.target.dataset.setting;
   if (setting==='reducedMotion') { state.settings.reducedMotion=event.target.checked; persist(); document.body.classList.toggle('reduced-motion', !!state.settings.reducedMotion); }
+  if (setting==='uiScale') { state.settings.uiScale=Number(event.target.value)||1; document.documentElement.style.setProperty('--ui-scale',state.settings.uiScale); persist(); }
 });
 
 root.addEventListener('change', async (event) => {
@@ -556,6 +658,38 @@ root.addEventListener('change', async (event) => {
     } catch (error) { toast(error.message || 'Не удалось импортировать сохранение.','warning'); }
   }
 });
+
+let draggedLootItem=null;
+root.addEventListener('dragstart',(event)=>{
+  const item=event.target.closest('[data-drag-id]');
+  if(!item) return;
+  draggedLootItem={id:item.dataset.dragId,side:item.dataset.dragSide};
+  event.dataTransfer?.setData('text/plain',item.dataset.dragId);
+  if(event.dataTransfer) event.dataTransfer.effectAllowed='move';
+});
+root.addEventListener('dragover',(event)=>{
+  const zone=event.target.closest('[data-drop-zone]');
+  if(!zone||!draggedLootItem||!state.game?.activeLoot) return;
+  event.preventDefault();
+  zone.classList.add('drop-ready');
+});
+root.addEventListener('dragleave',(event)=>{
+  const zone=event.target.closest('[data-drop-zone]');
+  if(zone&&!zone.contains(event.relatedTarget)) zone.classList.remove('drop-ready');
+});
+root.addEventListener('drop',(event)=>{
+  const zone=event.target.closest('[data-drop-zone]');
+  if(!zone||!draggedLootItem||!state.game?.activeLoot) return;
+  event.preventDefault();
+  const destination=zone.dataset.dropZone;
+  const direction=(draggedLootItem.side==='source'&&destination==='player')?'take':(draggedLootItem.side==='player'&&destination==='source')?'store':null;
+  zone.classList.remove('drop-ready');
+  if(!direction) return;
+  const result=transferLootItem(draggedLootItem.id,direction,1);
+  draggedLootItem=null;
+  persist(); render(); toast(result.ok?'Предмет перемещён.':result.reason,result.ok?'success':'warning');
+});
+root.addEventListener('dragend',()=>{draggedLootItem=null;root.querySelectorAll('.drop-ready').forEach(node=>node.classList.remove('drop-ready'));});
 
 root.addEventListener('submit', (event) => {
   if (event.target.id==='npc-dialogue-form') {

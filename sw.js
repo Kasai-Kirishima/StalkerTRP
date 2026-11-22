@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cordon-pda-v19-survival-combat-radio';
+const CACHE_NAME = 'cordon-pda-v20-loot-equipment-dialogue';
 const APP_SHELL = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './assets/icons/radioactive.svg', './assets/images/cordon-clean.webp',
@@ -24,7 +24,13 @@ const APP_SHELL = [
   './assets/images/location-backgrounds/tynelpodjdfon.webp',
   './src/main.js', './src/ui/views.js', './src/core/storage.js',
   './src/data/catalog.js', './src/systems/game-clock.js', './src/systems/music.js',
-  './src/systems/inventory.js', './src/systems/world.js',
+  './src/systems/inventory.js', './src/systems/world.js', './src/systems/dialogue-engine.js',
+  './assets/images/armor/berilicon.webp', './assets/images/armor/debyticon.webp',
+  './assets/images/armor/kosyhaicon.webp', './assets/images/armor/kozankaicon.webp',
+  './assets/images/armor/kozanplashicon.webp', './assets/images/armor/protivogazavroraicon.webp',
+  './assets/images/armor/protivogazoptikicon.webp', './assets/images/armor/protivogazpa-10icon.webp',
+  './assets/images/armor/protivogazpa-8icon.webp', './assets/images/armor/protivogazpg-4icon.webp',
+  './assets/images/armor/pz-5icon.webp', './assets/images/armor/stalnoishlemicon.webp', './assets/images/armor/zaraicon.webp',
   './src/systems/combat.js', './src/systems/action-engine.js', './src/systems/russian-language.js'
 ];
 self.addEventListener('install', event => {

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { ASSETS, IMAGE_FALLBACKS, FACTIONS, ITEMS, LOCATIONS, EXPLORE_SPOTS, NPCS, AVATAR_OPTIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS, START_BUDGET, MAX_CARRY_KG, STARTER_ITEM_IDS, ITEM_ACQUISITION } from '../src/data/catalog.js';
-import { createGame, travelTo, talkToNpc, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, sitAtCampfire, replyNpc, replyNpcFreeText, getTravelMinutes, getExploreSpots, advanceGame, takeShelter, leaveShelter } from '../src/systems/world.js';
-import { addItem, getWeight, canFitLoadout, countItem, useItem } from '../src/systems/inventory.js';
+import { createGame, travelTo, talkToNpc, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, sitAtCampfire, replyNpc, replyNpcFreeText, getTravelMinutes, getExploreSpots, advanceGame, takeShelter, leaveShelter, openStorage, getActiveLootItems, breakContainer, registerCorpseLoot } from '../src/systems/world.js';
+import { addItem, getWeight, canFitLoadout, countItem, useItem, transferItem } from '../src/systems/inventory.js';
 import { beginEncounter, beginWolfDogPack, playerAttack } from '../src/systems/combat.js';
 import { processPlayerAction } from '../src/systems/action-engine.js';
 import { rememberEntity, stemRussianWord, containsReferencePronoun, genderedSubject } from '../src/systems/russian-language.js';
@@ -74,6 +74,9 @@ assert.ok(LOCATIONS.find(location=>location.id==='elevator').desc.includes('фо
 assert.ok(NPCS.every(npc=>!npc.icon),'NPCs must use built-in portrait placeholders');
 assert.ok(ASSETS.menu.startsWith('https://') && ASSETS.pda.includes('kpkfon.webp'));
 assert.ok(ASSETS.areaBackgrounds?.['village-basement']?.includes('fonpodvalderevnanovickov.webp'),'village basement should use its own local background');
+assert.ok(ASSETS.areaBackgrounds?.['village-basement-storage']?.includes('fonpodvalderevnanovickov.webp'));
+assert.ok(ASSETS.areaBackgrounds?.['atp-second-floor-storage']?.includes('fonatp.webp'));
+assert.ok(ASSETS.areaBackgrounds?.['barracks-personal-storage']?.includes('fonygblokpost.webp'));
 assert.ok(ASSETS.areaBackgrounds?.['locomotive-cabin']?.includes('fonlokomotiv.webp'),'locomotive cabin should use a local scene background');
 assert.equal(ASSETS.menu,'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS5OXJVGkhNyzTjS2YABky-DUSo45VdfMiDvddnm2NsexQfHmc4giGVzRY&s=10','main-menu must use only the user-provided external background');
 const fs = await import('node:fs');
@@ -456,16 +459,15 @@ uiState.ui.mapView='map';
 const mapHtml=renderGame(uiState);
 assert.ok(mapHtml.includes('cordon-clean.webp'),'the clean user map must render as the PDA map base layer');
 assert.ok(mapHtml.includes('data-action="location-open"'));
-assert.ok(mapHtml.includes('data-action="map-view"'),'map tab should provide the three-mode map/list/objectives switch');
-uiState.ui.mapView='places';
-assert.ok(renderGame(uiState).includes('Все отмеченные места'),'the location directory should be available as a separate map view');
-uiState.ui.mapView='tasks';
-assert.ok(renderGame(uiState).includes('Цели активных заданий'),'the objectives should have a dedicated map view');
+assert.ok(!mapHtml.includes('data-action="map-view"'),'the map should no longer have separate places/objectives tabs');
+assert.ok(!mapHtml.includes('Все отмеченные места'),'the separate location directory should be removed from the map screen');
+assert.ok(!mapHtml.includes('Активные задания'),'the quest list should move into the selected map-point modal');
 uiState.ui.mapView='map';
 uiState.ui.modal='map-location';
 uiState.ui.mapLocationId='anomaly-dump';
 const mapModal=renderModal(uiState);
 assert.ok(mapModal.includes('Тайный лагерь') && mapModal.includes('Воронка') && mapModal.includes('ВИЗУАЛЬНЫЙ ОРИЕНТИР'));
+assert.ok(mapModal.includes('МЕСТА В ЭТОЙ ЛОКАЦИИ') && mapModal.includes('ЦЕЛИ ЗАДАНИЙ В ЭТОЙ ЛОКАЦИИ'),'the selected map point should own its local places and quest targets');
 uiState.ui.modal='avatars';
 const avatarModal=renderModal(uiState);
 assert.ok(avatarModal.includes('Сидорович') && avatarModal.includes('Волк') && avatarModal.includes('Кефир') && avatarModal.includes('Дмитрий Дзержинский'));
@@ -475,6 +477,7 @@ assert.ok(statsHtml.includes('profile-edit-form') && statsHtml.includes('Выб�
 // PDA tabs keep inventory/trade/radio out; these remain location or independent overlays.
 const tabState={...uiState,ui:{...uiState.ui,pdaOpen:true,tab:'location',modal:null,mapView:'map'}};
 const tabMarkup=renderGame(tabState);
+assert.ok(tabMarkup.includes('Места и обыск') && !tabMarkup.includes('МЕСТА В ЭТОЙ ЛОКАЦИИ'),'the scene should remove its local place chips and keep a compact exploration entry');
 assert.ok(!tabMarkup.includes('data-tab="inventory"')&&!tabMarkup.includes('data-tab="trade"')&&!tabMarkup.includes('data-tab="radio"'));
 assert.ok(!tabMarkup.includes('music-dock'));
 const contactsMarkup=renderGame({...tabState,ui:{...tabState.ui,tab:'contacts'}});
@@ -518,6 +521,55 @@ const conversationReply=replyNpcFreeText(conversationGame,'wolf','Что слу�
 assert.equal(conversationReply.ok,true);
 assert.ok(conversationGame.dialogueHistory.some(entry=>entry.role==='player' && entry.text.includes('вагончика')),'full-text NPC conversation should preserve the player message in the chat');
 assert.ok(conversationGame.dialogueHistory.at(-1).role==='npc','NPC response should be appended after the player message');
+assert.equal(conversationGame.dialogueContext.lastIntent,'mutants','the dialogue engine should classify natural player phrases into a remembered topic');
+const followupReply=replyNpcFreeText(conversationGame,'wolf','А что дальше?');
+assert.ok(followupReply.ok && followupReply.message.includes('По поводу того, о чём говорили'),'NPC follow-up replies should use the previous conversation context');
+const directionReply=replyNpcFreeText(conversationGame,'wolf','Где я сейчас нахожусь?');
+assert.ok(directionReply.message.includes('Деревня новичков') && !directionReply.message.includes('rookie-village'),'direction replies should use human-readable location names');
 
+
+
+
+// v16 loot windows and permanent personal storage containers.
+const lootUiGame=createGame({name:'Обыск',faction:'loner'},[],START_BUDGET);
+const multiLoot=startAreaSearch(lootUiGame,'village-house');
+assert.equal(multiLoot.ok,true);
+assert.ok(multiLoot.items.length>=1,'a search should create a multi-item loot container');
+assert.equal(lootUiGame.activeLoot.sourceId,'village-house');
+const sourceLoot=getActiveLootItems(lootUiGame);
+const lootItem=sourceLoot[0];
+assert.ok(transferItem(sourceLoot,lootUiGame.inventory,lootItem.id,1,true).ok,'one item should move from loot into the player backpack');
+assert.equal(countItem(lootUiGame.inventory,lootItem.id),1);
+const crateGame=createGame(character,[],1000);
+const crateSpot=getExploreSpots('rookie-village').find(entry=>entry.kind==='breakable');
+assert.ok(crateSpot,'the village should have a breakable crate');
+const broken=breakContainer(crateGame,crateSpot.id);
+assert.equal(broken.ok,true);
+assert.equal(crateGame.brokenCrates[crateSpot.id],true);
+const firstCrateCount=getActiveLootItems(crateGame).length;
+assert.ok(firstCrateCount>=1,'a broken crate should reveal loot');
+breakContainer(crateGame,crateSpot.id);
+assert.equal(getActiveLootItems(crateGame).length,firstCrateCount,'reopening an already broken crate must not reroll its loot');
+const corpseId=registerCorpseLoot(crateGame,{type:'bandit',name:'Бандит у насыпи'});
+assert.ok(corpseId && crateGame.activeLoot.title.includes('Бандит у насыпи'),'defeated opponents should have a loot container for the left search pane');
+assert.ok(getActiveLootItems(crateGame).length>=1,'corpse containers should hold items that can be transferred');
+const corpsePanelState={screen:'game',characters:[character],activeCharacterId:'smoke',settings:{reducedMotion:false},ui:{tab:'location',modal:'loot-panel',music:{mode:null,stationId:null,trackId:null,queue:[],index:0,playing:false}},game:crateGame};
+assert.ok(renderModal(corpsePanelState).includes('Вещи погибшего'),'corpse loot should be clearly labelled in the left pane');
+const storageSpot=getExploreSpots('rookie-village').find(entry=>entry.kind==='storage');
+assert.ok(storageSpot,'the Cordon village basement should expose a personal storage spot');
+assert.equal(openStorage(lootUiGame,storageSpot.storageId,storageSpot.name).ok,true);
+assert.ok(getActiveLootItems(lootUiGame).length>=1,'personal storage should contain persistent starter items');
+const atpStorage=getExploreSpots('atp').find(entry=>entry.storageId==='atp-second-floor');
+const barracksStorage=getExploreSpots('south-checkpoint').find(entry=>entry.storageId==='barracks-locker');
+assert.ok(atpStorage && barracksStorage,'ATP second floor and barracks must expose personal storage');
+assert.ok(lootUiGame.squads.length>=8,'the Cordon should have more than the original three squads');
+const lootPanelState={screen:'game',characters:[character],activeCharacterId:'smoke',settings:{reducedMotion:false},ui:{tab:'location',pdaOpen:false,modal:'loot-panel',mapView:'map',music:{mode:null,stationId:null,trackId:null,queue:[],index:0,playing:false}},game:lootUiGame};
+const lootMarkup=renderModal(lootPanelState);
+assert.ok(lootMarkup.includes('Найденные вещи') || lootMarkup.includes('Хранилище'));
+assert.ok(lootMarkup.includes('Рюкзак игрока') && lootMarkup.includes('Забрать всё') && lootMarkup.includes('Сложить всё'));
+const inventoryMarkup=renderModal({...lootPanelState,ui:{...lootPanelState.ui,modal:'inventory-panel'}});
+assert.ok(inventoryMarkup.includes('ОСНОВНОЙ 1') && inventoryMarkup.includes('Быстрый доступ'),'inventory should display two main weapon slots and quick access');
+assert.ok(ITEMS.some(item=>item.id==='berill'&&item.armor>0),'armor catalog should include the Berill suit');
+assert.ok(ITEMS.some(item=>item.id==='pg4'&&item.cat==='Защита'),'gas mask catalog should include PG-4');
 
 console.log('Smoke tests passed: PDA/map modes, quest visibility/progress, local radio, inventory/trade overlays, RP exploration, campfire rest, Wolf quest, profile, combat and existing systems.');
