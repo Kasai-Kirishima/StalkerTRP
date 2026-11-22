@@ -18,7 +18,7 @@ export function createInitialState() {
     account: { sessions: 0, enemiesDefeated: 0, questsCompleted: 0, artifactsFound: 0, distanceTravelled: 0 },
     draft: { name:'', birthDate:'', height:'', weight:'', personality:'', biography:'', notes:'', faction:'loner', avatar:'' },
     loadout: { selected: {} },
-    ui: { tab:'location', modal:null, notification:'', music:{ mode:'local', trackId:null, queue:[], index:0, playing:false }, tradeNpcId:null, mapLocationId:null },
+    ui: { tab:'location', modal:null, notification:'', music:{ mode:'local', trackId:null, queue:[], index:0, playing:false }, tradeNpcId:null, mapLocationId:null, encyclopediaCategory:'locations', helpTopic:'basics' },
     game: null
   };
 }

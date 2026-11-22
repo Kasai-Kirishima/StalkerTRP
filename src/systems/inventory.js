@@ -61,6 +61,8 @@ export function canFitLoadout(selected, id, delta, budget) {
   if (!item) return { ok:false, reason:'Неизвестный предмет.' };
   if (delta > 0 && !STARTER_ITEM_IDS.includes(id)) return { ok:false, reason:'Этот предмет нельзя взять в стартовую подборку. Его можно найти в Зоне или приобрести у подходящего торговца.' };
   const nextQty = (selected[id] || 0) + delta;
+  const maxQty = item.cat === 'Броня' || item.cat === 'Защита' || item.weapon ? 1 : ['Боеприпасы','Медицина'].includes(item.cat) ? 3 : item.cat === 'Еда' ? 3 : 2;
+  if (delta > 0 && nextQty > maxQty) return { ok:false, reason:`Для старта можно взять не больше ${maxQty} шт. этого предмета.` };
   if (nextQty < 0) return { ok:false, reason:'Количество не может быть отрицательным.' };
   const next = { ...selected };
   if (nextQty === 0) delete next[id]; else next[id] = nextQty;

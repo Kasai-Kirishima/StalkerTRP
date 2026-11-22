@@ -1,6 +1,7 @@
 export const ASSETS = {
   menu: new URL('../../assets/images/location-backgrounds/fonderevnanovickov%20vhod.webp', import.meta.url).href,
   pda: new URL('../../assets/images/location-backgrounds/kpkfon.webp', import.meta.url).href,
+  pdaBackdrop: new URL('../../assets/images/cordon-clean.webp', import.meta.url).href,
   locationBackgrounds: {
     'north-checkpoint': new URL('../../assets/images/location-backgrounds/severblokpostfon.webp', import.meta.url).href,
     farmstead: new URL('../../assets/images/location-backgrounds/fonryinhytor.webp', import.meta.url).href,
@@ -49,8 +50,8 @@ export const ASSETS = {
     optik: new URL('../../assets/images/armor/protivogazoptikicon.webp', import.meta.url).href,
     psz5: new URL('../../assets/images/armor/pz-5icon.webp', import.meta.url).href,
     zarya: new URL('../../assets/images/armor/zaraicon.webp', import.meta.url).href,
-    leather: new URL('../../assets/images/armor/kosyhaicon.webp', import.meta.url).href,
-    biker: new URL('../../assets/images/armor/kozanplashicon.webp', import.meta.url).href,
+    leather: new URL('../../assets/images/armor/kozankaicon.webp', import.meta.url).href,
+    biker: new URL('../../assets/images/armor/kosyhaicon.webp', import.meta.url).href,
     debyt: new URL('../../assets/images/armor/debyticon.webp', import.meta.url).href,
     berill: new URL('../../assets/images/armor/berilicon.webp', import.meta.url).href,
     kosyha: new URL('../../assets/images/armor/kosyhaicon.webp', import.meta.url).href,
@@ -177,9 +178,9 @@ export const ITEMS = [
   { id:'gravi', name:'Артефакт «Грави»', price:1100, weight:.4, w:2,h:2, cat:'Артефакты', desc:'Гравитационный артефакт, образующийся в полях аномалий типа Воронка и Трамплин.', image:'' },
   { id:'milmed', name:'Военная аптечка', price:700, weight:.45, w:2,h:1, cat:'Медицина', desc:'Улучшенная аптечка.', image:'', use:'heal', restore:60 },
   { id:'aurora', name:'Противогаз «Аврора»', price:800, weight:1.2, w:2,h:2, cat:'Защита', desc:'Базовая защита органов дыхания.', image:'' },
-  { id:'leather', name:'Кожанка', price:900, weight:2.8, w:2,h:3, cat:'Броня', desc:'Лёгкая куртка с минимальной защитой.', image:'', armor:8 },
+  { id:'leather', name:'Кожанка', price:850, weight:2.8, w:2,h:3, cat:'Броня', desc:'Обычная кожаная куртка новичка. Изображение соответствует предмету — бронекуртка «Кожанка», а не косуха.', image:'', armor:8 },
   { id:'sawedoff', name:'Обрез', price:950, weight:2.2, w:2,h:2, cat:'Оружие', desc:'Двуствольное ружьё укороченного типа.', image:'', damage:28, weapon:'shotgun', ammo:'shells' },
-  { id:'biker', name:'Косуха', price:1100, weight:2.4, w:2,h:3, cat:'Броня', desc:'Кожаная куртка, узнаваемая среди бандитов.', image:'', armor:10 },
+  { id:'biker', name:'Косуха', price:1100, weight:2.4, w:2,h:3, cat:'Броня', desc:'Чёрная кожаная косуха. Отличается от обычной кожанки.', image:'', armor:10 },
   { id:'pm', name:'ПМм', price:1250, weight:.9, w:2,h:2, cat:'Оружие', desc:'Пистолет под патрон 9×18 мм.', image:'', damage:21, weapon:'pistol', ammo:'ammo9x18' },
   { id:'otklik', name:'Детектор «Отклик»', price:1450, weight:.7, w:2,h:2, cat:'Снаряжение', desc:'Простейший детектор аномальных сигналов. Нужен для поиска артефактов.', image:'' },
   { id:'medved', name:'Детектор аномалий «Медведь»', price:3200, weight:.9, w:2,h:2, cat:'Снаряжение', desc:'Более точный детектор: помогает различать сильные и слабые отклики в аномальных полях.', image:'', emoji:'📡' },
@@ -192,9 +193,9 @@ export const ITEMS = [
   { id:'zarya', name:'Заря', price:5200, weight:6.5, w:3,h:3, cat:'Броня', desc:'Защитный костюм для опасных вылазок.', image:'', armor:30 },
   { id:'berill', name:'Бронекостюм «Берилл»', price:6200, weight:7.2, w:3,h:3, cat:'Броня', desc:'Тяжёлый защитный комплект с усиленной бронёй.', image:'', armor:34 },
   { id:'debyt', name:'Защитный костюм «Дебют»', price:1800, weight:3.6, w:2,h:3, cat:'Броня', desc:'Простой защитный комплект для первых вылазок.', image:'', armor:12 },
-  { id:'kosyha', name:'Кожаная куртка', price:1050, weight:2.5, w:2,h:3, cat:'Броня', desc:'Лёгкая куртка с простыми защитными вставками.', image:'', armor:9 },
+  { id:'kosyha', name:'Усиленная косуха', price:1050, weight:2.5, w:2,h:3, cat:'Броня', desc:'Косуха с простыми защитными вставками.', image:'', armor:9 },
   { id:'kozanka', name:'Бандитская бронекуртка', price:1450, weight:3.1, w:2,h:3, cat:'Броня', desc:'Усиленная куртка, которую носят некоторые группировки.', image:'', armor:13 },
-  { id:'kozanplash', name:'Плащ с защитными вставками', price:2200, weight:4.2, w:2,h:3, cat:'Броня', desc:'Плотный плащ с дополнительными защитными слоями.', image:'', armor:16 },
+  { id:'kozanplash', name:'Плащ', price:1650, weight:3.8, w:2,h:3, cat:'Броня', desc:'Плотный плащ с капюшоном и простыми защитными вставками. Доступен для выбора перед первым выходом.', image:'', armor:13 },
   { id:'stalnoishlem', name:'Стальной шлем', price:1650, weight:2.1, w:2,h:2, cat:'Броня', desc:'Защитный шлем для опасных переходов.', image:'', armor:8 },
   { id:'pa8', name:'Противогаз ПА-8', price:950, weight:1.1, w:2,h:2, cat:'Защита', desc:'Фильтрующий противогаз базового класса.', image:'' },
   { id:'mask-loner-basic', name:'Противогаз новичка «ПА-8Л»', price:520, weight:1.0, w:2,h:2, cat:'Защита', desc:'Простой подержанный противогаз, который часто достаётся новичкам-одиночкам. Защита базовая, фильтр лучше заменить при первой возможности.', image:'', faction:'loner', starterOnly:true },
@@ -327,24 +328,24 @@ export const SQUADS = [
 // Rare protection, advanced weapons, detectors, mutant trophies and artifacts are excluded.
 export const STARTER_ITEM_IDS = [
   'bread','water','sausage','shells','energy','canned',
-  'knife','ammo9x18','ammo9x19','bandage','boltpack','rgd5','ai2',
-  'sawedoff','pm','binoculars','leather','kosyha','kozanka','debyt',
+  'knife','ammo9x18','ammo9x19','bandage','boltpack','rgd5','ai2','antirad',
+  'sawedoff','pm','binoculars','leather','kozanka','kozanplash','debyt',
   'mask-loner-basic','mask-bandit-basic','mask-military-basic'
 ];
 
 // На старте доступны только простые комплекты, подходящие фракции и рангу новичка.
 // Тяжёлую броню и продвинутые противогазы можно найти или купить позднее.
 export const STARTER_LOADOUT_BY_FACTION = {
-  loner: { armor:['leather','kosyha'], mask:['mask-loner-basic'] },
-  bandit: { armor:['kozanka'], mask:['mask-bandit-basic'] },
+  loner: { armor:['leather','kozanplash'], mask:['mask-loner-basic'] },
+  bandit: { armor:['kozanka','kozanplash'], mask:['mask-bandit-basic'] },
   military: { armor:['debyt'], mask:['mask-military-basic'] }
 };
 export const ITEM_ACQUISITION = {
-  traderOnly: ['aksu','ammo545','vm17','gaduka','psz5','aurora','optik','zarya','biker','berill','kozanplash','stalnoishlem','pa8','pa10','pg4'],
+  traderOnly: ['aksu','ammo545','vm17','gaduka','psz5','aurora','optik','zarya','biker','berill','stalnoishlem','pa8','pa10','pg4'],
   searchOnly: ['flash'],
   traderOrSearch: ['otklik','milmed'],
   mutantDrops: ['tail','flesh-eye'],
   artifactHunt: ['medusa','meat_chunk','gravi']
 };
-export const START_BUDGET = 3000;
+export const START_BUDGET = 5200;
 export const MAX_CARRY_KG = 50;

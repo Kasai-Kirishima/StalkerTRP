@@ -131,6 +131,14 @@ for (const faction of FACTIONS) {
   assert.ok(game.traders.some(entry=>entry.id==='sidorovich'));
 }
 
+// Starter economy supports a practical multi-item kit and distinct leather jacket/cosukha art.
+assert.equal(START_BUDGET,5200,'starting budget should leave enough room for beginner gear and a small reserve');
+assert.ok(ASSETS.armor.leather.includes('kozankaicon.webp'),'Кожанка must use the Kozanka leather jacket artwork');
+assert.ok(ASSETS.armor.biker.includes('kosyhaicon.webp'),'Косуха must use its own Kosyha artwork');
+const kitFit=canFitLoadout({bread:1},'water',1,START_BUDGET);
+assert.equal(kitFit.ok,true,'several different starter goods should be selectable together');
+assert.equal(canFitLoadout({bread:1},'bread',1,START_BUDGET).ok,true,'basic food quantities may exceed one item');
+
 // Starter armour and a basic faction-matched gas mask are available at character creation.
 for (const faction of FACTIONS) {
   const loadout=STARTER_LOADOUT_BY_FACTION[faction.id];
@@ -140,7 +148,10 @@ for (const faction of FACTIONS) {
   for (const id of [...loadout.armor,...loadout.mask]) assert.ok(html.includes(`data-id=\"${id}\"`),`${id} should appear in the ${faction.id} starter shop`);
   for (const other of FACTIONS.filter(entry=>entry.id!==faction.id)) {
     const otherGear=STARTER_LOADOUT_BY_FACTION[other.id];
-    for (const id of [...otherGear.armor,...otherGear.mask]) assert.ok(!loadout.armor.includes(id)&&!loadout.mask.includes(id),`${id} must not be a ${faction.id} starter option`);
+    for (const id of [...otherGear.armor,...otherGear.mask]) {
+      if (id==='kozanplash') continue; // basic cloak is a shared beginner option for loners and bandits
+      assert.ok(!loadout.armor.includes(id)&&!loadout.mask.includes(id),`${id} must not be a ${faction.id} starter option`);
+    }
   }
 }
 
@@ -379,7 +390,7 @@ for (const restricted of ['aksu','ammo545','psz5','aurora','optik','zarya','otkl
   assert.equal(canFitLoadout({},restricted,1,START_BUDGET).ok,false,`${restricted} must be blocked from starter selection`);
 }
 for (const itemId of STARTER_ITEM_IDS) assert.ok(ITEMS.some(item=>item.id===itemId),`starter item ${itemId} must exist`);
-for (const armorId of ['leather','kosyha','kozanka','debyt']) assert.ok(STARTER_ITEM_IDS.includes(armorId),`${armorId} should be selectable as starter armour`);
+for (const armorId of ['leather','kozanplash','kozanka','debyt']) assert.ok(STARTER_ITEM_IDS.includes(armorId),`${armorId} should be selectable as starter armour`);
 const starterArmourGame=createGame(character,[{id:'debyt',qty:1}],START_BUDGET-1800);
 assert.equal(starterArmourGame.player.armorId,'debyt','starter armour should be equipped when a new game is created');
 assert.equal(starterArmourGame.player.armor,12,'starter armour protection should be active immediately');
@@ -449,6 +460,8 @@ assert.ok(processPlayerAction(exploreGame,'поищи припасы').message.l
 addItem(game.inventory,'knife',1);
 addItem(game.inventory,'pm',1);
 beginEncounter(game,'bandit');
+const combatHtml=renderGame({screen:'game',characters:[character],activeCharacterId:'smoke',settings:{},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:'local',queue:[],index:0,playing:false}},game});
+assert.ok(combatHtml.includes('enemy-portrait-art') && combatHtml.includes('enemy-body-art') && combatHtml.includes('enemy-faction-row'),'combat should show separate portrait, full-body appearance and faction insignia');
 const attack=playerAttack(game);
 assert.ok(attack.message.includes('Нож'));
 
@@ -457,10 +470,14 @@ assert.ok(renderMenu(uiState).includes('Играть'));
 assert.ok(renderMenu(uiState).includes('fonderevnanovickov'),'menu should reference a local background');
 const createHtml=renderCreate(uiState);
 assert.ok(createHtml.includes('open-avatars') && createHtml.includes('ПРИНАДЛЕЖНОСТЬ К ГРУППИРОВКЕ'));
+assert.ok(createHtml.includes('pda-screen-wrap') && createHtml.includes('kpkfon.webp'),'character creation must use the provided PDA housing');
+assert.ok(!createHtml.includes('faction-insignia') && !createHtml.includes('rank-insignia') && !createHtml.includes('⚑'),'faction selection must not show an extra flag/badge below faction names');
+assert.ok(createHtml.includes('Стартовую локацию') || createHtml.includes('стартовую локацию'),'faction selection should explain its effect without extra badges');
 assert.ok(renderLoadout(uiState).includes('СТАРТОВАЯ ПОДБОРКА'));
+assert.ok(renderLoadout(uiState).includes('Плащ') && renderLoadout(uiState).includes('до 3 шт.'),'beginner characters should be able to choose a faction-allowed cloak and several basic supplies');
 for (const hidden of ['АКСУ','Пачка патронов 5.45×39','Хвост слепого пса','Глаз плоти','Медуза','Ломоть мяса','Грави','Заря']) assert.ok(!renderLoadout(uiState).includes(hidden),`${hidden} must not appear in the starter screen`);
 const closedPdaHtml=renderGame(uiState);
-assert.ok(closedPdaHtml.includes('Открыть КПК'));
+assert.ok(closedPdaHtml.includes('КПК') && closedPdaHtml.includes('pda-toggle-button'));
 assert.ok(!closedPdaHtml.includes('aria-label="Разделы КПК"'),'PDA tabs must stay hidden until the device is opened');
 assert.ok(closedPdaHtml.includes('Текущая локация') || closedPdaHtml.includes('ДЕЙСТВИЯ'));
 uiState.ui.pdaOpen=true;
@@ -472,7 +489,8 @@ const locationHtml=renderGame(uiState);
 assert.ok(!locationHtml.includes('Радио Деревни новичков') && !locationHtml.includes('data-action="radio-base-open"'),'there must be no in-location radio controls');
 assert.ok(!/https?:\/\//i.test(locationHtml),'the location scene must not add external music URLs');
 assert.ok(!locationHtml.includes('music-dock'),'the bottom music dock should remain removed');
-assert.ok(locationHtml.includes('npc-mini-body') && locationHtml.includes('faction-insignia'),'nearby NPC roster should show paired local character art and faction emblems');
+assert.ok(locationHtml.includes('npc-scene-portrait') && locationHtml.includes('npc-scene-body') && locationHtml.includes('npc-talk-icon'),'nearby NPCs should have separate portrait/body cells and a talk icon');
+assert.equal((locationHtml.match(/class="npc-interaction"/g)||[]).length,Math.min(2,getAvailableStalkers(uiState.game,uiState.game.locationId).length),'the world scene must not expand into a full roster panel');
 assert.ok(locationHtml.includes('Купонов') && !/\bRU\b/.test(locationHtml),'all balances should use the in-world Coupons currency label');
 addItem(game.inventory,'bread',1);
 addItem(game.inventory,'water',1);
@@ -480,6 +498,11 @@ const inventoryUi=renderModal({...uiState,ui:{...uiState.ui,modal:'inventory-pan
 assert.ok(inventoryUi.includes('🍞') && inventoryUi.includes('💧'),'inventory should use distinct item-specific icons rather than a repeated generic symbol');
 assert.ok(costumeFitCss.includes('object-fit:contain'),'armor artwork should preserve its full silhouette');
 assert.match(costumeFitCss,/\.scene-interactions\s*\{[^}]*grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/s,'desktop NPC list should use a compact two-column layout');
+assert.match(costumeFitCss,/\.pda-screen-wrap\{[^}]*aspect-ratio:4\/3/s,'character creation should preserve the PDA frame proportions');
+assert.match(costumeFitCss,/\.pda-screen-wrap\{[^}]*padding:11\.7% 13\.8% 12\.8% 11\.4%/s,'character creation content should align with the PDA glass without hiding the device frame');
+assert.match(costumeFitCss,/\.pda-fullscreen-page\{[^}]*rgba\(7,12,8,\.48\)[^}]*var\(--pda-texture\)/s,'fullscreen PDA should keep the supplied background texture visible');
+assert.match(costumeFitCss,/\.pda-fullscreen-page\{[^}]*var\(--pda-texture\)/s,'the fullscreen PDA should use the supplied PDA glass texture');
+assert.match(costumeFitCss,/\.contact-card-clean\{[^}]*grid-template-columns:82px/s,'contacts should use compact rows with separate artwork cells');
 const remoteRadioState={...uiState,game:{...uiState.game,locationId:'elevator'}};
 assert.ok(!renderGame(remoteRadioState).includes('Радио'),'no location should expose an internet radio station');
 uiState.ui.pdaOpen=true;
@@ -530,8 +553,8 @@ const militaryAvatarModal=renderModal({...uiState,draft:{...uiState.draft,factio
 assert.ok(militaryAvatarModal.includes('Дмитрий Дзержинский') && !militaryAvatarModal.includes('Кефир'),'military avatar picker should only show military faction appearances');
 uiState.ui.tab='stats';
 const statsHtml=renderGame(uiState);
-assert.ok(statsHtml.includes('profile-edit-form') && statsHtml.includes('Выбрать значок'),'PDA statistics must provide editable character dossier');
-assert.ok(statsHtml.includes('profile-heading-art') && statsHtml.includes('faction-insignia') && statsHtml.includes('rank-insignia'),'character dossier should show both faction and rank insignia');
+assert.ok(statsHtml.includes('profile-edit-form') && statsHtml.includes('Выбрать портрет'),'PDA statistics must provide editable character dossier');
+assert.ok(statsHtml.includes('profile-heading-art') && statsHtml.includes('faction-insignia') && !statsHtml.includes('rank-insignia'),'character dossier should show only the faction mark, not redundant rank stickers');
 // PDA tabs keep inventory/trade/radio out; these remain location or independent overlays.
 const tabState={...uiState,ui:{...uiState.ui,pdaOpen:true,tab:'location',modal:null,mapView:'map'}};
 const tabMarkup=renderGame(tabState);
@@ -539,7 +562,9 @@ assert.ok(tabMarkup.includes('Места и обыск') && !tabMarkup.includes(
 assert.ok(!tabMarkup.includes('data-tab="inventory"')&&!tabMarkup.includes('data-tab="trade"')&&!tabMarkup.includes('data-tab="radio"'));
 assert.ok(!tabMarkup.includes('music-dock'));
 const contactsMarkup=renderGame({...tabState,ui:{...tabState.ui,tab:'contacts'}});
-assert.ok(!contactsMarkup.includes('data-action="trade-open"'),'contacts tab should not expose trade inside the PDA');
+assert.ok(contactsMarkup.includes('contact-card-clean') && contactsMarkup.includes('contact-clean-body'),'contacts should show compact cards with separate full-body NPC artwork');
+assert.ok(contactsMarkup.includes('talk-action') && contactsMarkup.includes('icon-action'),'contacts should expose icon-based dialogue actions');
+assert.ok(!contactsMarkup.includes('Не здесь'),'contacts should not list remote NPCs as unavailable cards');
 
 // Quests are hidden from the quest list until accepted and then show progress.
 const questVisibilityGame=createGame(character,[],START_BUDGET);
@@ -775,7 +800,8 @@ assert.ok(populationOne.ambientNpcs.every(npc=>!/[«»\"“”]/.test(npc.name))
 const encyclopediaView=renderGame({...dialogueState,ui:{...dialogueState.ui,pdaOpen:true,tab:'encyclopedia'}});
 assert.ok(encyclopediaView.includes('Энциклопедия Зоны'));
 const helpView=renderGame({...dialogueState,ui:{...dialogueState.ui,pdaOpen:true,tab:'help'}});
-assert.ok(helpView.includes('Помощь сталкеру') && helpView.includes('Карусель') && helpView.includes('Воронка'));
+assert.ok(helpView.includes('Помощь сталкеру') && helpView.includes('Что писать') && helpView.includes('ПРИМЕРЫ ФРАЗ'));
+assert.ok(helpView.includes('RP-действия'),'help should teach practical roleplay commands rather than world lore');
 const soundSettingsView=renderGameSettings({settings:{soundEnabled:true,soundVolume:.4,uiScale:1,reducedMotion:false}});
 assert.ok(soundSettingsView.includes('data-setting="soundEnabled"') && soundSettingsView.includes('data-setting="soundVolume"'));
 

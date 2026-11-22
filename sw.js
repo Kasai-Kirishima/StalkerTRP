@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cordon-pda-v253-visual-regression-fixes';
+const CACHE_NAME = 'cordon-pda-v2554-layout-contacts-pda-assets';
 const APP_SHELL = [
   "./",
   "./index.html",

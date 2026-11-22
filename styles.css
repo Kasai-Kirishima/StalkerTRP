@@ -682,3 +682,370 @@ html { zoom: var(--ui-scale, 1); }
 
 /* Keep faction and rank marks visible together in the character dossier. */
 .profile-heading-art{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex:0 0 auto}.profile-heading-art .faction-insignia,.profile-heading-art .rank-insignia{width:28px;height:28px;max-width:28px;max-height:28px;object-fit:contain}.profile-heading-art .avatar-wrap{width:52px;height:52px;flex:0 0 52px}
+
+/* v2.5.4 — focused PDA layouts, clear NPC artwork, and readable guide/contact panels. */
+.ui-icon{display:inline-block;width:1.12em;height:1.12em;flex:0 0 auto;vertical-align:-.2em}
+.nav-tab>span{display:grid;place-items:center;width:24px;height:22px;color:#cbd69a}
+.nav-tab>span .ui-icon{width:20px;height:20px}
+.nav-tab.active>span{color:#edf3b8}
+.button .ui-icon{width:15px;height:15px}
+
+/* Character creation sits inside the supplied PDA housing, not inside a second faux frame. */
+.pda-screen-wrap{width:min(1120px,calc(100% - 24px));height:min(760px,calc(100dvh - 12px));min-height:570px;margin:6px auto;padding:clamp(66px,10.5%,82px) 9.2% 7.3%;display:flex;flex-direction:column;gap:5px;overflow:hidden;background-image:var(--pda-shell);background-position:center;background-repeat:no-repeat;background-size:100% 100%}
+.pda-create-heading{flex:0 0 auto;align-items:center;gap:12px;margin:0;padding:0 3px 4px}
+.pda-create-heading h2{font-size:clamp(18px,1.8vw,24px);margin:3px 0 4px}
+.pda-create-heading p{font-size:11px}
+.pda-create-heading .eyebrow{font-size:9px}
+.pda-create-heading>.button{padding:6px 9px;font-size:10px}
+.pda-form{flex:1;min-height:0;display:flex;flex-direction:column;overflow:auto;padding:7px 11px 8px;border:0;border-radius:0;background:linear-gradient(145deg,rgba(13,21,14,.68),rgba(8,14,9,.78));box-shadow:none;scrollbar-width:thin;scrollbar-color:#718052 #10170f}
+.pda-form:before{display:none}
+.pda-topline{padding-bottom:6px;font-size:8px}
+.pda-form-layout{flex:1;min-height:0;display:grid;grid-template-columns:145px minmax(0,1fr);gap:14px;padding:8px 0}
+.pda-photo-column{min-width:0;align-items:center;gap:6px;padding:5px;background:rgba(5,10,7,.28);border:1px solid rgba(150,171,104,.25)}
+.pda-photo-column .photo-frame{width:90px;height:104px;flex:none;background:#0a100b;border:1px solid #778752}
+.pda-photo-column .photo-frame .avatar-wrap{width:100%;height:100%;border:0}
+.pda-photo-column .photo-frame .avatar-wrap img{object-fit:cover}
+.pda-photo-column>b{font-size:8px}
+.pda-photo-column>.button{min-height:26px;padding:5px 6px;font-size:9px}
+.create-appearance-preview{display:flex;align-items:center;flex-direction:column;gap:2px;width:100%;min-height:95px;padding:4px;background:#0c130d;border:1px solid #465639}
+.create-appearance-preview small,.create-appearance-empty{font:7px 'Share Tech Mono',monospace;color:#a8b88a;text-align:center}
+.create-appearance-preview img{height:78px;max-width:100%;object-fit:contain;object-position:center bottom}
+.create-appearance-empty{display:grid;place-items:center;flex:1;width:100%;min-height:70px;border:1px dashed #48583b;line-height:1.4}
+.pda-fields{grid-template-columns:repeat(2,minmax(0,1fr));align-content:start;gap:7px}
+.pda-fields .field-name,.pda-fields .pda-profile-fields{grid-column:1/-1}
+.pda-profile-fields{grid-template-columns:1.4fr .8fr .8fr;gap:7px}
+.pda-fields .field{gap:3px}
+.pda-fields .field>span{font-size:8px}
+.pda-fields .field input,.pda-fields .field textarea{padding:6px 7px;font-size:11px;min-height:28px}
+.pda-fields .field textarea{min-height:50px;max-height:72px;resize:vertical}
+.pda-faction-section{flex:0 0 auto;padding-top:7px}
+.pda-faction-section .section-caption{margin-bottom:6px}
+.pda-faction-section .section-caption b{font-size:8px}
+.pda-faction-section .section-caption small{font-size:9px}
+.faction-options{gap:7px}
+.faction-choice{min-height:46px;padding:6px 8px;gap:7px;background:rgba(6,11,7,.7)}
+.faction-choice b{font-size:11px}
+.faction-choice small{font-size:8px;line-height:1.25}
+.faction-choice:before,.faction-choice:after{content:none!important}
+.pda-footer{flex:0 0 auto;margin-top:7px;padding-top:7px;gap:8px}
+.pda-footer>span{font-size:8px}
+.pda-footer .button{padding:7px 10px;font-size:10px}
+@media(max-height:760px) and (min-width:761px){
+  .pda-screen-wrap{height:calc(100dvh - 8px);min-height:0;padding-top:9.5%;padding-bottom:6.5%}
+  .pda-form-layout{padding:5px 0;grid-template-columns:125px minmax(0,1fr);gap:10px}
+  .pda-photo-column .photo-frame{width:78px;height:88px}
+  .create-appearance-preview{min-height:77px}
+  .create-appearance-preview img{height:60px}
+  .pda-fields{gap:5px}
+  .pda-fields .field textarea{min-height:39px;max-height:48px}
+  .faction-choice{min-height:39px}
+}
+@media(max-width:760px){
+  .pda-screen-wrap{width:calc(100% - 12px);height:auto;min-height:calc(100dvh - 12px);padding:48px 25px 30px;background-size:100% 100%;gap:4px}
+  .pda-create-heading h2{font-size:18px}
+  .pda-create-heading p{display:none}
+  .pda-form{overflow:visible;padding:7px}
+  .pda-form-layout{grid-template-columns:94px minmax(0,1fr);gap:8px}
+  .pda-photo-column .photo-frame{width:70px;height:82px}
+  .pda-photo-column>.button{font-size:8px;padding:4px}
+  .create-appearance-preview{min-height:72px}
+  .create-appearance-preview img{height:54px}
+  .pda-fields{grid-template-columns:1fr}
+  .pda-fields .field-name,.pda-fields .pda-profile-fields{grid-column:auto}
+  .pda-profile-fields{grid-template-columns:1fr 1fr}
+  .pda-profile-fields label:first-child{grid-column:1/-1}
+  .faction-choice{min-height:42px}
+  .pda-footer{align-items:stretch;flex-direction:column}
+}
+
+/* A quiet, purpose-built PDA glass texture replaces the unrelated satellite-map wallpaper. */
+.pda-fullscreen-page{background:radial-gradient(ellipse at 18% 0%,rgba(91,112,57,.18),transparent 42%),radial-gradient(ellipse at 90% 100%,rgba(64,85,50,.12),transparent 48%),repeating-linear-gradient(0deg,rgba(192,207,142,.018) 0 1px,transparent 1px 4px),linear-gradient(135deg,#101710 0%,#171f16 52%,#0d140e 100%);background-image:radial-gradient(ellipse at 18% 0%,rgba(91,112,57,.18),transparent 42%),radial-gradient(ellipse at 90% 100%,rgba(64,85,50,.12),transparent 48%),repeating-linear-gradient(0deg,rgba(192,207,142,.018) 0 1px,transparent 1px 4px),linear-gradient(135deg,#101710 0%,#171f16 52%,#0d140e 100%);background-size:auto;background-attachment:scroll}
+.pda-fullscreen-header{background:rgba(8,13,9,.84);border-bottom:1px solid #536440}
+.pda-fullscreen-tabs{background:rgba(10,16,11,.76);border-bottom:1px solid #394a31}
+.pda-fullscreen-content{width:100%;max-width:1440px;margin:0 auto;overflow:auto;min-height:0;flex:1;scrollbar-width:thin;scrollbar-color:#66764b #101710}
+
+/* Contacts are compact rows: portrait, full-body appearance and insignia are independent elements. */
+.contacts-page{max-width:1320px;margin:0 auto}
+.contacts-page .tab-heading{align-items:center;margin-bottom:10px}
+.contacts-page .tab-heading h2{font-size:clamp(21px,2.4vw,29px)}
+.contacts-page .tab-heading p{font-size:11px}
+.contacts-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:calc(100dvh - 220px);overflow:auto;padding:2px 5px 2px 0;scrollbar-width:thin;scrollbar-color:#62744b #121910}
+.contact-line{display:grid;grid-template-columns:56px 53px minmax(0,1fr) auto;gap:7px;align-items:center;min-width:0;min-height:94px;padding:7px;background:linear-gradient(115deg,rgba(29,39,26,.96),rgba(14,20,14,.95));border:1px solid #45553a;box-shadow:0 3px 10px #0004}
+.contact-line-portrait,.contact-line-body{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;min-width:0;min-height:74px;padding:3px;background:rgba(5,9,6,.42);border:1px solid #35442d}
+.contact-line-portrait .avatar-wrap{width:46px;height:46px;flex:0 0 46px}
+.contact-line-portrait>small,.contact-line-body>small{font:6px 'Share Tech Mono',monospace;letter-spacing:.07em;color:#95a67a}
+.contact-line-body img{display:block;width:100%;height:70px;max-width:48px;object-fit:contain;object-position:center bottom}
+.contact-line-body>span{font-size:20px;color:#899878}
+.contact-line-info{display:flex;flex-direction:column;gap:2px;min-width:0;overflow:hidden}
+.contact-line-info>b{font-size:12px;line-height:1.15;color:#e6ebd5;overflow-wrap:anywhere}
+.contact-line-info>span{font-size:9px;color:#bdc99e}
+.contact-line-info>small{font-size:8px;line-height:1.25;color:#9eac8b;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.contact-line-faction{display:flex;align-items:center;gap:4px;min-width:0;margin-top:2px;font-size:8px;color:#aab98b}
+.contact-line-insignia{width:15px;height:15px;max-width:15px;max-height:15px;object-fit:contain;filter:none}
+.contact-line-actions{display:flex;flex-direction:column;gap:4px;align-items:stretch}
+.contact-line-actions .button{min-height:27px;padding:4px 6px;font-size:8px;white-space:nowrap;gap:4px}
+.contact-line-actions .ui-icon{width:12px;height:12px}
+@media(max-width:980px){.contacts-list{grid-template-columns:1fr}}
+@media(max-width:600px){
+  .contacts-list{max-height:calc(100dvh - 225px)}
+  .contact-line{grid-template-columns:48px 42px minmax(0,1fr) auto;gap:5px;padding:5px}
+  .contact-line-portrait,.contact-line-body{min-height:66px}
+  .contact-line-portrait .avatar-wrap{width:39px;height:39px;flex-basis:39px}
+  .contact-line-body img{height:57px;max-width:39px}
+  .contact-line-info>b{font-size:10px}
+  .contact-line-actions .button span{display:none}
+  .contact-line-actions .button{width:30px;height:28px;padding:4px;justify-content:center}
+}
+
+/* In-scene NPC previews and combat artwork: no image overlap or insignia pasted on a sprite. */
+.npc-interaction{display:flex;align-items:stretch;gap:3px;min-width:0}
+.npc-interaction .npc-chip{display:grid;grid-template-columns:28px 29px minmax(0,1fr) 15px;align-items:center;gap:4px;min-width:0;flex:1;padding:3px 5px}
+.npc-scene-portrait{display:grid;place-items:center;width:27px;height:35px}
+.npc-scene-portrait .avatar-wrap{width:26px;height:26px}
+.npc-scene-body{display:grid;place-items:center;width:28px;height:38px;overflow:hidden;background:#0b110c;border:1px solid #3d4b33}
+.npc-scene-body img{width:100%;height:100%;object-fit:contain;object-position:center bottom}
+.npc-chip-label{display:grid;gap:2px;min-width:0}
+.npc-chip-label b{font-size:9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.npc-chip-label small{font-size:7px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.npc-talk-icon{display:grid;place-items:center;width:15px;height:18px;color:#d3df9d}
+.npc-talk-icon .ui-icon{width:14px;height:14px}
+.npc-trade-button{display:grid;place-items:center;width:28px;min-width:28px;padding:3px}
+.npc-trade-button .ui-icon{width:15px;height:15px}
+.enemy-stage{display:grid;grid-template-columns:auto minmax(110px,1fr);gap:12px;width:min(520px,100%);align-items:center}
+.enemy-art-pair{display:flex;align-items:center;gap:7px;min-width:0}
+.enemy-portrait-frame,.enemy-body-frame{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:3px;padding:4px;background:#111810;border:1px solid #596544;min-width:0}
+.enemy-portrait-frame{width:64px;height:88px;flex:0 0 64px}
+.enemy-portrait-frame small,.enemy-body-frame small{font:6px 'Share Tech Mono',monospace;color:#aab98b}
+.enemy-portrait-art{display:block;width:54px;height:65px;object-fit:cover}
+.enemy-body-frame{width:88px;height:126px;flex:0 0 88px}
+.enemy-body-art{display:block;width:100%;height:103px;max-width:100%;object-fit:contain;object-position:center bottom}
+.enemy-fallback{font-size:32px;color:#d3dc9a}
+.enemy-faction-row{display:flex;align-items:center;gap:5px;font-size:8px;color:#c5d19e}
+.enemy-faction-row .faction-insignia{width:17px;height:17px;max-width:17px;max-height:17px;filter:none}
+.enemy-stage-info{min-width:0}
+@media(max-width:700px){
+  .enemy-stage{grid-template-columns:auto minmax(0,1fr);gap:6px;margin:7px auto;padding:6px}
+  .enemy-portrait-frame{width:48px;height:70px;flex-basis:48px}
+  .enemy-portrait-art{width:40px;height:48px}
+  .enemy-body-frame{width:61px;height:100px;flex-basis:61px}
+  .enemy-body-art{height:78px}
+}
+
+/* Guide pages use a left navigation rail and a distinct right-hand article panel. */
+.split-guide-page{max-width:1320px;margin:0 auto}
+.split-guide-page>.tab-heading{margin-bottom:12px;align-items:center}
+.split-guide-page>.tab-heading h2{font-size:clamp(22px,2.5vw,30px)}
+.split-guide-page>.tab-heading p{font-size:11px}
+.split-guide-layout{display:grid;grid-template-columns:minmax(170px,218px) minmax(0,1fr);gap:12px;align-items:stretch;min-height:min(530px,calc(100dvh - 215px))}
+.guide-side-tabs{display:flex;flex-direction:column;gap:5px;min-width:0;padding:7px;background:rgba(8,14,9,.72);border:1px solid #465538;overflow:auto;scrollbar-width:thin;scrollbar-color:#65764b #111710}
+.guide-tab{display:grid;grid-template-columns:22px minmax(0,1fr) auto;align-items:center;gap:7px;min-height:39px;padding:7px 8px;text-align:left;background:#171f15;border:1px solid #35452e;color:#cbd5b8;font-size:10px}
+.guide-tab .ui-icon{width:18px;height:18px}
+.guide-tab.active{background:linear-gradient(110deg,#3b4a2c,#202b1b);border-color:#a6b66b;color:#f0f2dc;box-shadow:inset 3px 0 #c7d581}
+.guide-tab small{font-size:8px;color:#94a47b}
+.guide-tab-icon{display:grid;place-items:center;color:#b9c98b}
+.guide-detail{min-width:0;padding:15px;background:linear-gradient(145deg,rgba(28,39,27,.94),rgba(13,20,14,.97));border:1px solid #4a5a3b;box-shadow:0 6px 18px #0003;overflow:auto;scrollbar-width:thin;scrollbar-color:#65764b #111710}
+.guide-detail-heading{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-bottom:9px;border-bottom:1px solid #405036}
+.guide-detail-heading h3{font-size:18px;margin:3px 0;color:#e3eacf}
+.guide-detail-heading>span{font:9px 'Share Tech Mono',monospace;color:#b6c68b}
+.encyclopedia-entry-list{display:grid;gap:8px;padding-top:10px}
+.encyclopedia-entry-card{display:grid;grid-template-columns:112px minmax(0,1fr);gap:10px;align-items:start;padding:9px;background:#101710;border:1px solid #35432d}
+.encyclopedia-entry-art{display:grid;place-items:center;min-height:86px;max-height:120px;overflow:hidden;background:#080e09;border:1px solid #36452e}
+.encyclopedia-entry-art img{display:block;width:100%;height:100%;max-height:118px;object-fit:contain}
+.encyclopedia-art-fallback{font-size:32px;color:#b6c783}
+.encyclopedia-entry-copy{min-width:0}
+.encyclopedia-entry-copy>b{font-size:12px;color:#e0e9cd}
+.encyclopedia-entry-copy p{font-size:10px;line-height:1.5;color:#b2bea2;margin:5px 0}
+.encyclopedia-entry-copy small{font-size:8px;color:#8d9c7b}
+.guide-empty{display:flex;align-items:center;justify-content:center;flex-direction:column;min-height:250px;padding:20px;text-align:center;color:#9ba98b}
+.guide-empty>span{font-size:34px;color:#b4c27e}
+.guide-empty>b{margin:8px 0 2px;color:#e0e8d0;font-size:13px}
+.guide-empty p{max-width:370px;font-size:10px;line-height:1.5}
+.help-topic-text{max-width:850px;margin:13px 0;color:#d1dbc0;font-size:13px;line-height:1.7}
+.help-examples{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding-top:10px;border-top:1px solid #3b4a32}
+.help-examples>b{flex:0 0 100%;font:9px 'Share Tech Mono',monospace;letter-spacing:.1em;color:#aebe83}
+.help-examples span{display:inline-flex;padding:6px 9px;background:#0c130d;border:1px solid #526341;color:#d5e0bd;font-size:10px}
+@media(max-width:760px){
+  .split-guide-layout{grid-template-columns:1fr;min-height:0;gap:7px}
+  .guide-side-tabs{flex-direction:row;overflow-x:auto;overflow-y:hidden;white-space:nowrap;padding:5px}
+  .guide-tab{flex:0 0 auto;grid-template-columns:18px auto auto;min-height:34px;padding:5px 7px}
+  .guide-tab small{display:none}
+  .guide-detail{min-height:300px;padding:10px}
+  .encyclopedia-entry-card{grid-template-columns:80px minmax(0,1fr)}
+}
+
+/* v2.5.4 visual repair: compact controls, contacts and screen-fitted views. */
+.ui-icon{width:16px;height:16px;vertical-align:-.18em;flex:0 0 auto}
+.button .ui-icon{width:15px;height:15px}
+.game-topbar .ui-icon{width:15px;height:15px}
+.pda-device-mark .ui-icon{width:18px;height:18px;vertical-align:-.25em}
+.send-action .ui-icon{width:15px;height:15px}
+
+/* Contacts are short, readable rows. Body sprites stay in dialogue and combat previews. */
+.contacts-page{max-width:1240px;margin:0 auto}
+.contacts-list-clean{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:calc(100dvh - 220px);overflow:auto;padding:2px 5px 2px 0;align-content:start;scrollbar-width:thin;scrollbar-color:#65764b #111710}
+.contact-card-clean{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:9px;align-items:center;min-width:0;min-height:66px;padding:7px 9px;background:linear-gradient(115deg,#1b2519,#111811);border:1px solid #435238;box-shadow:0 2px 8px #0003}
+.contact-clean-portrait{width:42px;height:42px;overflow:hidden;background:#0c130d;border:1px solid #566644}
+.contact-clean-portrait .avatar-wrap{width:100%;height:100%;border:0;background:transparent}
+.contact-clean-portrait .avatar-wrap img{object-fit:cover}
+.contact-clean-portrait .avatar-fallback{font-size:21px}
+.contact-clean-info{display:grid;gap:2px;min-width:0;overflow:hidden}
+.contact-clean-info>b{font-size:12px;line-height:1.15;color:#e7edd9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.contact-clean-info>span{font-size:9px;line-height:1.2;color:#c4d19e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.contact-clean-info>small{font-size:8px;line-height:1.25;color:#98a78b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.contact-clean-actions{display:flex;gap:5px;align-items:center}
+.icon-action{display:grid;place-items:center;width:30px;height:30px;padding:0;background:#182218;border:1px solid #536541;color:#d5e2a5;border-radius:3px}
+.icon-action:hover{background:#33462a;border-color:#a8ba70}
+.icon-action .ui-icon{width:15px;height:15px}
+.trade-action{color:#e4c98c;border-color:#746344}
+@media(max-width:900px){.contacts-list-clean{grid-template-columns:1fr}}
+@media(max-width:540px){.contacts-list-clean{max-height:calc(100dvh - 205px)}.contact-card-clean{grid-template-columns:39px minmax(0,1fr) auto;gap:7px;padding:6px;min-height:60px}.contact-clean-portrait{width:37px;height:37px}.contact-clean-info>b{font-size:11px}.contact-clean-info>span{font-size:8px}.contact-clean-info>small{font-size:7px}.icon-action{width:28px;height:28px}}
+
+/* Only a couple of nearby NPCs appear over the world scene; the full local roster is in PDA contacts. */
+.scene-interactions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px;max-width:460px;max-height:112px;overflow:auto;align-content:start}
+.scene-interactions .npc-interaction{min-width:0}
+.scene-interactions .npc-chip{min-width:0;width:100%;display:grid;grid-template-columns:28px minmax(0,1fr) 16px;gap:5px;min-height:42px;padding:4px}
+.scene-interactions .npc-scene-body{display:none}
+.scene-interactions .npc-chip-label{min-width:0}
+.scene-interactions .npc-chip-label b,.scene-interactions .npc-chip-label small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scene-interactions .npc-trade-button{width:25px;min-width:25px;height:100%;padding:2px}
+.scene-places{max-width:min(490px,calc(100% - 210px));max-height:min(31vh,240px);overflow:auto}
+@media(max-width:760px){.scene-interactions{grid-template-columns:1fr;max-width:none;max-height:100px}.scene-places{max-width:calc(100% - 145px);max-height:calc(100dvh - 280px)}}
+
+/* Fill the space between the top bar and command field; no dead black block below the scene. */
+@media(min-width:761px){
+  html,body,#app{height:100%;min-height:100%;overflow:hidden}
+  .game-shell,.game-main{height:100dvh;min-height:100dvh;overflow:hidden}
+  .game-main{display:flex;flex-direction:column}
+  .game-topbar{flex:0 0 auto;min-height:58px;max-height:66px}
+  .game-content.pda-closed-content{flex:1 1 auto;height:auto!important;min-height:0!important;max-height:none;overflow:hidden;padding:0}
+  .location-scene{height:100%;min-height:0;padding-bottom:88px}
+  .scene-footer{bottom:76px}
+}
+
+/* The map keeps its portrait proportions but is constrained to a laptop viewport. */
+.map-workspace{grid-template-columns:minmax(210px,min(34vw,310px)) minmax(280px,1fr);align-items:start}
+.map-map-column{align-self:start;min-width:0}
+.map-frame-large{width:min(100%,300px,calc((100dvh - 300px)/2));aspect-ratio:1/2;min-height:0;height:auto;max-height:calc(100dvh - 300px);margin:0 auto 8px}
+.map-frame-large>img{width:100%;height:100%;object-fit:fill!important}
+.map-key{gap:8px;font-size:8px}
+@media(max-width:760px){.map-workspace{grid-template-columns:minmax(0,1fr)}.map-frame-large{width:min(100%,260px,calc((100dvh - 320px)/2));max-height:calc(100dvh - 320px)}}
+
+/* Separate portrait and body artwork into two independent preview cells. */
+.avatar-option-visual{grid-template-columns:minmax(56px,.78fr) minmax(0,1.22fr);gap:8px;align-items:stretch}
+.avatar-option-portrait,.avatar-option-appearance{display:flex;align-items:center;justify-content:center;flex-direction:column;gap:4px;min-width:0;padding:5px;background:#0c130d;border:1px solid #3c4a31}
+.avatar-option-portrait .avatar-wrap{width:56px;height:56px;max-width:100%;border:1px solid #63754a}
+.avatar-option-appearance{min-height:90px}
+.avatar-option-appearance>small,.avatar-option-portrait>small{font:6px 'Share Tech Mono',monospace;letter-spacing:.08em;color:#9eb27a}
+.avatar-option-body{height:80px;max-width:100%;object-fit:contain;object-position:center bottom}
+.avatar-option-insignia{display:none!important}
+.create-appearance-preview{min-height:112px}
+.create-appearance-preview img{height:100px;max-width:100%;object-fit:contain;object-position:center bottom}
+
+/* Keep only one faction mark in the dossier and no rank sticker near the portrait. */
+.profile-heading-art{gap:8px}
+.profile-heading-art .rank-insignia{display:none!important}
+.profile-heading-art .faction-insignia{width:22px;height:22px;object-fit:contain}
+.rank-text{font:18px 'Roboto Condensed',sans-serif!important}
+.faction-icon-symbol,.faction-choice>i,.rank-insignia{display:none!important}
+
+/* Cleaner PDA page and restrained device controls. */
+.pda-fullscreen-page{background-color:#101710;background-image:radial-gradient(ellipse at 22% 0,rgba(92,111,61,.16),transparent 43%),repeating-linear-gradient(0deg,rgba(177,194,130,.018) 0 1px,transparent 1px 5px),linear-gradient(135deg,#0c130d,#172016 55%,#0c120d);background-size:auto}
+.pda-fullscreen-header{min-height:58px;padding:8px 12px;gap:10px}
+.pda-device-status{gap:10px;font-size:10px}
+.pda-device-mark{display:flex;align-items:center;gap:6px;font-size:12px}
+.pda-close-button{padding:6px 9px;font-size:10px}
+.topbar-buttons .button{min-height:34px;padding:6px 9px;font-size:10px;gap:5px}
+.topbar-buttons .icon-button{width:34px;min-width:34px;padding:5px}
+.topbar-status{gap:12px;font-size:10px}
+.topbar-status>span{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.topbar-player .avatar-wrap{width:38px;height:38px}
+
+@media(max-height:760px) and (min-width:761px){
+  .map-frame-large{width:min(260px,calc((100dvh - 270px)/2));max-height:calc(100dvh - 270px)}
+  .split-guide-layout{min-height:calc(100dvh - 235px)}
+  .guide-detail{padding:10px}
+  .encyclopedia-entry-art{min-height:70px;max-height:96px}
+  .encyclopedia-entry-art img{max-height:94px}
+}
+
+
+/* v2.5.4 visual cleanup: no badge stacks, no overlapping NPC pictures, and a true PDA display. */
+.faction-choice{position:relative;display:flex;align-items:center;gap:9px}
+.faction-choice:before,.faction-choice:after,.faction-choice .faction-insignia,.faction-choice .rank-insignia,.faction-choice .faction-icon-symbol{display:none!important;content:none!important}
+.faction-choice input{accent-color:#c6d477;flex:0 0 auto;width:15px;height:15px}
+.faction-choice>span{display:grid;gap:3px;min-width:0}
+.faction-choice b{font-size:12px}
+.faction-choice small{font-size:9px;line-height:1.3;color:#adb99a}
+
+/* The supplied PDA image is 4:3; preserve its frame and put all content inside its glass. */
+.pda-screen-wrap{width:min(1120px,calc((100dvh - 12px)*1.333333),calc(100vw - 18px));height:auto;max-height:calc(100dvh - 12px);min-height:0;aspect-ratio:4/3;padding:11.7% 13.8% 12.8% 11.4%;background-size:100% 100%;background-position:center;background-color:#090e09}
+.pda-screen-wrap .pda-form{min-height:0;background:rgba(8,14,9,.36);padding:5px 8px 6px}
+.pda-screen-wrap .pda-create-heading{padding:0 2px 3px}
+.pda-screen-wrap .pda-form-layout{padding:5px 0;gap:10px;grid-template-columns:130px minmax(0,1fr)}
+.pda-screen-wrap .pda-photo-column{background:rgba(5,10,7,.16)}
+.pda-screen-wrap .pda-faction-section{padding-top:5px}
+.pda-screen-wrap .faction-options{gap:5px}
+.pda-screen-wrap .faction-choice{min-height:39px;padding:5px 7px;background:rgba(5,10,7,.55)}
+.pda-screen-wrap .pda-footer{margin-top:4px;padding-top:5px}
+@media(max-height:760px) and (min-width:761px){
+  .pda-screen-wrap{padding:11.7% 13.8% 12.8% 11.4%}
+  .pda-screen-wrap .pda-form{overflow:auto}
+  .pda-screen-wrap .pda-form-layout{grid-template-columns:112px minmax(0,1fr);gap:8px;padding:3px 0}
+  .pda-screen-wrap .pda-photo-column .photo-frame{width:70px;height:78px}
+  .pda-screen-wrap .create-appearance-preview{min-height:65px}
+  .pda-screen-wrap .create-appearance-preview img{height:49px}
+  .pda-screen-wrap .pda-fields .field textarea{min-height:33px;max-height:40px}
+  .pda-screen-wrap .faction-choice{min-height:34px;padding:4px 6px}
+  .pda-screen-wrap .pda-footer .button{padding:5px 8px}
+}
+@media(max-width:760px){
+  .pda-screen-wrap{width:calc(100% - 12px);height:auto;max-height:none;min-height:calc(100dvh - 12px);aspect-ratio:auto;padding:46px 18px 24px;background-size:100% 100%}
+  .pda-screen-wrap .pda-form{overflow:visible}
+  .pda-screen-wrap .pda-form-layout{grid-template-columns:94px minmax(0,1fr);gap:8px}
+}
+
+/* Full-screen PDA uses the central glass area of the supplied device texture as wallpaper. */
+.pda-fullscreen-page{background-color:#080d08;background-image:linear-gradient(rgba(7,12,8,.48),rgba(8,14,9,.58)),var(--pda-texture);background-size:auto,133.333% 149%;background-position:center,center;background-repeat:no-repeat;background-attachment:scroll}
+.pda-fullscreen-content{background:linear-gradient(180deg,rgba(8,14,9,.12),rgba(8,14,9,.24));}
+.pda-fullscreen-header,.pda-fullscreen-tabs{background:rgba(8,13,9,.82);backdrop-filter:blur(4px)}
+
+/* Contacts: separate portrait and body cells; insignia is an independent, small faction marker. */
+.contacts-list-clean{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;max-height:calc(100dvh - 245px);overflow:auto;padding:2px 5px 3px 0;scrollbar-width:thin;scrollbar-color:#65764b #111710}
+.contact-card-clean{display:grid;grid-template-columns:82px minmax(0,1fr) auto;gap:8px;align-items:center;min-width:0;min-height:76px;padding:6px 8px;background:linear-gradient(115deg,rgba(28,39,26,.97),rgba(12,18,13,.97));border:1px solid #46563a}
+.contact-clean-art{display:grid;grid-template-columns:37px 37px;gap:5px;align-items:center;justify-content:center;min-width:0}
+.contact-clean-portrait{display:grid;place-items:center;width:37px;height:47px;padding:2px;background:#0a100b;border:1px solid #44543a;overflow:hidden}
+.contact-clean-portrait .avatar-wrap{width:32px;height:32px;border:0}
+.contact-clean-body{display:grid;place-items:center;width:37px;height:50px;padding:2px;background:#0a100b;border:1px solid #44543a;overflow:hidden}
+.contact-clean-body img{display:block;max-width:100%;max-height:46px;width:auto;height:100%;object-fit:contain;object-position:center bottom}
+.contact-clean-body-empty{font-size:14px;color:#617052}
+.contact-clean-info{display:grid;gap:2px;min-width:0;overflow:hidden}
+.contact-clean-info>b{font-size:11px;line-height:1.15;color:#e7edd9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.contact-clean-info>span{font-size:9px;line-height:1.2;color:#c4d19e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.contact-clean-info>small{font-size:8px;line-height:1.2;color:#98a78b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.contact-clean-faction{display:flex;align-items:center;gap:4px;min-width:0;color:#a9b98c;font-size:8px;line-height:1}
+.contact-clean-faction .faction-insignia{width:14px;height:14px;max-width:14px;max-height:14px;filter:none}
+.contact-clean-faction .faction-insignia-fallback{width:14px;height:14px;font-size:10px}
+.contact-clean-actions{display:flex;gap:4px;align-items:center}
+.icon-action{display:grid;place-items:center;width:29px;height:29px;padding:0;background:#182218;border:1px solid #536541;color:#d5e2a5;border-radius:3px}
+.icon-action:hover{background:#33462a;border-color:#a8ba70}
+.icon-action .ui-icon{width:15px;height:15px}
+@media(max-width:980px){.contacts-list-clean{grid-template-columns:1fr}}
+@media(max-width:540px){.contacts-list-clean{max-height:calc(100dvh - 220px)}.contact-card-clean{grid-template-columns:76px minmax(0,1fr) auto;gap:6px;padding:5px;min-height:68px}.contact-clean-art{grid-template-columns:34px 34px;gap:4px}.contact-clean-portrait{width:34px;height:43px}.contact-clean-body{width:34px;height:45px}.contact-clean-body img{max-height:41px}.contact-clean-info>b{font-size:10px}.contact-clean-info>span{font-size:8px}.contact-clean-info>small{font-size:7px}.icon-action{width:27px;height:27px}}
+
+/* Scene previews stay limited to two nearby people and keep artwork independent. */
+.scene-interactions{max-width:470px;max-height:108px;overflow:auto}
+.scene-interactions .npc-scene-body{display:grid;width:27px;height:36px;}
+.scene-interactions .npc-scene-portrait{width:27px;height:36px}
+.scene-interactions .npc-chip{grid-template-columns:27px 27px minmax(0,1fr) 15px}
+.scene-interactions .npc-chip-label b{font-size:8px}
+.scene-interactions .npc-chip-label small{font-size:7px}
+.npc-talk-icon .ui-icon{width:15px;height:15px}
+
+/* The combat encounter keeps portrait, full-body art and faction symbol in three distinct places. */
+.enemy-art-pair{display:flex;align-items:flex-end;gap:6px}
+.enemy-portrait-frame,.enemy-body-frame{position:relative;z-index:1}
+.enemy-faction-row{display:flex;align-items:center;gap:5px;margin:4px 0}
+.enemy-faction-row .faction-insignia{position:static;flex:0 0 17px}
+
+/* Remove obsolete badge overlays from scene/contact portrait containers. */
+.npc-scene-portrait .faction-insignia,.contact-clean-portrait .faction-insignia,.avatar-option-portrait .faction-insignia{display:none!important}

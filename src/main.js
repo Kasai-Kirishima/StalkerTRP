@@ -15,7 +15,7 @@ let state = loadState();
 state.screen = 'menu';
 const restoredMusic={mode:'local',trackId:null,queue:[],index:0,playing:false};
 state.settings.weaponHudSide ||= 'right';
-state.ui = { ...(state.ui||{}), tab:'location', pdaOpen:false, modal:null, notification:'', music:restoredMusic, localMusicTracks:[], tradeNpcId:null, mapLocationId:null };
+state.ui = { ...(state.ui||{}), tab:'location', pdaOpen:false, modal:null, notification:'', music:restoredMusic, localMusicTracks:[], tradeNpcId:null, mapLocationId:null, encyclopediaCategory:state.ui?.encyclopediaCategory||'locations', helpTopic:state.ui?.helpTopic||'basics' };
 let previousScreen = 'menu';
 let toastTimer = null;
 const musicEngine = createMusicEngine(() => advanceMusic(true), message => toast(message, 'warning'));
@@ -490,6 +490,9 @@ root.addEventListener('click', (event) => {
   }
   if (action==='explore-pick') { const result=claimAreaFind(state.game,id); if(result.ok) state.ui.modal=null; persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
   if (action==='tab') { const allowed=['location','map','stats','player','messages','quests','contacts','encyclopedia','help']; if(!allowed.includes(tab)) return; state.ui.pdaOpen=true; state.ui.tab=tab; state.game.dialogueNpcId=null; state.ui.modal=null; persist(); return render(); }
+  if (action==='contacts-open') { state.ui.pdaOpen=true; state.ui.tab='contacts'; state.game.dialogueNpcId=null; state.ui.modal=null; persist(); return render(); }
+  if (action==='encyclopedia-category') { const allowed=['locations','people','anomalies','mutants','artifacts','equipment']; if(!allowed.includes(id)) return; state.ui.encyclopediaCategory=id; persist(); return render(); }
+  if (action==='help-topic') { const allowed=['basics','commands','dialogue','trade','loot','combat','survival','pda']; if(!allowed.includes(id)) return; state.ui.helpTopic=id; persist(); return render(); }
   if (action==='tab-map') { state.ui.pdaOpen=true; state.ui.tab='map'; state.ui.mapView=state.ui.mapView||'map'; persist(); return render(); }
   if (action==='map-view') { const view=button.dataset.view; if(['map','places','tasks'].includes(view)){state.ui.mapView=view;persist();render();} return; }
   if (action==='inspect') { const text=describeLocation(state.game); addGameLog(text); render(); return; }
