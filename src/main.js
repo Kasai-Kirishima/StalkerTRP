@@ -2,8 +2,8 @@ import { loadState, saveState, createInitialState, exportSave, importSave } from
 import { ASSETS, FACTIONS, START_BUDGET, MAX_CARRY_KG, NPCS, ITEMS, LOCATIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS } from './data/catalog.js';
 import { renderMenu, renderAccount, renderCharacters, renderCreate, renderLoadout, renderGame, renderGameSettings, renderModal, esc } from './ui/views.js';
 import { canFitLoadout, getInventoryCost, getLoadoutWeight, addItem, getItem, getWeight, removeItem, useItem } from './systems/inventory.js';
-import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, simulateWorld, acceptSidorovichJob, turnInSidorovichJob } from './systems/world.js';
-import { playerAttack, defend, flee } from './systems/combat.js';
+import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, simulateWorld, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest } from './systems/world.js';
+import { playerAttack, defend, flee, beginWolfDogPack } from './systems/combat.js';
 import { createMusicEngine } from './systems/music.js';
 import { buyFromTrader, sellToTrader } from './systems/world.js';
 import { processPlayerAction } from './systems/action-engine.js';
@@ -118,9 +118,15 @@ function shuffled(values) {
 }
 
 function trackById(id) { return RADIO_TRACKS.find(track=>track.id===id); }
+function availablePlayerTracks() {
+  const removed=new Set(state.settings.removedPlayerTrackIds||[]);
+  return PLAYER_TRACKS.filter(track=>!removed.has(track.id));
+}
 
 function startRadio(stationId) {
-  const station=RADIO_STATIONS.find(entry=>entry.id===stationId) || RADIO_STATIONS.find(entry=>entry.locationId===state.game?.locationId) || RADIO_STATIONS[0];
+  const localStation=RADIO_STATIONS.find(entry=>entry.locationId===state.game?.locationId);
+  const station=RADIO_STATIONS.find(entry=>entry.id===stationId);
+  if (!localStation || !station || station.id!==localStation.id) { toast('Здесь нет передатчика этой группировки. Радио доступно только на своей базе.','warning'); return; }
   const queue=shuffled(station.trackIds);
   if (!queue.length) return;
   state.ui.music={mode:'radio',stationId:station.id,queue,index:0,trackId:queue[0],playing:true};
@@ -132,7 +138,7 @@ function startRadio(stationId) {
 }
 
 function startPlayerTrack(trackId) {
-  const fullQueue=PLAYER_TRACKS.map(track=>track.id);
+  const fullQueue=availablePlayerTracks().map(track=>track.id);
   const start=fullQueue.indexOf(trackId);
   if (start<0) return;
   const queue=[...fullQueue.slice(start),...fullQueue.slice(0,start)];
@@ -389,6 +395,20 @@ root.addEventListener('click', (event) => {
     const result=turnInSidorovichJob(state.game);
     persist(); render(); toast(result.message,result.ok?'success':'warning'); return;
   }
+  if (action==='wolf-quest-accept') {
+    const result=acceptWolfDogQuest(state.game);
+    state.game.dialogueReply=result.message;
+    persist(); render(); toast(result.message,result.ok?'success':'warning'); return;
+  }
+  if (action==='wolf-quest-turnin') {
+    const result=turnInWolfDogQuest(state.game);
+    state.game.dialogueReply=result.message;
+    persist(); render(); toast(result.message,result.ok?'success':'warning'); return;
+  }
+  if (action==='wolf-dogs-start') {
+    const result=beginWolfDogPack(state.game);
+    persist(); render(); toast(result.message,result.ok?'warning':'info'); return;
+  }
   if (action==='export-save') { persist(); exportSave(state); return; }
   if (action==='location-open') { state.ui.mapLocationId=id; state.ui.modal='map-location'; return render(); }
   if (action==='map-modal-travel') {
@@ -413,6 +433,22 @@ root.addEventListener('click', (event) => {
     if(state.ui.music?.mode==='player' && state.ui.music.trackId===id) toggleMusic();
     else startPlayerTrack(id);
     return;
+  }
+  if (action==='player-remove-track') {
+    const removed=new Set(state.settings.removedPlayerTrackIds||[]); removed.add(id);
+    state.settings.removedPlayerTrackIds=[...removed];
+    const music=state.ui.music||{};
+    if (music.mode==='player' && (music.queue||[]).includes(id)) {
+      const wasCurrent=music.trackId===id;
+      const queue=(music.queue||[]).filter(trackId=>trackId!==id);
+      if (wasCurrent) { musicEngine.stop(); state.ui.music={...music,queue,trackId:null,index:0,playing:false}; }
+      else { const nextIndex=Math.max(0,queue.indexOf(music.trackId)); state.ui.music={...music,queue,index:nextIndex}; }
+    }
+    persist(); render(); toast('Композиция убрана из личной подборки. Её можно вернуть ниже.','info'); return;
+  }
+  if (action==='player-restore-track') {
+    state.settings.removedPlayerTrackIds=(state.settings.removedPlayerTrackIds||[]).filter(trackId=>trackId!==id);
+    persist(); render(); toast('Композиция возвращена в личную подборку.','success'); return;
   }
   if (action==='player-next' || action==='music-dock-next') {
     if (state.ui.music?.mode==='player') advanceMusic(false,1);

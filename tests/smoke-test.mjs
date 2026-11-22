@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { ASSETS, IMAGE_FALLBACKS, FACTIONS, ITEMS, LOCATIONS, NPCS, AVATAR_OPTIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS, START_BUDGET, MAX_CARRY_KG, STARTER_ITEM_IDS, ITEM_ACQUISITION } from '../src/data/catalog.js';
-import { createGame, travelTo, talkToNpc, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, replyNpc, getTravelMinutes } from '../src/systems/world.js';
+import { createGame, travelTo, talkToNpc, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, replyNpc, getTravelMinutes } from '../src/systems/world.js';
 import { addItem, getWeight, canFitLoadout, countItem } from '../src/systems/inventory.js';
-import { beginEncounter, playerAttack } from '../src/systems/combat.js';
+import { beginEncounter, beginWolfDogPack, playerAttack } from '../src/systems/combat.js';
 import { processPlayerAction } from '../src/systems/action-engine.js';
 import { rememberEntity, stemRussianWord, containsReferencePronoun, genderedSubject } from '../src/systems/russian-language.js';
 import { renderMenu, renderLoadout, renderGame, renderModal } from '../src/ui/views.js';
@@ -38,24 +38,41 @@ assert.ok(NPCS.some(n=>n.id==='shnurok'&&n.location==='atp'&&n.trader));
 assert.ok(NPCS.some(n=>n.id==='kapterka'&&n.location==='south-checkpoint'&&n.trader));
 assert.equal(AVATAR_OPTIONS.length,18,'all faction portraits and four key NPC portraits should be present');
 assert.ok(AVATAR_OPTIONS.every(option=>option.src.startsWith('builtin:')),'avatar choices should use built-in symbolic placeholders');
-assert.equal(RADIO_TRACKS.length,60,'three station playlists should contain 60 unique songs');
 assert.equal(RADIO_STATIONS.length,3,'each faction base should have its own radio station');
-assert.ok(RADIO_STATIONS.every(station=>station.trackIds.length===20 && new Set(station.trackIds).size===20 && station.trackIds.every(id=>RADIO_TRACKS.some(track=>track.id===id))),'each base station should contain exactly 20 valid unique tracks');
+assert.ok(RADIO_STATIONS.every(station=>station.trackIds.length>=20 && new Set(station.trackIds).size===station.trackIds.length && station.trackIds.every(id=>RADIO_TRACKS.some(track=>track.id===id))),'each base station should contain at least 20 valid unique tracks');
 const stationTrackIds=RADIO_STATIONS.flatMap(station=>station.trackIds);
-assert.equal(new Set(stationTrackIds).size,60,'station playlists must not repeat songs between bases');
-assert.ok(RADIO_STATIONS.find(s=>s.id==='bandit-atp-radio').trackIds.includes('vladimirsky-central'));
-assert.ok(!RADIO_STATIONS.find(s=>s.id==='loner-village-radio').trackIds.includes('vladimirsky-central'));
-assert.ok(!RADIO_STATIONS.find(s=>s.id==='military-checkpoint-radio').trackIds.includes('vladimirsky-central'));
-assert.equal(PLAYER_TRACKS.length,65,'personal player contains all radio and bonus tracks');
-assert.ok(PLAYER_TRACKS.some(track=>track.id==='vladimirsky-central'),'personal player includes every track');
+assert.ok(new Set(stationTrackIds).size<stationTrackIds.length,'some suitable songs may overlap between stations');
+const banditTracks=RADIO_STATIONS.find(s=>s.id==='bandit-atp-radio').trackIds.map(id=>RADIO_TRACKS.find(track=>track.id===id));
+assert.ok(banditTracks.some(track=>track.title==='Владимирский централ' && track.artist==='Владимир Круг'));
+assert.ok(!RADIO_STATIONS.find(s=>s.id==='loner-village-radio').trackIds.map(id=>RADIO_TRACKS.find(track=>track.id===id)).some(track=>track.title==='Владимирский централ'));
+assert.ok(!RADIO_STATIONS.find(s=>s.id==='military-checkpoint-radio').trackIds.map(id=>RADIO_TRACKS.find(track=>track.id===id)).some(track=>track.title==='Владимирский централ')); 
+assert.equal(PLAYER_TRACKS.length,RADIO_TRACKS.length,'personal player contains the complete unique radio library');
+assert.equal(PLAYER_TRACKS.length,100,'personal player should contain the complete 100-track catalog');
+assert.ok(PLAYER_TRACKS.some(track=>track.title==='Владимирский централ' && track.artist==='Владимир Круг'),'personal player includes bandit-only track');
+assert.ok(!PLAYER_TRACKS.some(track=>track.artist==='Наутилус Помпилиус'),'Nautilus tracks should be fully replaced');
+assert.ok(PLAYER_TRACKS.some(track=>track.artist==='Вячеслав Бутусов' && track.title.includes('Песня идущего домой') && track.year===2004),'Butusov 2004 song should replace Nautilus material');
+assert.ok(PLAYER_TRACKS.filter(track=>track.artist==='Кино').length>=10,'Kino should be represented in the updated playlist');
+assert.ok(PLAYER_TRACKS.filter(track=>track.artist==='Гражданская Оборона').length>=10,'Civil Defence should be represented in the updated playlist');
 assert.ok(RADIO_TRACKS.every(track=>Number.isInteger(track.startSeconds) && track.startSeconds>=0),'every track should have a valid YouTube start offset');
 assert.ok(PLAYER_TRACKS.every(track=>/^[A-Za-z0-9_-]{11}$/.test(track.videoId)),'each track must have a YouTube video ID');
+assert.ok(PLAYER_TRACKS.every(track=>Number.isInteger(track.year) && track.year<=2011),'all songs must be released before 2012');
+assert.ok(PLAYER_TRACKS.every(track=>track.era!==track.artist),'artist name must not be duplicated as era in the player');
 assert.ok(!PLAYER_TRACKS.some(track=>/true stalker|anger of darkness|kreazot-max/i.test(`${track.artist} ${track.title} ${track.label} ${track.id}`)),'no True Stalker soundtrack remains');
-const requestedArtists=['Гражданская Оборона','Пикник','Кино','Король и Шут','Кукрыниксы','Чёрный Обелиск','ДДТ','The Rolling Stones','Ratt','Bon Jovi','Survivor','ZZ Top','Владимир Круг','Dokken','Приключения Электроников','Жадан і Собаки','Сектор Газа','Сплин','Би-2','Агата Кристи','Инструкция по выживанию'];
-assert.ok(requestedArtists.every(artist=>PLAYER_TRACKS.some(track=>track.artist===artist)),'all user-requested artists should appear in the player');
-assert.ok(PLAYER_TRACKS.some(track=>track.id==='piknik-dorian-grey'));
+assert.ok(!PLAYER_TRACKS.some(track=>/Дориан|Вечное движение/i.test(`${track.title} ${track.label}`)),'Piknik 2026 album material must be excluded');
+const requiredArtists=['Гражданская Оборона','Пикник','Кино','Король и Шут','Кукрыниксы','Чёрный Обелиск','ДДТ','Ratt','Bon Jovi','ZZ Top','Владимир Круг','Сектор Газа','Сплин','Би-2','Агата Кристи','Инструкция по выживанию','Ария','Жадан і Собаки','Приключения Электроников'];
+assert.ok(requiredArtists.every(artist=>PLAYER_TRACKS.some(track=>track.artist===artist)),'curated CIS-focused library should retain the main requested groups');
+assert.ok(PLAYER_TRACKS.some(track=>track.title==='Египтянин' && track.artist==='Пикник'));
+assert.ok(PLAYER_TRACKS.some(track=>track.title==='Звонімір Бобан' && track.year===2008));
+assert.ok(PLAYER_TRACKS.some(track=>track.title==='Трава у дома' && track.year===2003));
+assert.ok(!PLAYER_TRACKS.some(track=>track.title==='Дориан (Грей)' || track.title==='Вечное движение'));
 assert.ok(!PLAYER_TRACKS.some(track=>track.title==='Чужестранец' && track.artist==='Пикник'),'the previously excluded Piknik track should stay out of the playlist');
 assert.ok(PLAYER_TRACKS.filter(track=>Number.isInteger(track.endSeconds)).every(track=>track.endSeconds>track.startSeconds),'all time-coded segment boundaries must be valid');
+for (const station of RADIO_STATIONS) {
+  const stationSongs=station.trackIds.map(id=>PLAYER_TRACKS.find(track=>track.id===id));
+  assert.ok(stationSongs.every(Boolean));
+  assert.ok(stationSongs.filter(track=>['Bon Jovi','ZZ Top','Ratt'].includes(track.artist)).length<=2,'western rock should remain a minority');
+  assert.ok(Math.max(...Object.values(stationSongs.reduce((counts,track)=>({...counts,[track.artist]:(counts[track.artist]||0)+1}),{})))<=5,'no single artist should dominate a station');
+}
 assert.ok(ITEMS.length>=32);
 assert.ok(ITEMS.every(item=>!item.image),'inventory items should use local symbolic placeholders instead of image URLs');
 assert.ok(ITEMS.some(item=>item.id==='flesh-eye'&&item.cat==='Добыча'));
@@ -114,7 +131,8 @@ for (const station of RADIO_STATIONS) {
   assert.ok(station.trackIds.length>=20,`${station.name} must have at least 20 songs`);
   assert.equal(new Set(station.trackIds).size,station.trackIds.length,`${station.name} must not repeat songs in its playlist`);
 }
-assert.ok(PLAYER_TRACKS.length>=20,'personal player should contain the full available music library');
+assert.equal(PLAYER_TRACKS.length,RADIO_TRACKS.length,'personal player should contain all curated station songs');
+assert.equal(PLAYER_TRACKS.length,100,'full music library should have 100 unique songs');
 
 // Sidorovich's repeatable assignments: tails, debt collector, and Medusa.
 const jobGame=createGame(character,[],START_BUDGET);
@@ -147,6 +165,40 @@ Math.random=randomBeforeJobs;
 const lonerGame=createGame(character,[],START_BUDGET);
 assert.equal(talkToNpc(lonerGame,'wolf').ok,true);
 assert.ok(processPlayerAction(lonerGame,'осмотреться').message.length>0);
+
+// Full Wolf quest: accept from dialogue, reach the wagon north of the village, defeat five dogs, and return for payment.
+const wolfQuestGame=createGame(character,[],START_BUDGET);
+addItem(wolfQuestGame.inventory,'knife',1);
+assert.equal(talkToNpc(wolfQuestGame,'wolf').ok,true);
+const wolfOffer=replyNpc(wolfQuestGame,'wolf','работа');
+assert.ok(wolfOffer.includes('вагончика') && wolfOffer.includes('пять слепых собак'));
+assert.ok(wolfQuestGame.dialogueReply.includes('новичков'));
+const wolfDialogueState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false,radioStationId:'loner-village-radio'},account:{},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:null,stationId:null,trackId:null,queue:[],index:0,playing:false}},game:wolfQuestGame};
+assert.ok(renderGame(wolfDialogueState).includes('пять слепых собак'),'Wolf offer must be visible inside the dialogue modal');
+assert.equal(acceptWolfDogQuest(wolfQuestGame).ok,true);
+assert.equal(wolfQuestGame.quests.find(q=>q.id==='wolf-dog-pack').status,'active');
+const randomBeforeWolf=Math.random;
+Math.random=()=>0.99;
+assert.equal(travelTo(wolfQuestGame,'trailer').ok,true,'the wagon is reachable from the rookie village');
+Math.random=()=>0;
+assert.equal(beginWolfDogPack(wolfQuestGame).ok,true);
+for (let index=0;index<5;index++) {
+  assert.equal(wolfQuestGame.activeEncounter?.type,'blind-dog',`dog ${index+1} should be spawned`);
+  wolfQuestGame.activeEncounter.hp=1;
+  const result=playerAttack(wolfQuestGame);
+  assert.equal(result.ok,true);
+}
+assert.equal(wolfQuestGame.wolfDogQuest.killed,5);
+assert.equal(wolfQuestGame.wolfDogQuest.status,'ready');
+assert.equal(wolfQuestGame.quests.find(q=>q.id==='wolf-dog-pack').status,'ready');
+Math.random=()=>0.99;
+assert.equal(travelTo(wolfQuestGame,'rookie-village').ok,true);
+assert.equal(talkToNpc(wolfQuestGame,'wolf').ok,true);
+const cashBeforeWolf=wolfQuestGame.money;
+assert.equal(turnInWolfDogQuest(wolfQuestGame).ok,true);
+assert.equal(wolfQuestGame.money,cashBeforeWolf+450);
+assert.equal(wolfQuestGame.wolfDogQuest.status,'completed');
+Math.random=randomBeforeWolf;
 
 // Full buy / sell flow with Sidorovich.
 const shopGame=createGame(character,[],START_BUDGET);
@@ -310,16 +362,26 @@ assert.ok(!closedPdaHtml.includes('aria-label="Разделы КПК"'),'PDA tab
 assert.ok(closedPdaHtml.includes('Текущая локация') || closedPdaHtml.includes('ДЕЙСТВИЯ'));
 uiState.ui.pdaOpen=true;
 assert.ok(renderGame(uiState).includes('aria-label="Разделы КПК"'),'opening the PDA should reveal tabs across the top');
+uiState.game.locationId='rookie-village';
 uiState.ui.tab='radio';
 const radioHtml=renderGame(uiState);
 assert.ok(radioHtml.includes('Радио Кордон'));
 assert.ok(!radioHtml.includes('data-action="radio-play-track"'),'radio must not allow selecting individual tracks');
 assert.ok(radioHtml.includes('случайный эфир'));
+const remoteRadioState={...uiState,game:{...uiState.game,locationId:'elevator'}};
+const remoteRadioHtml=renderGame(remoteRadioState);
+assert.ok(remoteRadioHtml.includes('нет радиопередатчика'));
+assert.ok(!remoteRadioHtml.includes('Очередь станции'),'remote locations must not expose another base playlist');
+uiState.settings.removedPlayerTrackIds=['track-001'];
 uiState.ui.tab='player';
 const playerHtml=renderGame(uiState);
-assert.ok(playerHtml.includes('Музыкальная библиотека'));
+assert.ok(playerHtml.includes('Моя подборка'));
+assert.ok(playerHtml.includes('Убранные композиции'));
+assert.ok(playerHtml.includes('player-remove-track'));
+assert.ok(playerHtml.includes('player-restore-track'));
 assert.ok(playerHtml.includes('player-play-track'));
 assert.ok(playerHtml.includes('Владимирский централ'),'personal player should expose every track, including the bandit-only radio exception');
+assert.ok(playerHtml.includes('Песня идущего домой'),'personal player should include the replacement Butusov song');
 uiState.ui.tab='trade';
 uiState.ui.tradeNpcId='sidorovich';
 uiState.game.locationId='sidorovich-bunker';

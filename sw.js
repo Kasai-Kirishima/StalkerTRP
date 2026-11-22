@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cordon-pda-v11-russian-cases-loot-sources';
+const CACHE_NAME = 'cordon-pda-v15-music-catalog-100';
 const APP_SHELL = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './assets/icons/radioactive.svg', './assets/images/cordon-clean.webp',

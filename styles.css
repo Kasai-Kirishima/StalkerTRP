@@ -185,3 +185,29 @@
 
 
 .profile-edit-form{margin-top:16px}.profile-edit-form .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.profile-edit-form label{display:flex;flex-direction:column;gap:6px;color:var(--muted);font-size:.85rem}.profile-edit-form input,.profile-edit-form textarea{width:100%;min-width:0;background:rgba(0,0,0,.24);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:10px;font:inherit}.profile-avatar-edit{display:flex;align-items:center;gap:12px;margin-top:14px}.profile-edit-form .form-actions{display:flex;justify-content:flex-end;margin-top:14px}@media(max-width:600px){.profile-edit-form .form-grid{grid-template-columns:1fr}}
+
+/* v1.2 fixes: explicit map fallback visibility and a true full-screen PDA page. */
+.map-frame .map-fallback[hidden]{display:none!important}
+.map-frame>img{z-index:0;object-fit:fill!important;visibility:visible!important;opacity:1!important}
+.map-frame .map-pins{z-index:2}
+.map-frame .map-fallback{z-index:1}
+.pda-fullscreen-page{position:fixed;inset:0;z-index:1000;display:flex;flex-direction:column;min-height:100dvh;background:#0c110c;color:var(--text);overflow:hidden}
+.pda-fullscreen-header{display:flex;align-items:center;gap:14px;padding:12px 16px;background:linear-gradient(180deg,#273020,#151d14);border-bottom:1px solid #65714b;box-shadow:0 5px 20px #0008;flex:0 0 auto}
+.pda-device-mark{font:14px 'Share Tech Mono',monospace;color:#cdd88f;white-space:nowrap;letter-spacing:.1em}
+.pda-device-player{display:flex;align-items:center;gap:9px;min-width:0;flex:1}
+.pda-device-player>div{display:grid;gap:3px;min-width:0}
+.pda-device-player b{color:#eef0d9;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pda-device-player small{color:#a4af91;font-size:10px}
+.pda-device-status{display:flex;gap:12px;color:#d0d99b;font:11px 'Share Tech Mono',monospace;white-space:nowrap}
+.pda-close-button{white-space:nowrap;background:#4d332a;border-color:#997263;color:#f2d8c8}
+.pda-fullscreen-tabs{padding:8px 12px;background:#151c14;border-bottom:1px solid #46533a;flex:0 0 auto}
+.pda-fullscreen-tabs .game-nav{max-width:100%;padding:0 0 3px}
+.pda-fullscreen-content{flex:1;min-height:0;overflow:auto;padding:14px clamp(10px,2vw,26px) 24px;overscroll-behavior:contain}
+.pda-fullscreen-content .tab-page{width:min(1300px,100%);margin:0 auto}
+.pda-fullscreen-content .music-dock{position:sticky;bottom:0;z-index:6;width:min(1300px,100%);margin:14px auto 0;box-shadow:0 -8px 20px #0008}
+.pda-fullscreen-page .combat-overlay,.pda-fullscreen-page .modal-shade{z-index:1010}
+.wolf-dogs-panel{border-color:#75594a}
+.wolf-dogs-panel .panel-title span{color:#d6a17a}
+.quest-progress{display:flex;justify-content:space-between;gap:12px;max-width:260px;padding:7px 9px;margin-top:6px;background:#192117;border:1px solid #47543a;color:#b9c58c;font-size:11px}
+.quest-progress b{font:12px 'Share Tech Mono',monospace}
+@media(max-width:700px){.pda-fullscreen-header{flex-wrap:wrap;gap:8px;padding:9px}.pda-device-mark{font-size:11px}.pda-device-status{order:3;flex:1}.pda-close-button{font-size:10px;padding:7px 9px}.pda-fullscreen-tabs{padding:7px}.pda-fullscreen-content{padding:10px 8px 18px}}

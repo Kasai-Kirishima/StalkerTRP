@@ -2,7 +2,8 @@ const STORAGE_KEY = 'cordon-pda-save-v1';
 
 export const DEFAULT_SETTINGS = {
   radioStationId: 'loner-village-radio',
-  reducedMotion: false
+  reducedMotion: false,
+  removedPlayerTrackIds: []
 };
 
 export function createInitialState() {
@@ -29,7 +30,7 @@ export function loadState() {
     return {
       ...fallback,
       ...saved,
-      settings: { ...fallback.settings, ...(saved.settings || {}) },
+      settings: { ...fallback.settings, ...(saved.settings || {}), removedPlayerTrackIds: Array.isArray(saved.settings?.removedPlayerTrackIds) ? saved.settings.removedPlayerTrackIds : [] },
       account: { ...fallback.account, ...(saved.account || {}) },
       draft: { ...fallback.draft, ...(saved.draft || {}) },
       loadout: { selected:{}, ...(saved.loadout || {}) },

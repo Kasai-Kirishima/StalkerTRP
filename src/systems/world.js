@@ -101,6 +101,7 @@ export function createGame(character, starterInventory = [], money = 0) {
     locationId:faction?.spawn || 'rookie-village',
     quests:QUESTS.map(quest => ({ ...quest, status:'available' })),
     sidorovichJobs:{ active:null, cooldownUntil:0, completed:{ tails:0, collector:0, medusa:0 } },
+    wolfDogQuest:null,
     log:[{ type:'system', text:`15 апреля. Ты прибыл на Кордон. Место старта: ${getLocation(faction?.spawn)?.name || 'Деревня новичков'}.` }],
     searchedAt:{},
     lootRespawnMinutes:180,
@@ -355,12 +356,42 @@ export function turnInSidorovichJob(game) {
   return {ok:true,message:`Сидорович: «Ну, ${job.type==='tails'?'хвосты получил':job.type==='medusa'?'Медузу забрал':'должнику напомнил'} — дело сделано. Держи ${job.reward} RU. Сидорович не обидел!» Получено +5 рейтинга.`};
 }
 
+
+export function acceptWolfDogQuest(game) {
+  const quest=game.quests?.find(entry=>entry.id==='wolf-dog-pack');
+  if (!quest) return {ok:false,message:'Поручение Волка не найдено.'};
+  if (quest.status==='completed') return {ok:false,message:'Волк уже благодарил тебя за помощь. Нового такого поручения пока нет.'};
+  if (game.wolfDogQuest?.status==='active') return {ok:false,message:`Волк: «Собаки всё ещё у вагончика. Ты разобрался пока с ${game.wolfDogQuest.killed} из пяти».`};
+  if (game.wolfDogQuest?.status==='ready' || quest.status==='ready') return {ok:false,message:'Волк ждёт, когда ты доложишь об уничтожении собак.'};
+  game.wolfDogQuest={status:'active',killed:0,total:5};
+  quest.status='active'; quest.progress=0;
+  addLog(game,'Взято задание Волка: уничтожить пять слепых собак у вагончика севернее деревни новичков.');
+  game.dialogueReply='Волк: «Отлично. Тут у вагончика, что севернее деревни, обосновались пять слепых собак. Новички идут, они на их гавкнут — новички и бегут куда глаза глядят. Ну а бывает, что и нападают на новичков. Убей собак, а там уже сочтёмся». У вагончика пять слепых собак.';
+  return {ok:true,message:'Волк: «Отлично. Собаки обжились возле вагончика севернее деревни. Новички идут — они гавкают, те пугаются и бегут куда глаза глядят. А бывает, собаки и нападают. Убей пятерых, а там уже сочтёмся». На карте отмечен вагончик.'};
+}
+
+export function turnInWolfDogQuest(game) {
+  const quest=game.quests?.find(entry=>entry.id==='wolf-dog-pack');
+  if (!quest || game.wolfDogQuest?.status!=='ready' || quest.status!=='ready') return {ok:false,message:'Волк: «Сначала разберись с собаками у вагончика, потом поговорим». '};
+  if (game.locationId!=='rookie-village') return {ok:false,message:'Волк ждёт тебя в деревне новичков.'};
+  const reward=450;
+  game.money+=reward;
+  game.wolfDogQuest.status='completed';
+  quest.status='completed';
+  game.player.questsDone=(game.player.questsDone||0)+1;
+  grantReputation(game,5);
+  addLog(game,`Задание «Собаки у вагончика» выполнено. Волк заплатил ${reward} RU.`);
+  game.dialogueReply=`Волк: «Вот это дело, сталкер. Теперь новички смогут спокойно ходить к вагончику. Держи ${reward} RU — заслужил».`;
+  return {ok:true,message:`Волк: «Вот это дело, сталкер. Теперь новички смогут спокойно ходить к вагончику. Держи ${reward} RU — заслужил». Получено +5 рейтинга.`};
+}
+
 export function talkToNpc(game, npcId) {
   const npc = getDialogueNpc(game,npcId);
   if (!npc) return { ok:false, message:'Собеседник не найден.' };
   if (npc.location !== game.locationId) return { ok:false, message:`${npc.name} сейчас не здесь. По последним сведениям он находится: ${getLocation(npc.location)?.name||'неизвестно'}.` };
   game.dialogueNpcId = npcId;
   game.dialogueTopic = null;
+  game.dialogueReply = '';
   rememberEntity(game, npc, 'npc');
   const jobs=getSidorovichJobState(game);
   if (npcId==='sidorovich' && jobs.active?.type==='collector' && jobs.active.targetNpcId) { /* player returned to the quest giver */ }
@@ -376,18 +407,30 @@ export function replyNpc(game, npcId, topic) {
   const npc = getDialogueNpc(game,npcId);
   if (!npc) return 'Собеседник не найден.';
   game.dialogueTopic=topic.toLowerCase();
+  let answer='';
+  if (npcId==='wolf' && ['работа','задание','помощь','поручение'].some(word=>topic.toLowerCase().includes(word))) {
+    const job=game.wolfDogQuest;
+    if (job?.status==='active') answer=`Волк: «Ты уже взялся за собак у вагончика. Пока уничтожено ${job.killed} из пяти. Не возвращайся раньше времени».`;
+    else if (job?.status==='ready') answer='Волк: «Слышал, у вагончика стало тихо. Возвращайся ко мне, расскажешь, как всё прошло».';
+    else if (job?.status==='completed') answer='Волк: «Спасибо за помощь. Теперь новички могут ходить к вагончику без этой своры».';
+    else answer='Волк: «Здравствуй, сталкер. Не желаешь помочь таким как ты? Тут у вагончика, что севернее деревни, обосновались пять слепых собак. Новички идут, они на их гавкнут — новички и бегут куда глаза глядят. Ну а бывает, что и нападают на новичков. Убей собак, а там уже сочтёмся».';
+    game.dialogueReply=answer;
+    return answer;
+  }
   if (npcId==='sidorovich' && ['работа','задания','квесты','поручения'].some(word=>topic.toLowerCase().includes(word))) {
     const jobs=getSidorovichJobState(game);
-    if (jobs.active) return `У тебя уже есть поручение «${jobs.active.title}». ${jobs.active.description}`;
-    if (game.clock.worldMinutes<jobs.cooldownUntil) return 'Пока ничего нового. Дай мне немного времени, сталкер.';
-    return 'Хе-хе. Есть для тебя работа. Скажи, если готов взяться за поручение.';
+    if (jobs.active) answer=`У тебя уже есть поручение «${jobs.active.title}». ${jobs.active.description}`;
+    else if (game.clock.worldMinutes<jobs.cooldownUntil) answer='Пока ничего нового. Дай мне немного времени, сталкер.';
+    else answer='Хе-хе. Есть для тебя работа. Скажи, если готов взяться за поручение.';
+    game.dialogueReply=answer;
+    return answer;
   }
-  game.dialogueTopic=topic.toLowerCase();
   const key = topic.toLowerCase();
   const mapped = Object.keys(npc.lines||{}).find(entry => key.includes(entry) || entry.includes(key));
-  return mapped ? npc.lines[mapped] : `${npc.name} смотрит на тебя с недоверием. «Сейчас мне нечего добавить. Сначала разберись с делом».`;
+  answer = mapped ? npc.lines[mapped] : `${npc.name} смотрит на тебя с недоверием. «Сейчас мне нечего добавить. Сначала разберись с делом».`;
+  game.dialogueReply=answer;
+  return answer;
 }
-
 
 export function getAvailableTraders(game, locationId=game.locationId) {
   ensureTraderRecords(game);

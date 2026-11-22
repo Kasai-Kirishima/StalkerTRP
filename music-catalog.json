@@ -1,0 +1,1103 @@
+[
+  {
+    "artist": "Кино",
+    "title": "Группа крови",
+    "year": 1988,
+    "stations": [
+      "loner"
+    ],
+    "video": "EtTkBaBnpR0",
+    "start": 0,
+    "label": "Релиз 1988"
+  },
+  {
+    "artist": "Кино",
+    "title": "Хочу перемен",
+    "year": 1986,
+    "stations": [
+      "bandit"
+    ],
+    "video": "EtTkBaBnpR0",
+    "start": 632,
+    "label": "Релиз 1986"
+  },
+  {
+    "artist": "Кино",
+    "title": "Звезда по имени Солнце",
+    "year": 1989,
+    "stations": [
+      "loner"
+    ],
+    "video": "EtTkBaBnpR0",
+    "start": 924,
+    "label": "Релиз 1989"
+  },
+  {
+    "artist": "Кино",
+    "title": "Видели ночь",
+    "year": 1986,
+    "stations": [
+      "bandit"
+    ],
+    "video": "EtTkBaBnpR0",
+    "start": 1145,
+    "label": "Релиз 1986"
+  },
+  {
+    "artist": "Кино",
+    "title": "Троллейбус",
+    "year": 1984,
+    "stations": [
+      "bandit"
+    ],
+    "video": "EtTkBaBnpR0",
+    "start": 1331,
+    "label": "Релиз 1984"
+  },
+  {
+    "artist": "Кино",
+    "title": "Пачка сигарет",
+    "year": 1989,
+    "stations": [
+      "loner"
+    ],
+    "video": "EtTkBaBnpR0",
+    "start": 1503,
+    "label": "Релиз 1989"
+  },
+  {
+    "artist": "Кино",
+    "title": "Нам с тобой",
+    "year": 1990,
+    "stations": [
+      "loner"
+    ],
+    "video": "EtTkBaBnpR0",
+    "start": 2640,
+    "label": "Релиз 1990"
+  },
+  {
+    "artist": "Кино",
+    "title": "Закрой за мной дверь",
+    "year": 1988,
+    "stations": [
+      "loner"
+    ],
+    "video": "EtTkBaBnpR0",
+    "start": 2925,
+    "label": "Релиз 1988"
+  },
+  {
+    "artist": "Кино",
+    "title": "Последний герой",
+    "year": 1989,
+    "stations": [
+      "military"
+    ],
+    "video": "EtTkBaBnpR0",
+    "start": 5322,
+    "label": "Релиз 1989"
+  },
+  {
+    "artist": "Кино",
+    "title": "Спокойная ночь",
+    "year": 1988,
+    "stations": [
+      "military"
+    ],
+    "video": "EtTkBaBnpR0",
+    "start": 7678,
+    "label": "Релиз 1988"
+  },
+  {
+    "artist": "Вячеслав Бутусов",
+    "title": "Песня идущего домой (Я шёл домой)",
+    "year": 2004,
+    "stations": [
+      "loner",
+      "military"
+    ],
+    "video": "gAKASfiPds8",
+    "start": 0,
+    "label": "Альбом «Биографика»"
+  },
+  {
+    "artist": "Кино",
+    "title": "Электричка",
+    "year": 1982,
+    "stations": [
+      "military"
+    ],
+    "video": "0n5AesusgDU",
+    "start": 0,
+    "label": "Альбом «45»"
+  },
+  {
+    "artist": "Кино",
+    "title": "Алюминиевые огурцы",
+    "year": 1982,
+    "stations": [
+      "bandit"
+    ],
+    "video": "TMZM-NxeXxM",
+    "start": 0,
+    "label": "Альбом «45»"
+  },
+  {
+    "artist": "Кино",
+    "title": "Когда твоя девушка больна",
+    "year": 1990,
+    "stations": [
+      "military"
+    ],
+    "video": "X1TyisQ1bNk",
+    "start": 0,
+    "label": "«Чёрный альбом»"
+  },
+  {
+    "artist": "Кино",
+    "title": "Мама, мы все тяжело больны",
+    "year": 1988,
+    "stations": [
+      "military"
+    ],
+    "video": "5ilpyUFll6A",
+    "start": 0,
+    "label": "Альбом «Группа крови»"
+  },
+  {
+    "artist": "Гражданская Оборона",
+    "title": "Бери шинель",
+    "year": 1989,
+    "stations": [
+      "military"
+    ],
+    "video": "BbW1RIR6R3k",
+    "start": 181,
+    "label": "Альбом «Русское поле экспериментов»"
+  },
+  {
+    "artist": "Гражданская Оборона",
+    "title": "Новогодняя песенка",
+    "year": 1989,
+    "stations": [
+      "loner"
+    ],
+    "video": "BbW1RIR6R3k",
+    "start": 312,
+    "label": "Альбом «Русское поле экспериментов»"
+  },
+  {
+    "artist": "Гражданская Оборона",
+    "title": "Непонятная песенка",
+    "year": 1989,
+    "stations": [
+      "loner"
+    ],
+    "video": "BbW1RIR6R3k",
+    "start": 392,
+    "label": "Альбом «Русское поле экспериментов»"
+  },
+  {
+    "artist": "Гражданская Оборона",
+    "title": "Лоботомия",
+    "year": 1989,
+    "stations": [
+      "military"
+    ],
+    "video": "BbW1RIR6R3k",
+    "start": 569,
+    "label": "Альбом «Русское поле экспериментов»"
+  },
+  {
+    "artist": "Гражданская Оборона",
+    "title": "Зомби",
+    "year": 1989,
+    "stations": [
+      "military"
+    ],
+    "video": "BbW1RIR6R3k",
+    "start": 746,
+    "label": "Альбом «Русское поле экспериментов»"
+  },
+  {
+    "artist": "ДДТ",
+    "title": "Что такое осень",
+    "year": 1992,
+    "stations": [
+      "loner"
+    ],
+    "video": "MP0IEfWcQFQ",
+    "start": 3,
+    "label": "Релиз 1992"
+  },
+  {
+    "artist": "ДДТ",
+    "title": "Капитан Колесников",
+    "year": 2005,
+    "stations": [
+      "military"
+    ],
+    "video": "MP0IEfWcQFQ",
+    "start": 302,
+    "label": "Релиз 2005"
+  },
+  {
+    "artist": "ДДТ",
+    "title": "Песня о свободе",
+    "year": 1994,
+    "stations": [
+      "military"
+    ],
+    "video": "MP0IEfWcQFQ",
+    "start": 548,
+    "label": "Релиз 1994"
+  },
+  {
+    "artist": "ДДТ",
+    "title": "Просвистела",
+    "year": 1997,
+    "stations": [
+      "military"
+    ],
+    "video": "MP0IEfWcQFQ",
+    "start": 805,
+    "label": "Релиз 1997"
+  },
+  {
+    "artist": "ДДТ",
+    "title": "Родина",
+    "year": 1995,
+    "stations": [
+      "loner"
+    ],
+    "video": "MP0IEfWcQFQ",
+    "start": 1027,
+    "label": "Релиз 1995"
+  },
+  {
+    "artist": "ДДТ",
+    "title": "Дождь",
+    "year": 1992,
+    "stations": [
+      "loner"
+    ],
+    "video": "MP0IEfWcQFQ",
+    "start": 1304,
+    "label": "Релиз 1992"
+  },
+  {
+    "artist": "ДДТ",
+    "title": "Вороны",
+    "year": 2000,
+    "stations": [
+      "military"
+    ],
+    "video": "MP0IEfWcQFQ",
+    "start": 1900,
+    "label": "Релиз 2000"
+  },
+  {
+    "artist": "ДДТ",
+    "title": "Я получил эту роль",
+    "year": 1988,
+    "stations": [
+      "loner"
+    ],
+    "video": "MP0IEfWcQFQ",
+    "start": 3997,
+    "label": "Релиз 1988"
+  },
+  {
+    "artist": "ДДТ",
+    "title": "Это всё",
+    "year": 1994,
+    "stations": [
+      "loner"
+    ],
+    "video": "MP0IEfWcQFQ",
+    "start": 4337,
+    "label": "Релиз 1994"
+  },
+  {
+    "artist": "ДДТ",
+    "title": "Не стреляй",
+    "year": 1980,
+    "stations": [
+      "military"
+    ],
+    "video": "MP0IEfWcQFQ",
+    "start": 5878,
+    "label": "Релиз 1980"
+  },
+  {
+    "artist": "Агата Кристи",
+    "title": "Как на войне",
+    "year": 1993,
+    "stations": [
+      "bandit"
+    ],
+    "video": "3eHO4UcohHI",
+    "start": 0,
+    "label": "Релиз 1993"
+  },
+  {
+    "artist": "Агата Кристи",
+    "title": "Сказочная тайга",
+    "year": 1994,
+    "stations": [
+      "loner"
+    ],
+    "video": "3eHO4UcohHI",
+    "start": 243,
+    "label": "Релиз 1994"
+  },
+  {
+    "artist": "Агата Кристи",
+    "title": "Опиум для никого",
+    "year": 1994,
+    "stations": [
+      "bandit"
+    ],
+    "video": "3eHO4UcohHI",
+    "start": 415,
+    "label": "Релиз 1994"
+  },
+  {
+    "artist": "Агата Кристи",
+    "title": "Ковёр-вертолёт",
+    "year": 1994,
+    "stations": [
+      "bandit"
+    ],
+    "video": "3eHO4UcohHI",
+    "start": 652,
+    "label": "Релиз 1994"
+  },
+  {
+    "artist": "Агата Кристи",
+    "title": "Чёрная луна",
+    "year": 1996,
+    "stations": [
+      "bandit"
+    ],
+    "video": "3eHO4UcohHI",
+    "start": 851,
+    "label": "Релиз 1996"
+  },
+  {
+    "artist": "Агата Кристи",
+    "title": "Моряк",
+    "year": 1994,
+    "stations": [
+      "loner"
+    ],
+    "video": "3eHO4UcohHI",
+    "start": 1088,
+    "label": "Релиз 1994"
+  },
+  {
+    "artist": "Агата Кристи",
+    "title": "Два корабля",
+    "year": 1994,
+    "stations": [
+      "loner"
+    ],
+    "video": "3eHO4UcohHI",
+    "start": 1303,
+    "label": "Релиз 1994"
+  },
+  {
+    "artist": "Агата Кристи",
+    "title": "Viva Kalman",
+    "year": 1994,
+    "stations": [
+      "bandit"
+    ],
+    "video": "3eHO4UcohHI",
+    "start": 2206,
+    "label": "Релиз 1994"
+  },
+  {
+    "artist": "Король и Шут",
+    "title": "Лесник",
+    "year": 1997,
+    "stations": [
+      "bandit"
+    ],
+    "video": "A1qRZ3mEQVM",
+    "start": 3,
+    "label": "Релиз 1997"
+  },
+  {
+    "artist": "Король и Шут",
+    "title": "Проклятый старый дом",
+    "year": 2001,
+    "stations": [
+      "bandit"
+    ],
+    "video": "A1qRZ3mEQVM",
+    "start": 194,
+    "label": "Релиз 2001"
+  },
+  {
+    "artist": "Король и Шут",
+    "title": "Дурак и молния",
+    "year": 1996,
+    "stations": [
+      "bandit"
+    ],
+    "video": "A1qRZ3mEQVM",
+    "start": 451,
+    "label": "Релиз 1996"
+  },
+  {
+    "artist": "Король и Шут",
+    "title": "Ели мясо мужики",
+    "year": 1999,
+    "stations": [
+      "bandit"
+    ],
+    "video": "A1qRZ3mEQVM",
+    "start": 566,
+    "label": "Релиз 1999"
+  },
+  {
+    "artist": "Король и Шут",
+    "title": "Воспоминания о былой любви",
+    "year": 2001,
+    "stations": [
+      "military"
+    ],
+    "video": "A1qRZ3mEQVM",
+    "start": 1021,
+    "label": "Релиз 2001"
+  },
+  {
+    "artist": "Король и Шут",
+    "title": "Прыгну со скалы",
+    "year": 1999,
+    "stations": [
+      "military"
+    ],
+    "video": "A1qRZ3mEQVM",
+    "start": 1315,
+    "label": "Релиз 1999"
+  },
+  {
+    "artist": "Король и Шут",
+    "title": "Смельчак и ветер",
+    "year": 2001,
+    "stations": [
+      "military"
+    ],
+    "video": "A1qRZ3mEQVM",
+    "start": 3746,
+    "label": "Релиз 2001"
+  },
+  {
+    "artist": "Король и Шут",
+    "title": "Мёртвый анархист",
+    "year": 2002,
+    "stations": [
+      "bandit"
+    ],
+    "video": "A1qRZ3mEQVM",
+    "start": 6302,
+    "label": "Релиз 2002"
+  },
+  {
+    "artist": "Пикник",
+    "title": "У шамана три руки",
+    "year": 1994,
+    "stations": [
+      "loner"
+    ],
+    "video": "lDtELO_VzCQ",
+    "start": 0,
+    "label": "Релиз 1994"
+  },
+  {
+    "artist": "Пикник",
+    "title": "Из мышеловки",
+    "year": 1991,
+    "stations": [
+      "loner"
+    ],
+    "video": "lDtELO_VzCQ",
+    "start": 206,
+    "label": "Релиз 1991"
+  },
+  {
+    "artist": "Пикник",
+    "title": "Египтянин",
+    "year": 2001,
+    "stations": [
+      "loner"
+    ],
+    "video": "lDtELO_VzCQ",
+    "start": 760,
+    "label": "Релиз 2001"
+  },
+  {
+    "artist": "Пикник",
+    "title": "Игла",
+    "year": 1994,
+    "stations": [
+      "military"
+    ],
+    "video": "lDtELO_VzCQ",
+    "start": 1048,
+    "label": "Релиз 1994"
+  },
+  {
+    "artist": "Пикник",
+    "title": "Сияние",
+    "year": 2001,
+    "stations": [
+      "loner"
+    ],
+    "video": "lDtELO_VzCQ",
+    "start": 1349,
+    "label": "Релиз 2001"
+  },
+  {
+    "artist": "Пикник",
+    "title": "Там, на самом краю земли",
+    "year": 1990,
+    "stations": [
+      "loner"
+    ],
+    "video": "lDtELO_VzCQ",
+    "start": 1923,
+    "label": "Релиз 1990"
+  },
+  {
+    "artist": "Пикник",
+    "title": "Фиолетово-чёрный",
+    "year": 1994,
+    "stations": [
+      "military"
+    ],
+    "video": "lDtELO_VzCQ",
+    "start": 2055,
+    "label": "Релиз 1994"
+  },
+  {
+    "artist": "Пикник",
+    "title": "Остров",
+    "year": 1996,
+    "stations": [
+      "military"
+    ],
+    "video": "lDtELO_VzCQ",
+    "start": 2792,
+    "label": "Релиз 1996"
+  },
+  {
+    "artist": "Би-2",
+    "title": "Полковнику никто не пишет",
+    "year": 2000,
+    "stations": [
+      "military"
+    ],
+    "video": "hl2O9EijZnc",
+    "start": 0,
+    "label": "Релиз 2000"
+  },
+  {
+    "artist": "Би-2",
+    "title": "Варвара",
+    "year": 2000,
+    "stations": [
+      "loner"
+    ],
+    "video": "hl2O9EijZnc",
+    "start": 291,
+    "label": "Релиз 2000"
+  },
+  {
+    "artist": "Би-2",
+    "title": "Серебро",
+    "year": 2000,
+    "stations": [
+      "loner"
+    ],
+    "video": "hl2O9EijZnc",
+    "start": 591,
+    "label": "Релиз 2000"
+  },
+  {
+    "artist": "Би-2",
+    "title": "Компромисс",
+    "year": 2000,
+    "stations": [
+      "loner"
+    ],
+    "video": "hl2O9EijZnc",
+    "start": 868,
+    "label": "Релиз 2000"
+  },
+  {
+    "artist": "Би-2",
+    "title": "Революция",
+    "year": 2006,
+    "stations": [
+      "military"
+    ],
+    "video": "hl2O9EijZnc",
+    "start": 1136,
+    "label": "Релиз 2006"
+  },
+  {
+    "artist": "Би-2",
+    "title": "Вечная призрачная встречная",
+    "year": 2006,
+    "stations": [
+      "military"
+    ],
+    "video": "hl2O9EijZnc",
+    "start": 1353,
+    "label": "Релиз 2006"
+  },
+  {
+    "artist": "Би-2",
+    "title": "Молитва",
+    "year": 2003,
+    "stations": [
+      "military"
+    ],
+    "video": "hl2O9EijZnc",
+    "start": 1665,
+    "label": "Релиз 2003"
+  },
+  {
+    "artist": "Би-2",
+    "title": "Мой рок-н-ролл",
+    "year": 2002,
+    "stations": [
+      "military"
+    ],
+    "video": "hl2O9EijZnc",
+    "start": 2003,
+    "label": "Релиз 2002"
+  },
+  {
+    "artist": "Гражданская Оборона",
+    "title": "Какое небо",
+    "year": 1988,
+    "stations": [
+      "bandit"
+    ],
+    "video": "MEaCWDqxoCY",
+    "start": 53,
+    "label": "Релиз 1988"
+  },
+  {
+    "artist": "Гражданская Оборона",
+    "title": "Система",
+    "year": 1987,
+    "stations": [
+      "bandit"
+    ],
+    "video": "MEaCWDqxoCY",
+    "start": 104,
+    "label": "Релиз 1987"
+  },
+  {
+    "artist": "Гражданская Оборона",
+    "title": "Иуда будет со мной",
+    "year": 1987,
+    "stations": [
+      "bandit"
+    ],
+    "video": "MEaCWDqxoCY",
+    "start": 251,
+    "label": "Релиз 1987"
+  },
+  {
+    "artist": "Гражданская Оборона",
+    "title": "Харакири",
+    "year": 1987,
+    "stations": [
+      "bandit"
+    ],
+    "video": "MEaCWDqxoCY",
+    "start": 366,
+    "label": "Релиз 1987"
+  },
+  {
+    "artist": "Гражданская Оборона",
+    "title": "Продолжая продолжать",
+    "year": 1987,
+    "stations": [
+      "bandit"
+    ],
+    "video": "MEaCWDqxoCY",
+    "start": 588,
+    "label": "Релиз 1987"
+  },
+  {
+    "artist": "Гражданская Оборона",
+    "title": "Общество «Память»",
+    "year": 1988,
+    "stations": [
+      "military"
+    ],
+    "video": "MEaCWDqxoCY",
+    "start": 780,
+    "label": "Релиз 1988"
+  },
+  {
+    "artist": "Гражданская Оборона",
+    "title": "Всё идёт по плану",
+    "year": 1988,
+    "stations": [
+      "military"
+    ],
+    "video": "MEaCWDqxoCY",
+    "start": 2092,
+    "label": "Релиз 1988"
+  },
+  {
+    "artist": "Сектор Газа",
+    "title": "Туман",
+    "year": 1996,
+    "stations": [
+      "bandit"
+    ],
+    "video": "31PkjC-Fjz0",
+    "start": 214,
+    "label": "Релиз 1996"
+  },
+  {
+    "artist": "Сектор Газа",
+    "title": "Демобилизация",
+    "year": 1991,
+    "stations": [
+      "bandit"
+    ],
+    "video": "31PkjC-Fjz0",
+    "start": 694,
+    "label": "Релиз 1991"
+  },
+  {
+    "artist": "Сектор Газа",
+    "title": "Пора домой",
+    "year": 1996,
+    "stations": [
+      "bandit"
+    ],
+    "video": "31PkjC-Fjz0",
+    "start": 1955,
+    "label": "Релиз 1996"
+  },
+  {
+    "artist": "Сектор Газа",
+    "title": "Лирика",
+    "year": 1993,
+    "stations": [
+      "bandit"
+    ],
+    "video": "kkcQ3Utrxmo",
+    "start": 0,
+    "label": "Релиз 1993"
+  },
+  {
+    "artist": "Сектор Газа",
+    "title": "Колхозный панк",
+    "year": 1991,
+    "stations": [
+      "bandit"
+    ],
+    "video": "boQPg3Wkwuc",
+    "start": 129,
+    "label": "Релиз 1991"
+  },
+  {
+    "artist": "Океан Ельзи",
+    "title": "Там, де нас нема",
+    "year": 1998,
+    "stations": [
+      "loner"
+    ],
+    "video": "Ax3v_cSSvMw",
+    "start": 1588,
+    "label": "Релиз 1998"
+  },
+  {
+    "artist": "Океан Ельзи",
+    "title": "Квітка",
+    "year": 2001,
+    "stations": [
+      "loner"
+    ],
+    "video": "Ax3v_cSSvMw",
+    "start": 3670,
+    "label": "Релиз 2001"
+  },
+  {
+    "artist": "Океан Ельзи",
+    "title": "Відпусти",
+    "year": 2000,
+    "stations": [
+      "loner"
+    ],
+    "video": "Ax3v_cSSvMw",
+    "start": 4571,
+    "label": "Релиз 2000"
+  },
+  {
+    "artist": "Океан Ельзи",
+    "title": "Без бою",
+    "year": 2005,
+    "stations": [
+      "loner"
+    ],
+    "video": "Ax3v_cSSvMw",
+    "start": 5516,
+    "label": "Релиз 2005"
+  },
+  {
+    "artist": "Океан Ельзи",
+    "title": "Вище неба",
+    "year": 2005,
+    "stations": [
+      "loner"
+    ],
+    "video": "Ax3v_cSSvMw",
+    "start": 5040,
+    "label": "Релиз 2005"
+  },
+  {
+    "artist": "Мумий Тролль",
+    "title": "Владивосток 2000",
+    "year": 1998,
+    "stations": [
+      "bandit"
+    ],
+    "video": "nj5nuYYrZvg",
+    "start": 0,
+    "label": "Релиз 1998"
+  },
+  {
+    "artist": "Мумий Тролль",
+    "title": "Утекай",
+    "year": 1997,
+    "stations": [
+      "bandit"
+    ],
+    "video": "Ok1-XYV3k60",
+    "start": 0,
+    "label": "Релиз 1997"
+  },
+  {
+    "artist": "Сплин",
+    "title": "Орбит без сахара",
+    "year": 1998,
+    "stations": [
+      "loner"
+    ],
+    "video": "t-OvHZbID5s",
+    "start": 0,
+    "label": "Релиз 1998"
+  },
+  {
+    "artist": "Lumen",
+    "title": "Государство",
+    "year": 2008,
+    "stations": [
+      "loner"
+    ],
+    "video": "J9fAvi1T-e4",
+    "start": 0,
+    "label": "Релиз 2008"
+  },
+  {
+    "artist": "Lumen",
+    "title": "Не надо снов",
+    "year": 2011,
+    "stations": [
+      "loner"
+    ],
+    "video": "uFyc3orK6cs",
+    "start": 0,
+    "label": "Релиз 2011"
+  },
+  {
+    "artist": "Владимир Круг",
+    "title": "Владимирский централ",
+    "year": 1999,
+    "stations": [
+      "bandit"
+    ],
+    "video": "GqFQbNn0ZBo",
+    "start": 0,
+    "label": "Релиз 1999"
+  },
+  {
+    "artist": "Ария",
+    "title": "Штиль",
+    "year": 2001,
+    "stations": [
+      "military"
+    ],
+    "video": "GvBHagY7eok",
+    "start": 0,
+    "label": "Релиз 2001"
+  },
+  {
+    "artist": "Жадан і Собаки",
+    "title": "Звонімір Бобан",
+    "year": 2008,
+    "stations": [
+      "bandit"
+    ],
+    "video": "OOQi9BLbQUw",
+    "start": 0,
+    "label": "Релиз 2008"
+  },
+  {
+    "artist": "Приключения Электроников",
+    "title": "Трава у дома",
+    "year": 2003,
+    "stations": [
+      "military"
+    ],
+    "video": "Ue9lV5wfP00",
+    "start": 0,
+    "label": "Релиз 2003"
+  },
+  {
+    "artist": "Инструкция по выживанию",
+    "title": "Моя северная страна",
+    "year": 1990,
+    "stations": [
+      "bandit"
+    ],
+    "video": "qfuxLKt7IQ0",
+    "start": 384,
+    "label": "Релиз 1990"
+  },
+  {
+    "artist": "Инструкция по выживанию",
+    "title": "Непрерывный суицид",
+    "year": 1990,
+    "stations": [
+      "bandit"
+    ],
+    "video": "qfuxLKt7IQ0",
+    "start": 0,
+    "label": "Релиз 1990"
+  },
+  {
+    "artist": "Чёрный Обелиск",
+    "title": "Я остаюсь",
+    "year": 1994,
+    "stations": [
+      "military"
+    ],
+    "video": "PnOHYU4TtE0",
+    "start": 0,
+    "label": "Релиз 1994"
+  },
+  {
+    "artist": "Кукрыниксы",
+    "title": "По раскрашенной душе",
+    "year": 2002,
+    "stations": [
+      "bandit"
+    ],
+    "video": "BiY0pvtcs8k",
+    "start": 0,
+    "label": "Релиз 2002"
+  },
+  {
+    "artist": "The Rolling Stones",
+    "title": "Paint It, Black",
+    "year": 1966,
+    "stations": [
+      "loner"
+    ],
+    "video": "O4irXQhgMqg",
+    "start": 0,
+    "label": "Релиз 1966"
+  },
+  {
+    "artist": "The Rolling Stones",
+    "title": "Gimme Shelter",
+    "year": 1969,
+    "stations": [
+      "military"
+    ],
+    "video": "EJRdDhnTRoo",
+    "start": 0,
+    "label": "Релиз 1969"
+  },
+  {
+    "artist": "The Rolling Stones",
+    "title": "Sympathy for the Devil",
+    "year": 1968,
+    "stations": [
+      "bandit"
+    ],
+    "video": "GgnClrx8N2k",
+    "start": 0,
+    "label": "Релиз 1968"
+  },
+  {
+    "artist": "Survivor",
+    "title": "Eye of the Tiger",
+    "year": 1982,
+    "stations": [
+      "military"
+    ],
+    "video": "btPJPFnesV4",
+    "start": 0,
+    "label": "Релиз 1982"
+  },
+  {
+    "artist": "ZZ Top",
+    "title": "Legs",
+    "year": 1983,
+    "stations": [
+      "loner"
+    ],
+    "video": "eUDcTLaWJuo",
+    "start": 0,
+    "label": "Релиз 1983"
+  },
+  {
+    "artist": "Ratt",
+    "title": "Round and Round",
+    "year": 1984,
+    "stations": [
+      "bandit"
+    ],
+    "video": "0u8teXR8VE4",
+    "start": 0,
+    "label": "Релиз 1984"
+  },
+  {
+    "artist": "Bon Jovi",
+    "title": "Livin’ on a Prayer",
+    "year": 1986,
+    "stations": [
+      "military"
+    ],
+    "video": "lDK9QqIzhwk",
+    "start": 0,
+    "label": "Релиз 1986"
+  },
+  {
+    "artist": "Dokken",
+    "title": "Alone Again",
+    "year": 1984,
+    "stations": [
+      "loner"
+    ],
+    "video": "evqe3VJ9qDQ",
+    "start": 0,
+    "label": "Релиз 1984"
+  }
+]

@@ -1,7 +1,7 @@
 export const ASSETS = {
   menu: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS5OXJVGkhNyzTjS2YABky-DUSo45VdfMiDvddnm2NsexQfHmc4giGVzRY&s=10',
   pda: null,
-  map: './assets/images/cordon-clean.webp',
+  map: new URL('../../assets/images/cordon-clean.webp', import.meta.url).href,
   factions: {
     loner: 'builtin:faction:loner',
     bandit: 'builtin:faction:bandit',
@@ -87,7 +87,7 @@ export const LOCATIONS = [
 
 export const NPCS = [
   { id:'sidorovich', name:'Сидорович', role:'Торговец', group:'Одиночки', faction:'loner', location:'sidorovich-bunker', icon:'', trader:true, stockIds:['bread','water','canned','sausage','bandage','ai2','antirad','ammo9x18','ammo9x19','ammo545','shells','knife','pm','binoculars','boltpack','otklik','aksu','leather','aurora'], priceMultiplier:1.08, buyMultiplier:.48, greeting:'Ну, заходи, сталкер. Есть дело или просто погреться пришёл?', topics:['работа','задания','квесты','поручения','торговля','слухи'], lines:{ work:'Есть пара мелких поручений. Для начала осмотрись на Кордоне, не лезь куда не просят.', trade:'Открывай торговую вкладку КПК. Покупай мой товар или продавай найденное — только не жди, что я дам за хлам большие деньги.', rumors:'Говорят, у старой насыпи снова что-то притягивает железо. Я бы туда без болтов не совался.' } },
-  { id:'wolf', name:'Волк', role:'Вожатый', group:'Одиночки', faction:'loner', location:'rookie-village', icon:'', greeting:'Новенький? Тогда запоминай: в Зоне сначала смотри под ноги, потом по сторонам.', topics:['совет','работа','деревня'], lines:{ advice:'Не отходи далеко от деревни, пока не поймёшь, где здесь безопасно. И всегда держи путь назад.', work:'Сходи к остановке и проверь, не остались ли там припасы. Только не задерживайся.', village:'Здесь собираются одиночки. Если не нарываться на неприятности, можно спокойно начать.' } },
+  { id:'wolf', name:'Волк', role:'Вожатый', group:'Одиночки', faction:'loner', location:'rookie-village', icon:'', greeting:'Здравствуй, сталкер. Не желаешь помочь таким как ты?', topics:['совет','работа','деревня'], lines:{ advice:'Не отходи далеко от деревни, пока не поймёшь, где здесь безопасно. И всегда держи путь назад.', work:'Тут собаки обжились возле вагончика, что севернее от деревни. Новички идут — они на них гавкнут, и те бегут куда глаза глядят. А бывает, что собаки и нападают. Убей пятерых, а там уже сочтёмся.', village:'Здесь собираются одиночки. Если не нарываться на неприятности, можно спокойно начать.' } },
   { id:'kefir', name:'Кефир', role:'Пахан', group:'Бандиты', faction:'bandit', location:'atp', icon:'', greeting:'Чего надо? Говори быстро, у меня тут люди заняты.', topics:['дело','правила','слухи'], lines:{ work:'Есть работа для тех, кто умеет держать язык за зубами. Сначала покажи, что не пустышка.', rules:'На АТП чужое добро без спроса не трогают. Особенно если оно моё.', rumors:'У мусорки замечали странные вспышки. Парни туда пока не суются.' } },
   { id:'shnurok', name:'Шнурок', role:'Торговец АТП', group:'Бандиты', faction:'bandit', location:'atp', icon:'', trader:true, stockIds:['vodka','bread','canned','sausage','knife','rgd5','shells','ammo9x18','ammo9x19','sawedoff','vm17','pm','biker','leather'], priceMultiplier:1.04, buyMultiplier:.42, greeting:'Чё надо? У Шнурка товар не залеживается. Есть деньги — найдём общий язык.', topics:['торговля','слухи','дела'], lines:{ trade:'Смотри товар в КПК. Могу продать ствол или патроны, а могу принять добычу. Только без мутантских соплей на прилавок.', rumors:'На свиноферме что-то копается. Парни говорят, там уже не обычные свиньи.', дела:'Сначала разберись с Кефиром. Не люблю, когда чужие решают вопросы без пахана.' } },
   { id:'dzerzhinsky', name:'Дмитрий Дзержинский', role:'Капитан блокпоста', group:'Военные', faction:'military', location:'south-checkpoint', icon:'', greeting:'Документы и цель прибытия. На блокпосту без самодеятельности.', topics:['служба','пропуск','обстановка'], lines:{ service:'Я отвечаю за порядок на южном блокпосту. Любые подозрительные перемещения докладываются.', pass:'Порядок прохода зависит от обстановки и твоей репутации. Пока у тебя нулевой рейтинг.', situation:'Патрули проверяют дорогу и ближайшие строения. В последнее время в районе свалки участились странные сигналы.' } },
@@ -106,128 +106,152 @@ export const AVATAR_OPTIONS = [
   { src:'builtin:npc:dzerzhinsky', name:'Дмитрий Дзержинский', group:'npc' }
 ];
 
-// Музыка для радио и личного плеера. Воспроизведение выполняется встроенным YouTube-плеером,
-// поэтому проект хранит только ссылки и не копирует защищённые аудиозаписи.
-// Композиции воспроизводятся с YouTube; startSeconds выбирает отдельный трек в длинном саундтреке.
-// Полная музыкальная библиотека: никаких композиций из True Stalker.
-// Треки из длинных видео выделяются по таймкодам; прямые ролики запускаются с 0.
-const song = (id,title,artist,videoId,startSeconds=0,year=null,label='YouTube') => ({
-  id,title,artist,videoId,startSeconds,year,label,era:artist
-});
-
-const lonerStationTracks = [
-  song('grob-rodina','Родина','Гражданская Оборона','SwYZQ0zgdsw',0,1989,'Плейлист Гражданской Обороны'),
-  song('grob-mertvye','Мёртвые','Гражданская Оборона','SwYZQ0zgdsw',252,1989,'Плейлист Гражданской Обороны'),
-  song('grob-uragan','Значит ураган','Гражданская Оборона','SwYZQ0zgdsw',406,1989,'Плейлист Гражданской Обороны'),
-  song('grob-durachok','Про дурачка','Гражданская Оборона','SwYZQ0zgdsw',624,1990,'Плейлист Гражданской Обороны'),
-  song('grob-dsch','Долгая счастливая жизнь','Гражданская Оборона','SwYZQ0zgdsw',914,2004,'Плейлист Гражданской Обороны'),
-  song('grob-esche','Ещё немного','Гражданская Оборона','SwYZQ0zgdsw',1235,1990,'Плейлист Гражданской Обороны'),
-  song('grob-dem','Дембельская','Гражданская Оборона','SwYZQ0zgdsw',1627,1990,'Плейлист Гражданской Обороны'),
-  song('grob-revolution','Пой, революция!','Гражданская Оборона','SwYZQ0zgdsw',1913,1990,'Плейлист Гражданской Обороны'),
-  song('grob-krasnoarm','Песня красноармейца','Гражданская Оборона','SwYZQ0zgdsw',2105,1990,'Плейлист Гражданской Обороны'),
-  song('grob-zhit','Жить','Гражданская Оборона','SwYZQ0zgdsw',2538,1990,'Плейлист Гражданской Обороны'),
-  song('piknik-siyanie','Сияние','Пикник','Zgd5EX8CB38',0,2014,'Официальный видеоклип'),
-  song('piknik-dorian-grey','Дориан (Грей)','Пикник','FSr21xK0GqU',0,2026,'Альбом «Вечное движение»'),
-  song('kino-razreshi','Разреши мне','Кино','hr2fP-G5lXs',0,2025,'Официальное видео'),
-  song('ddt-gde-letim','Где мы летим','ДДТ','yWr8HQayBUQ',0,2012,'Видеоклип'),
-  song('zhadan-rohan','Рогань','Жадан і Собаки','HXNO7Z9D5n0',0,2023,'Официальное видео'),
-  song('kukryniksy-nadezhda','Надежда','Кукрыниксы','nI9rCTVFjmA',0,2015,'Видео группы «Горшенёв»'),
-  song('kukryniksy-raskrashennaya','По раскрашенной душе','Кукрыниксы','BiY0pvtcs8k',0,2002,'Аудиозапись'),
-  song('black-obelisk-ostayus','Я остаюсь','Чёрный Обелиск','PnOHYU4TtE0',0,2014,'Видеозапись'),
-  song('splean-moya-lyubov','Моя любовь','Сплин','43ScNT79o50',0,1997,'Официальный канал'),
-  song('bi2-varvara','Варвара','Би-2','T18deTeV0RI',0,2000,'Видеоклип')
+// Каталог музыкальных композиций. Все песни выпущены до апреля 2012 года.
+const song = (id,title,artist,videoId,startSeconds=0,year=null,label='YouTube') => ({ id,title,artist,videoId,startSeconds,year,label,era:year ? String(year) : '' });
+const trackCatalog = [
+  song('track-001','Группа крови','Кино','EtTkBaBnpR0',0,1988,'Релиз 1988'),
+  song('track-002','Хочу перемен','Кино','EtTkBaBnpR0',632,1986,'Релиз 1986'),
+  song('track-003','Звезда по имени Солнце','Кино','EtTkBaBnpR0',924,1989,'Релиз 1989'),
+  song('track-004','Видели ночь','Кино','EtTkBaBnpR0',1145,1986,'Релиз 1986'),
+  song('track-005','Троллейбус','Кино','EtTkBaBnpR0',1331,1984,'Релиз 1984'),
+  song('track-006','Пачка сигарет','Кино','EtTkBaBnpR0',1503,1989,'Релиз 1989'),
+  song('track-007','Нам с тобой','Кино','EtTkBaBnpR0',2640,1990,'Релиз 1990'),
+  song('track-008','Закрой за мной дверь','Кино','EtTkBaBnpR0',2925,1988,'Релиз 1988'),
+  song('track-009','Последний герой','Кино','EtTkBaBnpR0',5322,1989,'Релиз 1989'),
+  song('track-010','Спокойная ночь','Кино','EtTkBaBnpR0',7678,1988,'Релиз 1988'),
+  song('track-011','Песня идущего домой (Я шёл домой)','Вячеслав Бутусов','gAKASfiPds8',0,2004,'Альбом «Биографика»'),
+  song('track-012','Электричка','Кино','0n5AesusgDU',0,1982,'Альбом «45»'),
+  song('track-013','Алюминиевые огурцы','Кино','TMZM-NxeXxM',0,1982,'Альбом «45»'),
+  song('track-014','Когда твоя девушка больна','Кино','X1TyisQ1bNk',0,1990,'«Чёрный альбом»'),
+  song('track-015','Мама, мы все тяжело больны','Кино','5ilpyUFll6A',0,1988,'Альбом «Группа крови»'),
+  song('track-016','Бери шинель','Гражданская Оборона','BbW1RIR6R3k',181,1989,'Альбом «Русское поле экспериментов»'),
+  song('track-017','Новогодняя песенка','Гражданская Оборона','BbW1RIR6R3k',312,1989,'Альбом «Русское поле экспериментов»'),
+  song('track-018','Непонятная песенка','Гражданская Оборона','BbW1RIR6R3k',392,1989,'Альбом «Русское поле экспериментов»'),
+  song('track-019','Лоботомия','Гражданская Оборона','BbW1RIR6R3k',569,1989,'Альбом «Русское поле экспериментов»'),
+  song('track-020','Зомби','Гражданская Оборона','BbW1RIR6R3k',746,1989,'Альбом «Русское поле экспериментов»'),
+  song('track-021','Что такое осень','ДДТ','MP0IEfWcQFQ',3,1992,'Релиз 1992'),
+  song('track-022','Капитан Колесников','ДДТ','MP0IEfWcQFQ',302,2005,'Релиз 2005'),
+  song('track-023','Песня о свободе','ДДТ','MP0IEfWcQFQ',548,1994,'Релиз 1994'),
+  song('track-024','Просвистела','ДДТ','MP0IEfWcQFQ',805,1997,'Релиз 1997'),
+  song('track-025','Родина','ДДТ','MP0IEfWcQFQ',1027,1995,'Релиз 1995'),
+  song('track-026','Дождь','ДДТ','MP0IEfWcQFQ',1304,1992,'Релиз 1992'),
+  song('track-027','Вороны','ДДТ','MP0IEfWcQFQ',1900,2000,'Релиз 2000'),
+  song('track-028','Я получил эту роль','ДДТ','MP0IEfWcQFQ',3997,1988,'Релиз 1988'),
+  song('track-029','Это всё','ДДТ','MP0IEfWcQFQ',4337,1994,'Релиз 1994'),
+  song('track-030','Не стреляй','ДДТ','MP0IEfWcQFQ',5878,1980,'Релиз 1980'),
+  song('track-031','Как на войне','Агата Кристи','3eHO4UcohHI',0,1993,'Релиз 1993'),
+  song('track-032','Сказочная тайга','Агата Кристи','3eHO4UcohHI',243,1994,'Релиз 1994'),
+  song('track-033','Опиум для никого','Агата Кристи','3eHO4UcohHI',415,1994,'Релиз 1994'),
+  song('track-034','Ковёр-вертолёт','Агата Кристи','3eHO4UcohHI',652,1994,'Релиз 1994'),
+  song('track-035','Чёрная луна','Агата Кристи','3eHO4UcohHI',851,1996,'Релиз 1996'),
+  song('track-036','Моряк','Агата Кристи','3eHO4UcohHI',1088,1994,'Релиз 1994'),
+  song('track-037','Два корабля','Агата Кристи','3eHO4UcohHI',1303,1994,'Релиз 1994'),
+  song('track-038','Viva Kalman','Агата Кристи','3eHO4UcohHI',2206,1994,'Релиз 1994'),
+  song('track-039','Лесник','Король и Шут','A1qRZ3mEQVM',3,1997,'Релиз 1997'),
+  song('track-040','Проклятый старый дом','Король и Шут','A1qRZ3mEQVM',194,2001,'Релиз 2001'),
+  song('track-041','Дурак и молния','Король и Шут','A1qRZ3mEQVM',451,1996,'Релиз 1996'),
+  song('track-042','Ели мясо мужики','Король и Шут','A1qRZ3mEQVM',566,1999,'Релиз 1999'),
+  song('track-043','Воспоминания о былой любви','Король и Шут','A1qRZ3mEQVM',1021,2001,'Релиз 2001'),
+  song('track-044','Прыгну со скалы','Король и Шут','A1qRZ3mEQVM',1315,1999,'Релиз 1999'),
+  song('track-045','Смельчак и ветер','Король и Шут','A1qRZ3mEQVM',3746,2001,'Релиз 2001'),
+  song('track-046','Мёртвый анархист','Король и Шут','A1qRZ3mEQVM',6302,2002,'Релиз 2002'),
+  song('track-047','У шамана три руки','Пикник','lDtELO_VzCQ',0,1994,'Релиз 1994'),
+  song('track-048','Из мышеловки','Пикник','lDtELO_VzCQ',206,1991,'Релиз 1991'),
+  song('track-049','Египтянин','Пикник','lDtELO_VzCQ',760,2001,'Релиз 2001'),
+  song('track-050','Игла','Пикник','lDtELO_VzCQ',1048,1994,'Релиз 1994'),
+  song('track-051','Сияние','Пикник','lDtELO_VzCQ',1349,2001,'Релиз 2001'),
+  song('track-052','Там, на самом краю земли','Пикник','lDtELO_VzCQ',1923,1990,'Релиз 1990'),
+  song('track-053','Фиолетово-чёрный','Пикник','lDtELO_VzCQ',2055,1994,'Релиз 1994'),
+  song('track-054','Остров','Пикник','lDtELO_VzCQ',2792,1996,'Релиз 1996'),
+  song('track-055','Полковнику никто не пишет','Би-2','hl2O9EijZnc',0,2000,'Релиз 2000'),
+  song('track-056','Варвара','Би-2','hl2O9EijZnc',291,2000,'Релиз 2000'),
+  song('track-057','Серебро','Би-2','hl2O9EijZnc',591,2000,'Релиз 2000'),
+  song('track-058','Компромисс','Би-2','hl2O9EijZnc',868,2000,'Релиз 2000'),
+  song('track-059','Революция','Би-2','hl2O9EijZnc',1136,2006,'Релиз 2006'),
+  song('track-060','Вечная призрачная встречная','Би-2','hl2O9EijZnc',1353,2006,'Релиз 2006'),
+  song('track-061','Молитва','Би-2','hl2O9EijZnc',1665,2003,'Релиз 2003'),
+  song('track-062','Мой рок-н-ролл','Би-2','hl2O9EijZnc',2003,2002,'Релиз 2002'),
+  song('track-063','Какое небо','Гражданская Оборона','MEaCWDqxoCY',53,1988,'Релиз 1988'),
+  song('track-064','Система','Гражданская Оборона','MEaCWDqxoCY',104,1987,'Релиз 1987'),
+  song('track-065','Иуда будет со мной','Гражданская Оборона','MEaCWDqxoCY',251,1987,'Релиз 1987'),
+  song('track-066','Харакири','Гражданская Оборона','MEaCWDqxoCY',366,1987,'Релиз 1987'),
+  song('track-067','Продолжая продолжать','Гражданская Оборона','MEaCWDqxoCY',588,1987,'Релиз 1987'),
+  song('track-068','Общество «Память»','Гражданская Оборона','MEaCWDqxoCY',780,1988,'Релиз 1988'),
+  song('track-069','Всё идёт по плану','Гражданская Оборона','MEaCWDqxoCY',2092,1988,'Релиз 1988'),
+  song('track-070','Туман','Сектор Газа','31PkjC-Fjz0',214,1996,'Релиз 1996'),
+  song('track-071','Демобилизация','Сектор Газа','31PkjC-Fjz0',694,1991,'Релиз 1991'),
+  song('track-072','Пора домой','Сектор Газа','31PkjC-Fjz0',1955,1996,'Релиз 1996'),
+  song('track-073','Лирика','Сектор Газа','kkcQ3Utrxmo',0,1993,'Релиз 1993'),
+  song('track-074','Колхозный панк','Сектор Газа','boQPg3Wkwuc',129,1991,'Релиз 1991'),
+  song('track-075','Там, де нас нема','Океан Ельзи','Ax3v_cSSvMw',1588,1998,'Релиз 1998'),
+  song('track-076','Квітка','Океан Ельзи','Ax3v_cSSvMw',3670,2001,'Релиз 2001'),
+  song('track-077','Відпусти','Океан Ельзи','Ax3v_cSSvMw',4571,2000,'Релиз 2000'),
+  song('track-078','Без бою','Океан Ельзи','Ax3v_cSSvMw',5516,2005,'Релиз 2005'),
+  song('track-079','Вище неба','Океан Ельзи','Ax3v_cSSvMw',5040,2005,'Релиз 2005'),
+  song('track-080','Владивосток 2000','Мумий Тролль','nj5nuYYrZvg',0,1998,'Релиз 1998'),
+  song('track-081','Утекай','Мумий Тролль','Ok1-XYV3k60',0,1997,'Релиз 1997'),
+  song('track-082','Орбит без сахара','Сплин','t-OvHZbID5s',0,1998,'Релиз 1998'),
+  song('track-083','Государство','Lumen','J9fAvi1T-e4',0,2008,'Релиз 2008'),
+  song('track-084','Не надо снов','Lumen','uFyc3orK6cs',0,2011,'Релиз 2011'),
+  song('track-085','Владимирский централ','Владимир Круг','GqFQbNn0ZBo',0,1999,'Релиз 1999'),
+  song('track-086','Штиль','Ария','GvBHagY7eok',0,2001,'Релиз 2001'),
+  song('track-087','Звонімір Бобан','Жадан і Собаки','OOQi9BLbQUw',0,2008,'Релиз 2008'),
+  song('track-088','Трава у дома','Приключения Электроников','Ue9lV5wfP00',0,2003,'Релиз 2003'),
+  song('track-089','Моя северная страна','Инструкция по выживанию','qfuxLKt7IQ0',384,1990,'Релиз 1990'),
+  song('track-090','Непрерывный суицид','Инструкция по выживанию','qfuxLKt7IQ0',0,1990,'Релиз 1990'),
+  song('track-091','Я остаюсь','Чёрный Обелиск','PnOHYU4TtE0',0,1994,'Релиз 1994'),
+  song('track-092','По раскрашенной душе','Кукрыниксы','BiY0pvtcs8k',0,2002,'Релиз 2002'),
+  song('track-093','Paint It, Black','The Rolling Stones','O4irXQhgMqg',0,1966,'Релиз 1966'),
+  song('track-094','Gimme Shelter','The Rolling Stones','EJRdDhnTRoo',0,1969,'Релиз 1969'),
+  song('track-095','Sympathy for the Devil','The Rolling Stones','GgnClrx8N2k',0,1968,'Релиз 1968'),
+  song('track-096','Eye of the Tiger','Survivor','btPJPFnesV4',0,1982,'Релиз 1982'),
+  song('track-097','Legs','ZZ Top','eUDcTLaWJuo',0,1983,'Релиз 1983'),
+  song('track-098','Round and Round','Ratt','0u8teXR8VE4',0,1984,'Релиз 1984'),
+  song('track-099','Livin’ on a Prayer','Bon Jovi','lDK9QqIzhwk',0,1986,'Релиз 1986'),
+  song('track-100','Alone Again','Dokken','evqe3VJ9qDQ',0,1984,'Релиз 1984'),
 ];
-
-const banditStationTracks = [
-  song('kish-vedma','Ведьма и Осёл','Король и Шут','44YS6zEsjQw',0,1998,'Подборка песен Короля и Шута'),
-  song('kish-kukla','Кукла Колдуна','Король и Шут','44YS6zEsjQw',177,2001,'Подборка песен Короля и Шута'),
-  song('kish-lesnik','Лесник','Король и Шут','44YS6zEsjQw',381,1997,'Подборка песен Короля и Шута'),
-  song('kish-durak','Дурак и Молния','Король и Шут','44YS6zEsjQw',573,1996,'Подборка песен Короля и Шута'),
-  song('kish-geniy','Танец злобного гения','Король и Шут','44YS6zEsjQw',687,2001,'Подборка песен Короля и Шута'),
-  song('kish-gimn','Гимн Шута','Король и Шут','44YS6zEsjQw',923,2002,'Подборка песен Короля и Шута'),
-  song('kish-prygnu','Прыгну со скалы','Король и Шут','44YS6zEsjQw',1224,1999,'Подборка песен Короля и Шута'),
-  song('kish-kamnem','Камнем по голове','Король и Шут','44YS6zEsjQw',1417,1996,'Подборка песен Короля и Шута'),
-  song('kish-vospominaniya','Воспоминания о былой любви','Король и Шут','44YS6zEsjQw',1575,2001,'Подборка песен Короля и Шута'),
-  song('kish-dom','Проклятый старый дом','Король и Шут','44YS6zEsjQw',1870,2001,'Подборка песен Короля и Шута'),
-  song('sector-demobilizaciya','Демобилизация','Сектор Газа','ILT3n0WMVJY',0,1990,'Видеозапись'),
-  song('vladimirsky-central','Владимирский централ','Владимир Круг','GqFQbNn0ZBo',0,1999,'Официальный канал',),
-  song('agata-kak-na-voyne','Как на войне','Агата Кристи','1fm1XCJAY0s',0,1989,'Официальный канал'),
-  song('agata-opium','Опиум для никого','Агата Кристи','Ty8QVhtdsgI',0,1995,'Видеоклип'),
-  song('ipv-nepreryvny','Непрерывный суицид','Инструкция по выживанию','qfuxLKt7IQ0',0,1990,'Альбомная запись'),
-  song('ipv-severnaya','Моя северная страна','Инструкция по выживанию','qfuxLKt7IQ0',384,1990,'Альбомная запись'),
-  song('ipv-gorbachev','Товарищ Горбачёв','Инструкция по выживанию','qfuxLKt7IQ0',936,1990,'Альбомная запись'),
-  song('bi2-polkovniku','Полковнику никто не пишет','Би-2','hl2O9EijZnc',0,2000,'Музыкальная подборка Би-2'),
-  song('electro-ischu','Ищу тебя','Приключения Электроников','XBawgi2fQLI',0,2015,'Официальный канал'),
-  song('grob-moya-oborona','Моя оборона','Гражданская Оборона','OPTl11RKzXQ',850,1989,'Подборка песен Егора Летова')
-];
-
-const militaryStationTracks = [
-  song('bonjovi-always','Always','Bon Jovi','yV-GX00-UPw',0,1994,'Подборка Bon Jovi'),
-  song('bonjovi-prayer','Livin’ on a Prayer','Bon Jovi','yV-GX00-UPw',347,1986,'Подборка Bon Jovi'),
-  song('bonjovi-itsmy','It’s My Life','Bon Jovi','yV-GX00-UPw',582,2000,'Подборка Bon Jovi'),
-  song('bonjovi-badname','You Give Love a Bad Name','Bon Jovi','yV-GX00-UPw',806,1986,'Подборка Bon Jovi'),
-  song('bonjovi-bedroses','Bed of Roses','Bon Jovi','yV-GX00-UPw',1022,1992,'Подборка Bon Jovi'),
-  song('bonjovi-illbe','I’ll Be There for You','Bon Jovi','yV-GX00-UPw',1411,1988,'Подборка Bon Jovi'),
-  song('bonjovi-miracle','Miracle','Bon Jovi','yV-GX00-UPw',1749,1990,'Подборка Bon Jovi'),
-  song('bonjovi-blaze','Blaze of Glory','Bon Jovi','yV-GX00-UPw',2050,1990,'Подборка Bon Jovi'),
-  song('bonjovi-love-song','This Ain’t a Love Song','Bon Jovi','yV-GX00-UPw',2382,1995,'Подборка Bon Jovi'),
-  song('bonjovi-neversay','Never Say Goodbye','Bon Jovi','yV-GX00-UPw',2676,1986,'Подборка Bon Jovi'),
-  song('bonjovi-baby','Born to Be My Baby','Bon Jovi','yV-GX00-UPw',2962,1988,'Подборка Bon Jovi'),
-  song('bonjovi-thesedays','These Days','Bon Jovi','yV-GX00-UPw',3235,1995,'Подборка Bon Jovi'),
-  song('bonjovi-misunderstood','Misunderstood','Bon Jovi','yV-GX00-UPw',3504,2002,'Подборка Bon Jovi'),
-  song('bonjovi-arms','In These Arms','Bon Jovi','yV-GX00-UPw',3725,1992,'Подборка Bon Jovi'),
-  song('bonjovi-badmedicine','Bad Medicine','Bon Jovi','yV-GX00-UPw',4036,1988,'Подборка Bon Jovi'),
-  song('ratt-bestofme','Best of Me','Ratt','DCEjiMO0tW4',0,2010,'Официальный клип'),
-  song('survivor-cant-hold','I Can’t Hold Back','Survivor','GaMcsKtBDwE',0,1984,'Официальный клип'),
-  song('zztop-gotsta','I Gotsta Get Paid','ZZ Top','kaIZWjItReI',0,2012,'Официальный канал'),
-  song('dokken-fugitive','Fugitive','Dokken','XZ0CocSSpzw',0,2023,'Официальный клип'),
-  song('stones-doom','Doom and Gloom','The Rolling Stones','1DWiB7ZuLvI',0,2012,'Официальный канал')
-];
-
-// Дополнительные композиции доступны в личном КПК-плеере, но не повторяются в эфире баз.
-const personalOnlyTracks = [
-  song('grob-svoi-sredi','Свой среди чужих','Гражданская Оборона','SwYZQ0zgdsw',7998,1990,'Плейлист Гражданской Обороны'),
-  song('grob-nechego','Нечего терять','Гражданская Оборона','SwYZQ0zgdsw',3660,1990,'Плейлист Гражданской Обороны'),
-  song('kish-myaso','Ели мясо мужики','Король и Шут','44YS6zEsjQw',2127,1999,'Подборка песен Короля и Шута'),
-  song('kish-rom','Ром','Король и Шут','44YS6zEsjQw',2261,2000,'Подборка песен Короля и Шута'),
-  song('bonjovi-because','Because We Can','Bon Jovi','chXJFjrl-Q4',0,2013,'Официальный канал')
-];
-
-export const RADIO_TRACKS = [...lonerStationTracks,...banditStationTracks,...militaryStationTracks];
-// Автоматически выставляем конец каждого фрагмента следующей отметкой из той же записи.
+const trackById = new Map(trackCatalog.map(track=>[track.id,track]));
+const tracks = ids => ids.map(id=>trackById.get(id)).filter(Boolean);
+const lonerStationTracks = tracks([
+  'track-001', 'track-003', 'track-006', 'track-007', 'track-008', 'track-011', 'track-017', 'track-018',
+  'track-021', 'track-025', 'track-026', 'track-028', 'track-029', 'track-032', 'track-036', 'track-037',
+  'track-047', 'track-048', 'track-049', 'track-051', 'track-052', 'track-056', 'track-057', 'track-058',
+  'track-075', 'track-076', 'track-077', 'track-078', 'track-079', 'track-082', 'track-083', 'track-084',
+  'track-093', 'track-097', 'track-100',
+]);
+const banditStationTracks = tracks([
+  'track-002', 'track-004', 'track-005', 'track-013', 'track-031', 'track-033', 'track-034', 'track-035',
+  'track-038', 'track-039', 'track-040', 'track-041', 'track-042', 'track-046', 'track-063', 'track-064',
+  'track-065', 'track-066', 'track-067', 'track-070', 'track-071', 'track-072', 'track-073', 'track-074',
+  'track-080', 'track-081', 'track-085', 'track-087', 'track-089', 'track-090', 'track-092', 'track-095',
+  'track-098',
+]);
+const militaryStationTracks = tracks([
+  'track-009', 'track-010', 'track-011', 'track-012', 'track-014', 'track-015', 'track-016', 'track-019',
+  'track-020', 'track-022', 'track-023', 'track-024', 'track-027', 'track-030', 'track-043', 'track-044',
+  'track-045', 'track-050', 'track-053', 'track-054', 'track-055', 'track-059', 'track-060', 'track-061',
+  'track-062', 'track-068', 'track-069', 'track-086', 'track-088', 'track-091', 'track-094', 'track-096',
+  'track-099',
+]);
+export const RADIO_TRACKS = trackCatalog;
+const preciseSegmentEnds = { 'track-020':850 };
 for (const track of RADIO_TRACKS) {
-  const next = RADIO_TRACKS.filter(other=>other.videoId===track.videoId && other.startSeconds>track.startSeconds)
-    .sort((a,b)=>a.startSeconds-b.startSeconds)[0];
+  const next = RADIO_TRACKS.filter(other=>other.videoId===track.videoId && other.startSeconds>track.startSeconds).sort((a,b)=>a.startSeconds-b.startSeconds)[0];
   if (next) track.endSeconds=next.startSeconds;
-}
-for (const track of personalOnlyTracks) {
-  const next=personalOnlyTracks.filter(other=>other.videoId===track.videoId && other.startSeconds>track.startSeconds)
-    .sort((a,b)=>a.startSeconds-b.startSeconds)[0];
-  if (next && next.startSeconds>track.startSeconds) track.endSeconds=next.startSeconds;
-}
-// Пропущенные композиции между выбранными фрагментами не должны попадать в эфир.
-const preciseSegmentEnds = {
-  'grob-esche':1479, 'grob-krasnoarm':2259, 'grob-zhit':2730,
-  'kish-dom':2127, 'bonjovi-badmedicine':4358,
-  'grob-svoi-sredi':8303, 'grob-nechego':3885,
-  'grob-moya-oborona':1008, 'kish-rom':2423
-};
-for (const track of [...RADIO_TRACKS,...personalOnlyTracks]) {
   if (preciseSegmentEnds[track.id]) track.endSeconds=preciseSegmentEnds[track.id];
 }
-
-export const PLAYER_TRACKS = [...RADIO_TRACKS,...personalOnlyTracks];
+export const PLAYER_TRACKS = RADIO_TRACKS;
 export const RADIO_STATIONS = [
   { id:'loner-village-radio', name:'Радио Деревни новичков', faction:'Одиночки', locationId:'rookie-village', frequency:'100.7 FM', trackIds:lonerStationTracks.map(track=>track.id) },
   { id:'bandit-atp-radio', name:'Радио АТП', faction:'Бандиты', locationId:'atp', frequency:'101.3 FM', trackIds:banditStationTracks.map(track=>track.id) },
   { id:'military-checkpoint-radio', name:'Радио Южного блокпоста', faction:'Военные', locationId:'south-checkpoint', frequency:'103.1 FM', trackIds:militaryStationTracks.map(track=>track.id) }
 ];
-
 export const BLIND_DOG_IMAGES = [];
 
 
 export const QUESTS = [
   { id:'first-steps', title:'Первые шаги', giver:'wolf', text:'Осмотрись в деревне новичков и загляни к Волку за советом.', reward:150, condition:'talk:wolf', status:'available' },
+  { id:'wolf-dog-pack', title:'Собаки у вагончика', giver:'wolf', text:'Уничтожь пять слепых собак, которые обосновались у вагончика севернее деревни новичков, затем вернись к Волку.', reward:450, condition:'wolf-dog-pack', status:'available' },
   { id:'old-supplies', title:'Старые припасы', giver:'wolf', text:'Проверь остановку и найди что-нибудь полезное.', reward:220, condition:'search:stop', status:'available' },
   { id:'signal-dump', title:'Странный сигнал', giver:'sidorovich', text:'Найди источник сигнала в Тайном лагере, проверь гравитационную аномалию «Воронка» и вернись с находкой.', reward:450, condition:'artifact:anomaly-dump', status:'available' },
   { id:'atp-test', title:'Проверка на прочность', giver:'kefir', text:'Доберись до туннеля в лощину и проверь, не появились ли там чужаки.', reward:300, condition:'visit:ravine-tunnel', status:'available' },

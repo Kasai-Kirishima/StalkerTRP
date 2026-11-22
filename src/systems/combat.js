@@ -24,6 +24,17 @@ export function beginEncounter(game, type='blind-dog') {
   return true;
 }
 
+
+export function beginWolfDogPack(game) {
+  if (game.locationId!=='trailer') return {ok:false,message:'Собаки обосновались у вагончика. Доберись туда, чтобы начать зачистку.'};
+  if (game.wolfDogQuest?.status!=='active') return {ok:false,message:'Сейчас у вагончика нет поручения Волка.'};
+  if (game.activeEncounter) return {ok:false,message:'Сначала закончи текущий бой.'};
+  const dogIndex=(game.wolfDogQuest.killed||0)+1;
+  game.activeEncounter={type:'blind-dog',name:'Слепой пёс',hp:55,maxHp:55,damage:8+Math.floor(Math.random()*5),count:1,imageIndex:0,image:'',wolfDogPack:true,packIndex:dogIndex};
+  addLog(game,`У вагончика показался слепой пёс (${dogIndex}/5).`, 'danger');
+  return {ok:true,message:`У вагончика тебя заметила стая. Первый пёс бросается на тебя. Всего здесь пять собак.`};
+}
+
 export function playerAttack(game) {
   const enemy = game.activeEncounter;
   if (!enemy) return { ok:false, message:'Сейчас никто не угрожает.' };
@@ -60,6 +71,21 @@ export function playerAttack(game) {
     if (enemy.type==='flesh' && Math.random()<.48) {
       const trophy=addItem(game.inventory,'flesh-eye',1);
       message += trophy.ok ? ' Среди останков найден «Глаз плоти».' : ' Среди останков найден «Глаз плоти», но рюкзак перегружен.';
+    }
+    if (enemy.wolfDogPack && game.wolfDogQuest?.status==='active') {
+      game.wolfDogQuest.killed=Math.min(game.wolfDogQuest.total||5,(game.wolfDogQuest.killed||0)+1);
+      const quest=game.quests?.find(entry=>entry.id==='wolf-dog-pack');
+      if (quest) quest.progress=game.wolfDogQuest.killed;
+      const remaining=(game.wolfDogQuest.total||5)-game.wolfDogQuest.killed;
+      if (remaining>0) {
+        const nextIndex=game.wolfDogQuest.killed+1;
+        game.activeEncounter={type:'blind-dog',name:'Слепой пёс',hp:55,maxHp:55,damage:8+Math.floor(Math.random()*5),count:1,imageIndex:0,image:'',wolfDogPack:true,packIndex:nextIndex};
+        message += ` Уничтожено ${game.wolfDogQuest.killed} из пяти. Из-за вагончика выбегает следующая собака — осталось ${remaining}.`;
+      } else {
+        game.wolfDogQuest.status='ready';
+        if (quest) quest.status='ready';
+        message += ' Все пять собак у вагончика уничтожены. Вернись к Волку в деревню новичков.';
+      }
     }
     addLog(game, message);
     return { ok:true, finished:true, message };
