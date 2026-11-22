@@ -20,8 +20,18 @@ export function getFactionRelation(first, second) {
   return relations[first]?.[second] || 'neutral';
 }
 
+export function playerCanEnterLocation(faction, locationId, currentId='') {
+  if (!faction || !getLocation(locationId)) return true;
+  // The Rookie Village and Sidorovich's bunker are protected by the local loners.
+  // Other hostile checkpoints remain enterable and can trigger an encounter.
+  if (faction==='bandit' && locationId==='rookie-village' && currentId!=='sidorovich-bunker') return false;
+  if (faction==='bandit' && locationId==='sidorovich-bunker') return false;
+  return true;
+}
+
 function factionCanEnter(faction, locationId) {
   const territory=getLocation(locationId)?.territory;
+  if (faction==='bandit' && ['rookie-village','sidorovich-bunker'].includes(locationId)) return false;
   if (!territory) return true;
   return faction===territory;
 }
@@ -54,6 +64,10 @@ export function getTravelMinutes(fromId, toId) {
 const RANDOM_TRADER_NAMES = ['Серый','Муха','Гвоздь','Тихий','Пахарь','Клык','Рыжий','Шустрый','Филин','Крот'];
 const STALKER_FIRST_NAMES = ['Макс','Саня','Клим','Боря','Феликс','Антон','Олег','Андрей','Макар','Алекс','Артём','Павел','Пётр','Никита','Марк','Костя','Егор','Нестор','Гриша','Захар','Хома','Ваня','Вася','Роман','Ростик','Леон','Лёва','Дима','Денис','Жора','Ян','Степан','Игнат','Тимур','Трофим','Юра'];
 const STALKER_NICKNAMES = ['Йог','Центнер','Упырь','Костлявый','Косой','Кислый','Енот','Нудный','Гидра','Гравий','Гром','Гитарист','Горбун','Шумахер','Щука','Затвор','Землянин','Зомби','Хомяк','Хитрый','Фитиль','Факел','Ветер','Волосатый','Веник','Автомат','Плохиш','Пастух','Пудель','Пистон','Петля','Паровоз','Пушкин','Робот','Рихтер','Рыболов','Онегин','Ловкач','Лимон','Диггер','Дикарь','Жук','Якут','Якорь','Чехов','Чумной','Чаплин','Сиплый','Старик','Моряк','Морпех','Мутный','Беляев','Балбес','Болтун','Бык','Башмак','Бухой','Бахмут','Барин','Белый','Юрта'];
+export function generateStalkerName() {
+  return `${pick(STALKER_FIRST_NAMES)} ${pick(STALKER_NICKNAMES)}`;
+}
+
 const FACTION_GROUPS = { loner:'Одиночки', bandit:'Бандиты', military:'Военные' };
 
 function npcLook(faction) {
@@ -181,7 +195,7 @@ function createTraderRecords() {
   const random = Array.from({length:4},(_,index)=>{
     const first=pick(RANDOM_TRADER_NAMES);
     const faction=pick(FACTIONS);
-    const possible=LOCATIONS.filter(location=>!location.territory && location.id!=='sidorovich-bunker');
+    const possible=LOCATIONS.filter(location=>!location.territory && location.id!=='sidorovich-bunker' && !(faction.id==='bandit'&&location.id==='rookie-village'));
     return {
       id:`wanderer-${index+1}`, name:first, role:'Бродячий торговец', group:'Путники', faction:faction.id,
       location:pick(possible).id, ...npcLook(faction.id), greeting:'Поторопись, сталкер. Я не задерживаюсь на одном месте.',
@@ -684,6 +698,9 @@ export function travelTo(game, destinationId) {
   const current = getLocation(game.locationId);
   const destination = getLocation(destinationId);
   if (!current || !destination) return { ok:false, message:'Неизвестный маршрут.' };
+  if (!playerCanEnterLocation(game.player?.faction,destinationId,current?.id)) {
+    return {ok:false,message:'Бандитам запрещён вход на территорию деревни новичков. Волк и местные одиночки не пропустят тебя. Выбирай другой маршрут.'};
+  }
   if (!current.neighbors.includes(destinationId)) return { ok:false, message:'Прямого пути туда нет. Проверь соседние переходы на карте.' };
   if (game.activeEncounter) return { ok:false, message:'Сначала разберись с текущей угрозой.' };
   if (destinationId==='atp' && game.player.faction==='loner') {
@@ -810,6 +827,7 @@ export function getAvailableStalkers(game, locationId=game.locationId) {
     if (person.captured && game.currentAreaId!=='atp-first-floor-prisoners') return false;
     if (person.faction==='loner' && ['bandit','military'].includes(territory) && !person.captured) return false;
     if (person.faction==='bandit' && territory==='military') return false;
+    if (person.faction==='bandit' && ['rookie-village','sidorovich-bunker'].includes(locationId)) return false;
     if (person.faction==='military' && territory==='bandit') return false;
     if (game.atpRescue?.cleared && locationId==='atp' && person.faction==='bandit') return false;
     if (seen.has(person.id)) return false;
@@ -989,7 +1007,7 @@ export function replyNpcFreeText(game,npcId,rawText) {
       ? 'Нас двоих держат здесь уже не первый день. Бандиты с АТП перехватили нашу группу, вещи забрали, а нас заперли на первом этаже. Мы слышали, что во дворе дежурит несколько человек. Если станет тихо, попробуем уйти.'
       : 'Пожалуйста, не уходи, пока они рядом. Мы не знаем, сколько бандитов осталось во дворе. Если решишь помочь, сначала осмотрись и будь осторожен.';
     game.dialogueReply=answer; game.dialogueHistory ||= [];
-    game.dialogueHistory.push({role:'player',text:String(rawText).slice(0,500)},{role:'npc',text:answer});
+    game.dialogueHistory.push({role:'player',npcId,text:String(rawText).slice(0,500)},{role:'npc',npcId,text:answer});
     game.dialogueHistory=game.dialogueHistory.slice(-16); addLog(game,`${npc.name}: ${answer}`);
     return {ok:true,message:answer};
   }
@@ -998,7 +1016,7 @@ export function replyNpcFreeText(game,npcId,rawText) {
     const answer=pick([`Ладно, ${npc.name==='Сидорович'?'сталкер':'договорились'}. Открываю обмен — посмотри, что у меня есть, и что готов предложить сам.`,`Давай к делу. В торговом окне увидишь мой запас и цены выкупа на твои вещи.`,`Есть о чём поговорить. Открывай сделку: товар слева, твой рюкзак справа.`]);
     game.dialogueReply=answer;
     game.dialogueHistory ||= [];
-    game.dialogueHistory.push({role:'player',text:String(rawText).slice(0,500)},{role:'npc',text:answer});
+    game.dialogueHistory.push({role:'player',npcId,text:String(rawText).slice(0,500)},{role:'npc',npcId,text:answer});
     game.dialogueHistory=game.dialogueHistory.slice(-16);
     addLog(game,`${npc.name}: ${answer}`);
     return {ok:true,message:answer,action:'trade',traderId:npcId};
@@ -1042,7 +1060,7 @@ export function replyNpcFreeText(game,npcId,rawText) {
   }
   game.dialogueReply=answer;
   game.dialogueHistory ||= [];
-  game.dialogueHistory.push({role:'player',text:String(rawText).slice(0,500)},{role:'npc',text:answer});
+  game.dialogueHistory.push({role:'player',npcId,text:String(rawText).slice(0,500)},{role:'npc',npcId,text:answer});
   game.dialogueHistory=game.dialogueHistory.slice(-16);
   addLog(game,`${npc.name}: ${answer}`);
   return {ok:true,message:answer};

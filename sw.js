@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cordon-pda-v2700-rp-pda-artwork';
+const CACHE_NAME = 'cordon-pda-v2930-npc-pda-ui';
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -39,6 +39,8 @@ const APP_SHELL = [
   "./assets/items/gaduka.webp",
   "./assets/items/gravi.webp",
   "./assets/items/knife.webp",
+  "./assets/items/otklik.svg",
+  "./assets/items/medved.svg",
   "./assets/items/meat-chunk.webp",
   "./assets/items/medusa.webp",
   "./assets/items/milmed.webp",
@@ -154,6 +156,7 @@ const APP_SHELL = [
   "./src/systems/game-clock.js",
   "./src/systems/inventory.js",
   "./src/systems/music.js",
+  "./src/systems/npc-ai.js",
   "./src/systems/russian-language.js",
   "./src/systems/sound.js",
   "./src/systems/world.js",

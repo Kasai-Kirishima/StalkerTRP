@@ -2,13 +2,15 @@ import { loadState, saveState, createInitialState, exportSave, importSave } from
 import { ASSETS, FACTIONS, START_BUDGET, MAX_CARRY_KG, NPCS, ITEMS, LOCATIONS, STARTER_LOADOUT_BY_FACTION } from './data/catalog.js';
 import { renderMenu, renderAccount, renderCharacters, renderCreate, renderLoadout, renderGame, renderGameSettings, renderModal, esc } from './ui/views.js';
 import { canFitLoadout, getInventoryCost, getLoadoutWeight, addItem, getItem, getWeight, countItem, removeItem, useItem, transferItem } from './systems/inventory.js';
-import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, breakContainer, replyNpcFreeText, takeShelter, leaveShelter, sitAtCampfire, getExploreSpots, getActiveLootItems, openStorage, turnInPudelQuest, turnInSecretAnomalyQuest, claimAtpRescueReward, beginAtpRescue } from './systems/world.js';
+import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, breakContainer, replyNpcFreeText, takeShelter, leaveShelter, sitAtCampfire, getExploreSpots, getActiveLootItems, openStorage, turnInPudelQuest, turnInSecretAnomalyQuest, claimAtpRescueReward, beginAtpRescue, generateStalkerName } from './systems/world.js';
 import { playerAttack, defend, flee, beginWolfDogPack, reloadWeapon, aimWeapon, dodge, throwGrenade, throwBoltInCombat, useItemInCombat, selectWeapon } from './systems/combat.js';
 import { createMusicEngine } from './systems/music.js';
 import { buyFromTrader, sellToTrader } from './systems/world.js';
 import { processPlayerAction } from './systems/action-engine.js';
 import { getGameDateTime } from './systems/game-clock.js';
 import { createSoundEngine } from './systems/sound.js';
+import { requestNpcAiReply, isValidNpcAiEndpoint } from './systems/npc-ai.js';
+import { isRouteQuestion } from './systems/dialogue-engine.js';
 
 const root = document.getElementById('app');
 let state = loadState();
@@ -376,10 +378,9 @@ root.addEventListener('click', (event) => {
   if (action==='close-dialogue') { state.game.dialogueNpcId=null; persist(); return render(); }
   if (action==='flashlight-toggle') { state.ui.flashlight=!state.ui.flashlight; persist(); return render(); }
   if (action==='generate-stalker-name') {
-    const first=['Макс','Саня','Клим','Боря','Борис','Феликс','Антон','Олег','Андрей','Александр','Макар','Алекс','Артём','Павел','Пётр','Никита','Марк','Константин','Костя','Колян','Егор','Нестор','Гриша','Григорий','Захар','Хома','Фома','Валентин','Ваня','Иван','Вася','Василий','Роман','Ростик','Ростислав','Роберт','Леон','Лев','Лёва','Леонтий','Олесь','Леша','Дмитрий','Дима','Денис','Жора','Ян','Степан','Славик','Слава','Игнат','Тимур','Трофим','Юра','Юрик'];
-    const nick=['Йодированный','Йог','Циммерман','Центнер','Упырь','Урод','Уваров','Клименко','Костлявый','Косатка','Косой','Кислый','Китель','Енот','Наркоман','Новичок','Нудный','Нужный','Нежный','Негодяй','Гидра','Гравий','Гром','Гримлин','Гитарист','Горбун','Горбачёв','Шестёрка','Шестун','Шумахер','Щель','Щука','Запойный','Запор','Затвор','Землянин','Земляника','Зомби','Хомяк','Храбрый','Хитрый','Хрупкий','Хрен','Фитиль','Фаланга','Факел','Вентиль','Велик','Велосипедист','Ветер','Высокий','Волосатый','Вареник','Волков','Веник','Анаконда','Автомат','Арбат','Астана','Алкаш','Плохиш','Печь','Печень','Пастух','Пудель','Пистон','Петля','Петельман','Пубертат','Паровозов','Пушкин','Проволока','Переулок','Простой','Римский','Румун','Работящий','Робот','Рифмач','Рихтер','Рыболов','Рык','Онегин','Осечка','Ослов','Одессит','Люфт','Лифт','Ловкач','Лимонка','Лимон','Любитель','Лентяй','Ломка','Джа','Дагер','Диггер','Дагестан','Давидов','Демьянов','Дикарь','Дисциплина','Жопа','Жирный','Жук','Эвтаназия','Якут','Якорь','Ямантау','Чехов','Черкасов','Черчилль','Чемберлен','Читатель','Чтец','Чума','Чумной','Чаплин','Чарка','Сиплый','Старик','Семисотка','Смуглый','Струна','Макаревич','Марка','Моряк','Морпех','Масло','Мент','Метла','Мунтян','Мутный','Миксер','Мир','Иркутск','Икра','Туфель','Тупой','Тик','Беляев','Белка','Балбес','Болтун','Булка','Бык','Башмак','Ботинок','Бедный','Бухой','Бахмут','Баклажан','Бояр','Барин','Брест','Будапешт','Белый','Бледный','Буча','Юрта'];
-    state.ui.generatedName=first[Math.floor(Math.random()*first.length)]+' '+nick[Math.floor(Math.random()*nick.length)];
-    persist(); render(); toast(state.ui.generatedName); return;
+    state.draft ||= {name:'',faction:'loner'};
+    state.draft.name=generateStalkerName();
+    persist(); render(); toast(`Позывной: ${state.draft.name}`); return;
   }
   if (action==='close-sleep') { state.ui.modal=null; return render(); }
   if (action==='close-artifact') { state.game.artifactHunt=null; persist(); return render(); }
@@ -423,7 +424,7 @@ root.addEventListener('click', (event) => {
     persist(); render(); return;
   }
   if (action==='finish-loadout') return finishLoadout();
-  if (action==='pda-toggle') { if(!state.ui.pdaOpen && state.game.activeEncounter){toast('Во время боя КПК недоступен. Сначала выберись из схватки.','warning');return;} state.ui.pdaOpen=!state.ui.pdaOpen; if(state.ui.pdaOpen && !['location','map','stats','player','messages','quests','contacts','encyclopedia','help'].includes(state.ui.tab)) state.ui.tab='location'; persist(); return render(); }
+  if (action==='pda-toggle') { if(!state.ui.pdaOpen && state.game.activeEncounter){toast('Во время боя КПК недоступен. Сначала выберись из схватки.','warning');return;} state.ui.pdaOpen=!state.ui.pdaOpen; if(state.ui.pdaOpen && !['map','stats','player','messages','quests','contacts','encyclopedia','help'].includes(state.ui.tab)) state.ui.tab='map'; persist(); return render(); }
   if (action==='inventory-open') { ensureEquipmentSlots(state.game); state.ui.modal='inventory-panel'; state.ui.pdaOpen=false; persist(); return render(); }
   if (action==='explore-open') { state.ui.modal='explore-spots'; persist(); return render(); }
   if (action==='explore-spot') {
@@ -490,7 +491,7 @@ root.addEventListener('click', (event) => {
     persist();render();toast(next?`Надета броня: ${getItem(id).name}.`:'Броня снята.','success');return;
   }
   if (action==='explore-pick') { const result=claimAreaFind(state.game,id); if(result.ok) state.ui.modal=null; persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
-  if (action==='tab') { const allowed=['location','map','stats','player','messages','quests','contacts','encyclopedia','help']; if(!allowed.includes(tab)) return; state.ui.pdaOpen=true; state.ui.tab=tab; state.game.dialogueNpcId=null; state.ui.modal=null; persist(); return render(); }
+  if (action==='tab') { const allowed=['map','stats','player','messages','quests','contacts','encyclopedia','help']; if(!allowed.includes(tab)) return; state.ui.pdaOpen=true; state.ui.tab=tab; state.game.dialogueNpcId=null; state.ui.modal=null; persist(); return render(); }
   if (action==='contacts-open') { state.ui.pdaOpen=true; state.ui.tab='contacts'; state.game.dialogueNpcId=null; state.ui.modal=null; persist(); return render(); }
   if (action==='encyclopedia-category') { const allowed=['locations','people','anomalies','mutants','artifacts','equipment']; if(!allowed.includes(id)) return; state.ui.encyclopediaCategory=id; persist(); return render(); }
   if (action==='help-topic') { const allowed=['basics','commands','dialogue','trade','loot','combat','survival','pda']; if(!allowed.includes(id)) return; state.ui.helpTopic=id; persist(); return render(); }
@@ -665,6 +666,7 @@ root.addEventListener('input', (event) => {
   if (setting==='reducedMotion') { state.settings.reducedMotion=event.target.checked; persist(); document.body.classList.toggle('reduced-motion', !!state.settings.reducedMotion); }
   if (setting==='uiScale') { state.settings.uiScale=Number(event.target.value)||1; document.documentElement.style.setProperty('--ui-scale',state.settings.uiScale); persist(); }
   if (setting==='soundVolume') { state.settings.soundVolume=Math.max(0,Math.min(1,Number(event.target.value)||0)); persist(); }
+  if (setting==='npcAiEndpoint') { state.settings.npcAiEndpoint=String(event.target.value||'').trim(); persist(); }
 });
 
 root.addEventListener('change', async (event) => {
@@ -688,6 +690,7 @@ root.addEventListener('change', async (event) => {
   }
   if (setting==='soundEnabled') { state.settings.soundEnabled=event.target.checked; persist(); if(event.target.checked)soundEngine.play('success'); }
   if (setting==='soundVolume') { state.settings.soundVolume=Math.max(0,Math.min(1,Number(event.target.value)||0)); persist(); }
+  if (setting==='npcAiEndpoint') { state.settings.npcAiEndpoint=String(event.target.value||'').trim(); persist(); }
   if (event.target.id==='avatar-upload' && event.target.files?.[0]) {
     try {
       const dataUrl=await resizeImage(event.target.files[0]);
@@ -750,13 +753,15 @@ root.addEventListener('drop',(event)=>{
 });
 root.addEventListener('dragend',()=>{draggedLootItem=null;root.querySelectorAll('.drop-ready').forEach(node=>node.classList.remove('drop-ready'));});
 
-root.addEventListener('submit', (event) => {
+let npcAiTurnSerial=0;
+root.addEventListener('submit', async (event) => {
   if (event.target.id==='npc-dialogue-form') {
     event.preventDefault();
     const npcId=state.game?.dialogueNpcId;
     const text=String(new FormData(event.target).get('message')||'').trim();
     if (!npcId || !text) return;
-    const result=replyNpcFreeText(state.game,npcId,text);
+    const gameAtSubmit=state.game;
+    const result=replyNpcFreeText(gameAtSubmit,npcId,text);
     if (result.action==='trade') {
       state.ui.tradeNpcId=npcId;
       state.ui.modal='trade-panel';
@@ -765,6 +770,42 @@ root.addEventListener('submit', (event) => {
       return;
     }
     persist(); render(); toast(result.message,result.ok?'info':'warning');
+
+    // External generation is optional. Keep local gameplay actions and route facts authoritative.
+    const endpoint=String(state.settings.npcAiEndpoint||'').trim();
+    const isTransactional=/(торгов|купить|продать|обмен|бартер|работ|задан|квест|поруч|принять|сдать|перемест|открой|включи|обыщи|забери|перезаряд)/i.test(text);
+    if (result.ok && endpoint && isValidNpcAiEndpoint(endpoint) && !isTransactional && !isRouteQuestion(text)) {
+      const npc=NPCS.find(entry=>entry.id===npcId)
+        || (gameAtSubmit.ambientNpcs||[]).find(entry=>entry.id===npcId)
+        || (gameAtSubmit.randomTraders||[]).find(entry=>entry.id===npcId)
+        || (gameAtSubmit.squads||[]).find(entry=>entry.id===npcId);
+      if (npc) {
+        const turn=++npcAiTurnSerial;
+        gameAtSubmit.dialogueAiPending=true;
+        render();
+        const aiGame={...gameAtSubmit,dialogueHistory:(gameAtSubmit.dialogueHistory||[]).slice(0,-2)};
+        const aiResult=await requestNpcAiReply({endpoint,game:aiGame,npc,playerMessage:text});
+        if (turn===npcAiTurnSerial && state.game===gameAtSubmit) {
+          gameAtSubmit.dialogueAiPending=false;
+          if (aiResult.ok && gameAtSubmit.dialogueNpcId===npcId) {
+            const history=gameAtSubmit.dialogueHistory||[];
+            for (let index=history.length-1;index>=0;index--) {
+              if (history[index].role==='npc') { history[index].text=aiResult.reply; break; }
+            }
+            gameAtSubmit.dialogueReply=aiResult.reply;
+            if (gameAtSubmit.dialogueContexts?.[npcId]) gameAtSubmit.dialogueContexts[npcId].lastNpcText=aiResult.reply;
+            if (Array.isArray(gameAtSubmit.log) && gameAtSubmit.log.length) {
+              const last=gameAtSubmit.log.at(-1);
+              if (last?.text?.startsWith(`${npc.name}:`)) last.text=`${npc.name}: ${aiResult.reply}`;
+            }
+            persist(); render();
+          } else {
+            persist(); render();
+            if (aiResult.reason!=='endpoint-invalid') toast('Внешний ИИ не ответил — оставлен локальный ответ NPC.','warning');
+          }
+        }
+      }
+    }
     return;
   }
   if (event.target.id==='character-form') {
@@ -834,6 +875,6 @@ setInterval(()=>{
   updateClockDisplays();
 },15000);
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=270').catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=293').catch(()=>{}));
 }
 render();

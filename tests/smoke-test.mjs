@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict';
 import { ASSETS, IMAGE_FALLBACKS, FACTIONS, ITEMS, LOCATIONS, EXPLORE_SPOTS, NPCS, AVATAR_OPTIONS, NPC_APPEARANCES, START_BUDGET, MAX_CARRY_KG, STARTER_ITEM_IDS, STARTER_LOADOUT_BY_FACTION, ITEM_ACQUISITION } from '../src/data/catalog.js';
-import { createGame, travelTo, talkToNpc, getAvailableStalkers, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, sitAtCampfire, replyNpc, replyNpcFreeText, getTravelMinutes, getExploreSpots, advanceGame, takeShelter, leaveShelter, openStorage, getActiveLootItems, breakContainer, registerCorpseLoot, getFactionRelation, nameSecretAnomaly, turnInSecretAnomalyQuest, turnInPudelQuest, claimAtpRescueReward, beginAtpRescue, useTrampoline, simulateWorld, useVortex, escapeVortex, useCarousel, escapeCarousel } from '../src/systems/world.js';
+import { createGame, travelTo, talkToNpc, getAvailableStalkers, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, sitAtCampfire, replyNpc, replyNpcFreeText, getTravelMinutes, getExploreSpots, advanceGame, takeShelter, leaveShelter, openStorage, getActiveLootItems, breakContainer, registerCorpseLoot, getFactionRelation, nameSecretAnomaly, turnInSecretAnomalyQuest, turnInPudelQuest, claimAtpRescueReward, beginAtpRescue, useTrampoline, simulateWorld, useVortex, escapeVortex, useCarousel, escapeCarousel, generateStalkerName } from '../src/systems/world.js';
 import { addItem, getWeight, canFitLoadout, countItem, useItem, transferItem } from '../src/systems/inventory.js';
 import { beginEncounter, beginWolfDogPack, playerAttack, getBestWeapon } from '../src/systems/combat.js';
 import { processPlayerAction } from '../src/systems/action-engine.js';
-import { generateDialogueReply } from '../src/systems/dialogue-engine.js';
+import { generateDialogueReply, findRoute, matchLocationTarget, isRouteQuestion } from '../src/systems/dialogue-engine.js';
 import { rememberEntity, stemRussianWord, containsReferencePronoun, genderedSubject } from '../src/systems/russian-language.js';
+import { buildNpcAiPayload, requestNpcAiReply, isValidNpcAiEndpoint } from '../src/systems/npc-ai.js';
 import { renderMenu, renderCreate, renderLoadout, renderGame, renderModal, renderGameSettings } from '../src/ui/views.js';
 const fs = await import('node:fs');
+const pathModule = await import('node:path');
+const { fileURLToPath } = await import('node:url');
+const projectRootPath = fileURLToPath(new URL('../', import.meta.url));
 
 assert.equal(FACTIONS.length,3);
 // Imported item, weapon, mutant and PDA images must exist locally and survive offline.
@@ -58,6 +62,157 @@ leaveShelter(shelteredGame);
 assert.equal(shelteredGame.player.sheltered,false);
 assert.equal(LOCATIONS.length,18);
 assert.equal(LOCATIONS.filter(location=>location.mapVisible!==false).length,17,'17 labelled map pins should appear over the supplied base map');
+for(const item of ITEMS){const artwork=item.image||ASSETS.itemImages?.[item.id]||ASSETS.armor?.[item.id];assert.ok(artwork,`inventory item ${item.id} must have artwork, not an emoji`);if(!artwork.startsWith('data:')&&!artwork.startsWith('http'))assert.ok(fs.existsSync(new URL(artwork)),`inventory artwork must exist locally for offline use: ${item.id}`);}
+
+// Every map exit must point to a real location, have a return transition,
+// and belong to one connected Cordon travel graph.
+const locationIds=new Set(LOCATIONS.map(location=>location.id));
+for (const location of LOCATIONS) {
+  for (const neighbourId of location.neighbors||[]) {
+    assert.ok(locationIds.has(neighbourId),`transition ${location.id} -> ${neighbourId} must target an existing location`);
+    assert.ok(LOCATIONS.find(candidate=>candidate.id===neighbourId).neighbors.includes(location.id),`transition ${location.id} -> ${neighbourId} must have a return path`);
+  }
+}
+for (const origin of LOCATIONS) {
+  for (const destination of LOCATIONS) {
+    const route=findRoute(origin.id,destination.id,'loner');
+    assert.ok(route.length>=1,`there must be a route from ${origin.name} to ${destination.name}`);
+    assert.equal(route[0],origin.id);
+    assert.equal(route.at(-1),destination.id);
+    for (let index=1; index<route.length; index++) assert.ok(LOCATIONS.find(location=>location.id===route[index-1]).neighbors.includes(route[index]),`route ${origin.id} -> ${destination.id} must use marked adjacent transitions`);
+  }
+}
+// Exercise every marked one-step exit through the real movement function.
+const savedRouteRandom=Math.random;
+try {
+  Math.random=()=>.99;
+  for (const origin of LOCATIONS) for (const destinationId of origin.neighbors) {
+    const routeGame=createGame({name:'Проверка маршрутов',faction:'loner'},[],START_BUDGET);
+    routeGame.locationId=origin.id;
+    routeGame.money=5000;
+    routeGame.activeEncounter=null;
+    const result=travelTo(routeGame,destinationId);
+    assert.equal(result.ok,true,`marked transition ${origin.name} -> ${LOCATIONS.find(location=>location.id===destinationId).name} must be traversable`);
+    assert.equal(routeGame.locationId,destinationId,`player should arrive at ${destinationId}`);
+  }
+} finally { Math.random=savedRouteRandom; }
+
+// Bandits are blocked at both public entrances to Rookie Village.
+for (const [originId,destinationId] of [['stop','rookie-village'],['rookie-village','sidorovich-bunker']]) {
+  const banditGame=createGame({name:'Проверка запрета',faction:'bandit'},[],START_BUDGET);
+  banditGame.locationId=originId;
+  const blocked=travelTo(banditGame,destinationId);
+  assert.equal(blocked.ok,false,`bandits must not enter ${destinationId}`);
+  assert.notEqual(banditGame.locationId,destinationId);
+}
+const banditVillageNeighbors=LOCATIONS.find(location=>location.id==='rookie-village').neighbors.filter(id=>id!=='sidorovich-bunker');
+for(const originId of banditVillageNeighbors){const banditGame=createGame({name:'Проверка периметра',faction:'bandit'},[],START_BUDGET);banditGame.locationId=originId;assert.equal(travelTo(banditGame,'rookie-village').ok,false,`bandits must be denied from ${originId} into Rookie Village`);}
+const banditVillageGame=createGame({name:'Проверка NPC',faction:'bandit'},[],START_BUDGET);
+assert.ok(!banditVillageGame.randomTraders.some(person=>person.faction==='bandit'&&person.location==='rookie-village'),'random bandit traders must not spawn in Rookie Village');
+assert.ok(!getAvailableStalkers(banditVillageGame,'rookie-village').some(person=>person.faction==='bandit'),'bandit NPCs must never be offered inside Rookie Village');
+
+// Every faction must be able to traverse every all-pairs route, not merely have a graph path.
+for (const faction of FACTIONS) {
+  for (const origin of LOCATIONS) for (const destination of LOCATIONS) {
+    const route=findRoute(origin.id,destination.id,faction.id);
+    if (faction.id==='bandit' && origin.id!==destination.id && ['rookie-village','sidorovich-bunker'].includes(destination.id) && !(origin.id==='sidorovich-bunker' && destination.id==='rookie-village')) {
+      assert.equal(route.length,0,'bandits must not receive a route into the Rookie Village or Sidorovich bunker');
+      continue;
+    }
+    assert.ok(route.length>=1,`${faction.id} route ${origin.id} -> ${destination.id} must exist`);
+    const game=createGame({name:'Проверка полного пути',faction:faction.id},[],START_BUDGET);
+    game.locationId=origin.id; game.money=30000; game.activeEncounter=null;
+    const oldRandom=Math.random; Math.random=()=>.99;
+    try {
+      for (let step=1;step<route.length;step++) {
+        game.activeEncounter=null;
+        const result=travelTo(game,route[step]);
+        assert.equal(result.ok,true,`${faction.id} cannot traverse ${route[step-1]} -> ${route[step]}`);
+        assert.equal(game.locationId,route[step]);
+        game.activeEncounter=null; // clear an expected hostile-post interception before the next leg
+      }
+    } finally { Math.random=oldRandom; }
+  }
+}
+
+// NPCs should provide concrete, step-by-step directions for every destination.
+const routeGuide={id:'route-guide',name:'Проводник',faction:'loner'};
+for (const origin of LOCATIONS) for (const destination of LOCATIONS) {
+  if (origin.id===destination.id) continue;
+  const route=findRoute(origin.id,destination.id,'loner');
+  const routeReply=generateDialogueReply(routeGuide,{locationId:origin.id,player:{faction:'loner'},dialogueContexts:{}},`Как пройти к ${destination.name}?`).answer;
+  for (const routeId of route) assert.ok(routeReply.includes(LOCATIONS.find(location=>location.id===routeId).name),`route advice from ${origin.id} to ${destination.id} should mention every waypoint`);
+  assert.ok(routeReply.includes('минут пешком'),'route advice should include an estimated walking time');
+}
+
+assert.equal(isRouteQuestion('Где я сейчас нахожусь?'),true,'current-location questions should use real map data');
+assert.equal(isRouteQuestion('Куда мне идти?'),true,'open-ended route questions should list actual exits');
+assert.equal(isRouteQuestion('Как лучше добраться до АТП?'),true,'route questions with filler words should be recognized');
+assert.equal(isRouteQuestion('Где я?'),true,'short current-position questions should be recognized');
+assert.equal(isRouteQuestion('Есть ли здесь выход?'),true,'exit questions should be answered using actual map exits');
+assert.equal(isRouteQuestion('Мне нужно попасть на АТП'),true,'need-to-reach phrasing should be recognized');
+assert.equal(isRouteQuestion('Покажи маршрут до Тайного лагеря'),true,'requests to show a route should be recognized');
+assert.equal(isRouteQuestion('Где купить патроны?'),false,'non-route questions beginning with где should remain eligible for conversational AI');
+assert.equal(isRouteQuestion('Как попасть на КПП?'),true,'generic checkpoint route questions should be recognized for clarification');
+assert.equal(isRouteQuestion('Как пройти к тоннелю?'),true,'generic tunnel route questions should be recognized for clarification');
+assert.equal(isRouteQuestion('Как добраться до лагеря?'),true,'generic camp route questions should be recognized for clarification');
+const checkpointClarification=generateDialogueReply(routeGuide,{locationId:'rookie-village',player:{faction:'loner'},dialogueContexts:{}},'Как попасть на КПП?').answer;
+assert.ok(checkpointClarification.includes('Северный блокпост') && checkpointClarification.includes('Блокпост под мостом') && checkpointClarification.includes('Южный блокпост'),'ambiguous checkpoint requests should ask which real checkpoint the player means');
+const tunnelClarification=generateDialogueReply(routeGuide,{locationId:'rookie-village',player:{faction:'loner'},dialogueContexts:{}},'Как пройти к тоннелю?').answer;
+assert.ok(tunnelClarification.includes('Восточный туннель ЖД') && tunnelClarification.includes('Тоннель под ЖД насыпью') && tunnelClarification.includes('Тоннель в лощину'),'ambiguous tunnel requests should list mapped tunnel choices');
+const campClarification=generateDialogueReply(routeGuide,{locationId:'rookie-village',player:{faction:'loner'},dialogueContexts:{}},'Как добраться до лагеря?').answer;
+assert.ok(campClarification.includes('Лагерь в лесу') && campClarification.includes('Тайный лагерь'),'ambiguous camp requests should list mapped camp choices');
+assert.equal(matchLocationTarget('Как попасть к Сидоровичу?')?.id,'sidorovich-bunker','NPC route finder should understand Sidorovich references');
+assert.equal(matchLocationTarget('Как пройти к Косте Пуделю?')?.id,'farmstead','NPC route finder should understand the Poodle camp nickname');
+assert.equal(matchLocationTarget('Как пройти к южному блокпосту?')?.id,'south-checkpoint','NPC route finder should match declined place names');
+assert.equal(matchLocationTarget('Как добраться из деревни новичков до АТП?')?.id,'atp','the final named place should be treated as the destination');
+const atpRouteAdvice=generateDialogueReply(routeGuide,{locationId:'rookie-village',player:{faction:'loner'},dialogueContexts:{}},'Как попасть на АТП?').answer;
+assert.ok(atpRouteAdvice.includes('500 Купонов'),'route advice should warn loners about the ATP entrance fee');
+const militaryRouteAdvice=generateDialogueReply(routeGuide,{locationId:'rookie-village',player:{faction:'loner'},dialogueContexts:{}},'Как пройти к южному блокпосту?').answer;
+assert.ok(militaryRouteAdvice.includes('могут вступить в конфликт'),'route advice should warn about hostile military territory');
+for (const faction of FACTIONS) for (const origin of LOCATIONS) for (const destination of LOCATIONS) {
+  if (origin.id===destination.id) continue;
+  const path=findRoute(origin.id,destination.id,faction.id);
+  const answer=generateDialogueReply({id:`guide-${faction.id}`,name:'Проводник',faction:faction.id},{locationId:origin.id,player:{faction:faction.id},dialogueContexts:{}},`Как лучше добраться до ${destination.name}?`).answer;
+  if (faction.id==='bandit' && ['rookie-village','sidorovich-bunker'].includes(destination.id) && !(origin.id==='sidorovich-bunker' && destination.id==='rookie-village')) {
+    assert.ok(/закрыт|недоступна|нет связного маршрута/i.test(answer),'bandit NPC must refuse directions into the Rookie Village');
+    continue;
+  }
+  for (const waypoint of path) assert.ok(answer.includes(LOCATIONS.find(location=>location.id===waypoint).name),`${faction.id} NPC route advice should include the waypoint ${waypoint}`);
+  if (path.length>1) assert.ok(answer.includes('Шаг 1:'),'route instructions should be broken into actionable steps');
+}
+
+// Every faction receives a valid route, and each route can be walked edge by edge.
+for (const faction of FACTIONS) {
+  for (const origin of LOCATIONS) for (const destination of LOCATIONS) {
+    const route=findRoute(origin.id,destination.id,faction.id);
+    if (faction.id==='bandit' && origin.id!==destination.id && ['rookie-village','sidorovich-bunker'].includes(destination.id) && !(origin.id==='sidorovich-bunker' && destination.id==='rookie-village')) {
+      assert.equal(route.length,0,'bandits must not receive routes into the Rookie Village or Sidorovich bunker');
+      continue;
+    }
+    assert.ok(route.length>=1,`${faction.id} should have a route ${origin.id} -> ${destination.id}`);
+    const routeGame=createGame({name:'Полная проверка пути',faction:faction.id},[],START_BUDGET);
+    routeGame.locationId=origin.id; routeGame.money=30000; routeGame.activeEncounter=null;
+    const savedRandom=Math.random; Math.random=()=>.99;
+    try {
+      for (let index=1;index<route.length;index++) {
+        routeGame.activeEncounter=null;
+        const move=travelTo(routeGame,route[index]);
+        assert.equal(move.ok,true,`${faction.id} route edge ${route[index-1]} -> ${route[index]} should work`);
+        assert.equal(routeGame.locationId,route[index]);
+        routeGame.activeEncounter=null;
+      }
+    } finally { Math.random=savedRandom; }
+  }
+}
+// NPCs understand several natural route-question forms, not just one exact phrase.
+for (const destination of LOCATIONS) {
+  for (const phrase of [`Как добраться до ${destination.name}?`,`Где находится ${destination.name}?`,`Как пройти к ${destination.name}?`,`Как лучше добраться до ${destination.name}?`,`Подскажи дорогу до ${destination.name}`,`Мне нужно попасть в ${destination.name}`]) {
+    assert.equal(matchLocationTarget(phrase)?.id,destination.id,`route parser should resolve: ${phrase}`);
+  }
+}
+const localRouteAdvice=generateDialogueReply(routeGuide,{locationId:'rookie-village',player:{faction:'loner'},dialogueContexts:{}},'Куда мне идти?').answer;
+assert.ok(localRouteAdvice.includes('Отсюда отмечены переходы') && localRouteAdvice.includes('Остановка'),'when no destination is named, NPCs should list real adjacent exits');
 assert.deepEqual([LOCATIONS.find(l=>l.id==='rail-tunnel').x,LOCATIONS.find(l=>l.id==='rail-tunnel').y],[93,37],'east railway tunnel should be right and above locomotive');
 assert.deepEqual([LOCATIONS.find(l=>l.id==='underpass').x,LOCATIONS.find(l=>l.id==='underpass').y],[39,59],'underpass should be right and slightly above the wagon');
 assert.deepEqual(LOCATIONS.find(l=>l.id==='anomaly-dump').anomalies,['carousel','vortex'],'the secret camp has a carousel and vortex');
@@ -142,14 +297,14 @@ for (const faction of FACTIONS) {
 
 // Starter economy supports a practical multi-item kit and distinct leather jacket/cosukha art.
 assert.equal(START_BUDGET,5000,'starting budget should allow one practical faction kit without funding an advanced loadout');
-assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=270"),'service worker registration URL should refresh with the release');
+assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=293"),'service worker registration URL should refresh with the release');
 const serviceWorkerSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8');
-assert.ok(serviceWorkerSource.includes('cordon-pda-v2700-rp-pda-artwork'),'service worker cache name should change for the current release');
+assert.ok(serviceWorkerSource.includes('cordon-pda-v2930-npc-pda-ui'),'service worker cache name should change for the current release');
 const swUrl=new URL('../sw.js',import.meta.url);
 const precachePaths=[...serviceWorkerSource.matchAll(/\"(\.\/[^\"]+)\"/g)].map(match=>match[1]);
 assert.ok(precachePaths.length>=150,'the offline shell should include the expanded artwork bundle');
 for(const path of precachePaths) assert.ok(fs.existsSync(new URL(path,swUrl)),`every offline cache entry must exist: ${path}`);
-for(const artwork of requiredArtwork) { const path=decodeURIComponent(new URL(artwork).pathname).replaceAll('\\','/'); const relative=path.slice(path.lastIndexOf('/project/')+9); assert.ok(serviceWorkerSource.includes(`./${relative}`),`offline cache should include ${relative}`); }
+for (const artwork of requiredArtwork) { const assetPath=fileURLToPath(new URL(artwork)); const relative=pathModule.relative(projectRootPath,assetPath).split(pathModule.sep).join('/'); assert.ok(serviceWorkerSource.includes(`./${relative}`),`offline cache should include ${relative}`); }
 assert.ok(ASSETS.armor.leather.includes('kozankaicon.webp'),'Кожанка must use the Kozanka leather jacket artwork');
 assert.ok(ASSETS.armor.biker.includes('kosyhaicon.webp'),'Косуха must use its own Kosyha artwork');
 const kitFit=canFitLoadout({bread:1},'water',1,START_BUDGET);
@@ -519,6 +674,7 @@ const uiState={screen:'game',characters:[character],activeCharacterId:'smoke',pe
 assert.ok(renderMenu(uiState).includes('Играть'));
 assert.ok(renderMenu(uiState).includes('fonderevnanovickov'),'menu should reference a local background');
 const createHtml=renderCreate(uiState);
+assert.ok(createHtml.includes('generate-stalker-name') && createHtml.includes('Случайное имя'),'character creation should offer the built-in random stalker name generator');
 assert.ok(createHtml.includes('open-avatars') && createHtml.includes('open-appearances') && createHtml.includes('appearance-upload') && createHtml.includes('ПРИНАДЛЕЖНОСТЬ К ГРУППИРОВКЕ'),'portrait and full-body appearance should be independently selectable and uploadable');
 assert.ok(createHtml.includes('pda-screen-wrap') && createHtml.includes('kpkfon.webp'),'character creation must use the provided PDA housing');
 assert.ok(!createHtml.includes('faction-insignia') && !createHtml.includes('rank-insignia') && !createHtml.includes('⚑'),'faction selection must not show an extra flag/badge below faction names');
@@ -547,7 +703,9 @@ assert.ok(locationHtml.includes('Купонов') && !/\bRU\b/.test(locationHtml
 addItem(game.inventory,'bread',1);
 addItem(game.inventory,'water',1);
 const inventoryUi=renderModal({...uiState,ui:{...uiState.ui,modal:'inventory-panel'}});
-assert.ok(inventoryUi.includes('🍞') && inventoryUi.includes('💧'),'inventory should use distinct item-specific icons rather than a repeated generic symbol');
+assert.ok(inventoryUi.includes('bread.webp') && inventoryUi.includes('water.webp'),'inventory should render item artwork instead of emoji symbols');
+assert.ok(!/[🍞💧🌭🥫🧥🦺🔫🔪📡☢]/u.test(inventoryUi),'inventory must not display emoji fallback icons');
+assert.ok(inventoryUi.includes('inventory-item-clear'),'inventory cards should use the repaired responsive grid layout');
 assert.ok(costumeFitCss.includes('object-fit:contain'),'armor artwork should preserve its full silhouette');
 assert.match(costumeFitCss,/\.loadout-screen \.shop-grid\{[^}]*overflow-y:auto/s,'starter shop item list should scroll independently from its sticky footer');
 assert.match(costumeFitCss,/\.dialogue-transcript \.dialogue-line p\{[^}]*white-space:pre-wrap/s,'dialogue transcript should render plain text lines');
@@ -573,7 +731,7 @@ assert.ok(playerHtml.includes('Добавить музыку с устройст
 assert.ok(playerHtml.includes('player-play-track'));
 assert.ok(playerHtml.includes('без сетевых музыкальных потоков'));
 const musicRuntimeSource=['src/systems/music.js','src/main.js','src/ui/views.js'].map(file=>fs.readFileSync(new URL(`../${file}`,import.meta.url),'utf8')).join('\n');
-assert.ok(!/iframe|videoId|https?:\/\//i.test(musicRuntimeSource),'music runtime must not embed remote players or network streams');
+assert.ok(!/iframe|videoId|youtube\.com|youtu\.be|spotify\.com|radio\./i.test(musicRuntimeSource),'music runtime must not embed remote players or network radio streams');
 uiState.ui.tab='trade';
 uiState.ui.tradeNpcId='sidorovich';
 uiState.game.locationId='sidorovich-bunker';
@@ -618,11 +776,14 @@ assert.ok(statsHtml.includes('profile-heading-art') && statsHtml.includes('facti
 // PDA tabs keep inventory/trade/radio out; these remain location or independent overlays.
 const tabState={...uiState,ui:{...uiState.ui,pdaOpen:true,tab:'location',modal:null,mapView:'map'}};
 const tabMarkup=renderGame(tabState);
-assert.ok(tabMarkup.includes('Места и обыск') && !tabMarkup.includes('МЕСТА В ЭТОЙ ЛОКАЦИИ'),'the scene should remove its local place chips and keep a compact exploration entry');
+assert.ok(tabMarkup.includes('Карта Кордона') && tabMarkup.includes('map-route-lines'),'opening the PDA on an obsolete scene tab should default to the route map');
+assert.ok(tabMarkup.includes('kpkfon.webp') && tabMarkup.includes('--pda-shell:url'),'the PDA should use the supplied device bezel as its background');
+assert.ok(!tabMarkup.includes('data-tab="location"') && !tabMarkup.includes('>Местность<'),'the PDA must not expose a separate Local Area tab');
 assert.ok(!tabMarkup.includes('data-tab="inventory"')&&!tabMarkup.includes('data-tab="trade"')&&!tabMarkup.includes('data-tab="radio"'));
 assert.ok(!tabMarkup.includes('music-dock'));
 const contactsMarkup=renderGame({...tabState,ui:{...tabState.ui,tab:'contacts'}});
-assert.ok(contactsMarkup.includes('contact-card-clean') && contactsMarkup.includes('contact-clean-body'),'contacts should show compact cards with separate full-body NPC artwork');
+assert.ok(contactsMarkup.includes('contact-card-clean') && contactsMarkup.includes('contact-clean-portrait'),'contacts should show a single compact NPC portrait');
+assert.ok(!contactsMarkup.includes('contact-clean-body'),'contacts must not show the extra full-body image below the portrait');
 assert.ok(contactsMarkup.includes('talk-action') && contactsMarkup.includes('contact-action-button') && contactsMarkup.includes('Диалог'),'contacts should expose clear labelled dialogue actions');
 assert.ok(!contactsMarkup.includes('Не здесь'),'contacts should not list remote NPCs as unavailable cards');
 
@@ -681,9 +842,51 @@ const followupReply=replyNpcFreeText(conversationGame,'wolf','А что даль
 assert.ok(followupReply.ok && followupReply.message.includes('По поводу того, о чём говорили'),'NPC follow-up replies should use the previous conversation context');
 const directionReply=replyNpcFreeText(conversationGame,'wolf','Где я сейчас нахожусь?');
 assert.ok(directionReply.message.includes('Деревня новичков') && !directionReply.message.includes('rookie-village'),'direction replies should use human-readable location names');
+const concreteRouteReply=replyNpcFreeText(conversationGame,'wolf','Мне нужно попасть на АТП, подскажи, как лучше добраться?');
+assert.ok(concreteRouteReply.ok && concreteRouteReply.message.includes('Остановка') && concreteRouteReply.message.includes('АТП') && concreteRouteReply.message.includes('500 Купонов'),'a real NPC should give a concrete route, intermediate waypoint, and correct entrance warning');
+const poodleRouteReply=replyNpcFreeText(conversationGame,'wolf','Как дойти до Кости Пуделя?');
+assert.ok(poodleRouteReply.ok && poodleRouteReply.message.includes('Развалины хутора'),'NPCs should recognize quest and nickname landmarks as route destinations');
 const personalReply=replyNpcFreeText(conversationGame,'wolf','Расскажи, скучаешь по дому?');
 assert.ok(personalReply.ok && personalReply.message.length>20,'the expanded dialogue engine should answer personal small-talk');
 assert.equal(conversationGame.dialogueContext.lastIntent,'personal');
+// Expanded NPC conversation topics should resolve even with common paraphrases and typos.
+const npcTopicCases=[
+  ['Кто ты?','identity'],
+  ['А ты кто такой?','identity'],
+  ['Расскажи о себе','identity'],
+  ['Какова твоя история?','backstory'],
+  ['Как ты здесь оказался?','backstory'],
+  ['Как тебя сюда занесло?','backstory'],
+  ['Чем сейчас занят?','activity'],
+  ['Что по делам?','activity'],
+  ['Откуда у тебя это снаряжение?','equipment_origin'],
+  ['Где раздобыл ствол?','equipment_origin'],
+  ['Твои мысли о зоне','thoughts_zone'],
+  ['Как ты смотришь на Зону?','thoughts_zone'],
+  ['Твои мысли о персонаже','thoughts_person'],
+  ['Твои мысли о персонже','thoughts_person'],
+  ['Что ты обо мне думаешь?','thoughts_person'],
+  ['Твои мысли о фракции','thoughts_faction'],
+  ['Что думаешь о военных?','thoughts_faction'],
+  ['Что скажешь про бандитов?','thoughts_faction'],
+  ['Твои мысли о мутантах','thoughts_mutants'],
+  ['Кого из мутантов опасаться?','thoughts_mutants'],
+  ['Твои мысли об аномалиях','thoughts_anomalies'],
+  ['Как обходить аномалии?','thoughts_anomalies'],
+  ['Твои мысли о смысле жизни','thoughts_life'],
+  ['Что в жизни главное?','thoughts_life'],
+  ['Дай совет','advice'],
+  ['Что посоветуешь новичку?','advice']
+];
+for(const [phrase,expectedIntent] of npcTopicCases){
+  const generated=generateDialogueReply({id:'topic-npc',name:'Серый',role:'Сталкер',faction:'loner'},createGame(character,[],START_BUDGET),phrase);
+  assert.equal(generated.intent,expectedIntent,`NPC should understand: ${phrase}`);
+  assert.ok(generated.answer.length>35,`NPC should give a substantive answer to: ${phrase}`);
+}
+const militaryOpinion=generateDialogueReply({id:'opinion-npc',name:'Серый',role:'Сталкер',faction:'loner'},createGame(character,[],START_BUDGET),'Что думаешь о военных?');
+assert.match(militaryOpinion.answer,/военн|армейц/i,'faction opinions should address the faction named by the player, not default to the NPC own faction');
+for(let i=0;i<30;i++) assert.match(generateStalkerName(),/^[А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё-]+$/u,'random player names should combine a first name and a nickname from the stalker name database');
+
 // Unrecognized nonsense should receive a random, faction-appropriate in-character reply.
 const savedDialogueRandom=Math.random;
 try {
@@ -915,5 +1118,40 @@ assert.equal(escapeCarousel(carouselGame).ok,true);
 const carouselFailure=escapeCarousel(carouselGame);
 Math.random=savedRandomForCarousel;
 assert.ok(carouselFailure.message.includes('выбрасывает') && carouselGame.anomalyCooldowns.carouselUntil>carouselGame.clock.worldMinutes);
+
+
+// The hidden Sidorovich bunker is accessible through a clear contextual entrance from the village.
+const bunkerSceneGame=createGame({name:'Проверка входа',faction:'loner'},[],START_BUDGET);
+bunkerSceneGame.locationId='rookie-village';
+const bunkerSceneHtml=renderGame({game:bunkerSceneGame,characters:[{id:'test',name:'Проверка',faction:'loner'}],activeCharacterId:'test',settings:{},ui:{tab:'location',pdaOpen:false}});
+assert.ok(bunkerSceneHtml.includes('В подвал к Сидоровичу'),'rookie village should expose a visible entrance to Sidorovich bunker');
+bunkerSceneGame.locationId='sidorovich-bunker';
+const bunkerExitHtml=renderGame({game:bunkerSceneGame,characters:[{id:'test',name:'Проверка',faction:'loner'}],activeCharacterId:'test',settings:{},ui:{tab:'location',pdaOpen:false}});
+assert.ok(bunkerExitHtml.includes('Выйти в деревню'),'Sidorovich bunker should expose a visible return route');
+
+// NPC generative AI adapter: safe opt-in endpoint, compact world context and graceful fallback.
+assert.equal(isValidNpcAiEndpoint('https://example.test/npc-chat'),true);
+assert.equal(isValidNpcAiEndpoint('javascript:alert(1)'),false);
+assert.equal(isValidNpcAiEndpoint('https://user:pass@example.test'),false);
+const aiGame=createGame({name:'Тестовый сталкер',faction:'loner'},[],START_BUDGET);
+const aiNpc={id:'ai-guide',name:'Проводник',role:'сталкер-картограф',faction:'loner',group:'Одиночки',lines:{rumors:'На остановке сегодня тихо.'}};
+const aiPayload=buildNpcAiPayload({game:aiGame,npc:aiNpc,playerMessage:'Расскажи, что слышно'});
+assert.ok(aiPayload.system.includes('Не выдумывай игровые факты'));
+assert.equal(aiPayload.context.player.currentLocation,'Деревня новичков');
+assert.ok(aiPayload.context.availableExits.some(exit=>exit.name==='Остановка'));
+assert.ok(aiPayload.context.npc.knownDialogue && aiPayload.context.npc.knownDialogue.rumors==='На остановке сегодня тихо.','AI context should include grounded NPC dialogue knowledge');
+assert.ok('worldState' in aiPayload.context,'AI context should include the current game world state');
+const scopedAiGame={...aiGame,dialogueHistory:[{role:'player',npcId:'other-npc',text:'Чужой разговор'},{role:'player',npcId:'ai-guide',text:'Наш разговор'}]};
+const scopedPayload=buildNpcAiPayload({game:scopedAiGame,npc:aiNpc,playerMessage:'Продолжим'});
+assert.ok(!JSON.stringify(scopedPayload.messages).includes("Чужой разговор"),"generative NPC context must not leak another NPC's conversation");
+assert.ok(JSON.stringify(scopedPayload.messages).includes("Наш разговор"),"generative NPC context should keep the current NPC's conversation");
+let capturedAiRequest=null;
+const aiResponse=await requestNpcAiReply({endpoint:'https://example.test/npc-chat',game:aiGame,npc:aiNpc,playerMessage:'Что нового?',fetchImpl:async(url,options)=>{capturedAiRequest={url,options};return {ok:true,json:async()=>({reply:'Слышал, у остановки сегодня спокойно.'})};}});
+assert.equal(aiResponse.ok,true);
+assert.equal(aiResponse.reply,'Слышал, у остановки сегодня спокойно.');
+assert.equal(capturedAiRequest.url,'https://example.test/npc-chat');
+assert.ok(JSON.parse(capturedAiRequest.options.body).messages.length>=2);
+const aiFailed=await requestNpcAiReply({endpoint:'https://example.test/npc-chat',game:aiGame,npc:aiNpc,playerMessage:'Привет',fetchImpl:async()=>({ok:false,status:503})});
+assert.equal(aiFailed.ok,false,'an unavailable AI endpoint must leave the local dialogue fallback available');
 
 console.log('Smoke tests passed: PDA/map modes, imported NPC/faction/quest artwork, local audio player, bandit dialogue, proportional costume inventory layout, quest visibility/progress, trade overlays, RP exploration, profile and combat.');

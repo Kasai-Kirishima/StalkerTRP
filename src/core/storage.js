@@ -5,6 +5,7 @@ export const DEFAULT_SETTINGS = {
   uiScale: 1,
   soundEnabled: true,
   soundVolume: 0.35,
+  npcAiEndpoint: '',
   removedPlayerTrackIds: []
 };
 
