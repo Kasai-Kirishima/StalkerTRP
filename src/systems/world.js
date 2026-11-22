@@ -32,7 +32,7 @@ const RANDOM_TRADER_STOCK = ['bread','water','canned','sausage','bandage','ammo9
 function makeStock(ids, multiplier=1) {
   return [...new Set(ids)].map(id=>{
     const item=getItem(id);
-    return item ? { id, qty:1+Math.floor(Math.random()*3), price:Math.max(1,Math.ceil(item.price*multiplier)) } : null;
+    return item ? { id, qty:1+Math.floor(Math.random()*2), price:Math.max(1,Math.ceil(item.price*multiplier)) } : null;
   }).filter(Boolean);
 }
 
@@ -89,9 +89,10 @@ export function createGame(character, starterInventory = [], money = 0) {
   const faction = getFaction(character.faction);
   return {
     clock: createClock(),
+    emission:{ nextAt:Math.floor((9+Math.random()*2)*1440), active:false, startedAt:null, endsAt:null, lastWarningAt:0 },
     player: {
-      hp:100, maxHp:100, stamina:100, radiation:0, hunger:0, thirst:0, stress:0,
-      reputation:0, rating:0, rank:faction?.rank || 'Новичок', armor:0,
+      hp:100, maxHp:100, stamina:100, radiation:0, hunger:12, thirst:18, stress:0,
+      reputation:0, rating:0, rank:faction?.rank || 'Новичок', armor:0, maskId:null, sheltered:false, shelterSpotId:null,
       faction:character.faction, kills:0, artifacts:0, questsDone:0, locationsVisited:[faction?.spawn || 'rookie-village']
     },
     money,
@@ -170,8 +171,8 @@ export function acceptWorldQuest(game, questId) {
 
 function tickVitals(game, minutes) {
   const hours = minutes / 60;
-  game.player.hunger = clamp(game.player.hunger + hours * 1.3, 0, 100);
-  game.player.thirst = clamp(game.player.thirst + hours * 1.8, 0, 100);
+  game.player.hunger = clamp((game.player.hunger||0) + hours * 1.3, 0, 100);
+  game.player.thirst = clamp((game.player.thirst||0) + hours * 1.8, 0, 100);
   game.player.stamina = clamp(game.player.stamina + hours * 1.2, 0, 100);
   if (game.player.hunger >= 90 || game.player.thirst >= 95) game.player.hp = Math.max(1, game.player.hp - Math.ceil(hours * 1.5));
 }
@@ -202,11 +203,95 @@ export function simulateWorld(game) {
   }
 }
 
+function ensureEmission(game) {
+  game.emission ||= { nextAt:Math.floor((9+Math.random()*2)*1440), active:false, startedAt:null, endsAt:null, lastWarningAt:0, warningSent:false };
+  if (!Number.isFinite(game.emission.nextAt) || game.emission.nextAt<=0) game.emission.nextAt=(game.clock.worldMinutes||0)+Math.floor((9+Math.random()*2)*1440);
+  if (typeof game.emission.active!=='boolean') game.emission.active=false;
+  if (typeof game.emission.warningSent!=='boolean') game.emission.warningSent=false;
+  return game.emission;
+}
+
+export function takeShelter(game, spotId=null) {
+  if (game.activeEncounter) return {ok:false,message:'Во время боя нельзя спокойно пережидать выброс.'};
+  const spots=EXPLORE_SPOTS.filter(spot=>spot.locationId===game.locationId && spot.kind==='search');
+  const candidate=spotId ? spots.find(spot=>spot.id===spotId) : spots.find(spot=>spot.shelter);
+  if (!candidate || !candidate.shelter) return {ok:false,message:'В этом месте нет надёжного укрытия. Найди помещение, подвал, кабину или служебное убежище.'};
+  game.currentAreaId=candidate.id;
+  game.player.sheltered=true;
+  game.player.shelterSpotId=candidate.id;
+  game.player.shelterLocationId=game.locationId;
+  addLog(game,`Ты укрылся: ${candidate.name}. Во время выброса здесь можно переждать опасную волну.`,'player');
+  return {ok:true,message:`Ты укрылся в месте «${candidate.name}». Если начнётся выброс, здесь будет безопаснее.`};
+}
+
+export function leaveShelter(game) {
+  game.player.sheltered=false;
+  game.player.shelterSpotId=null;
+  game.player.shelterLocationId=null;
+  if (game.currentAreaId) game.currentAreaId=null;
+}
+
+function processEmission(game, fromMinute, toMinute) {
+  const emission=ensureEmission(game);
+  let cursor=fromMinute;
+  // Give the player a clear one-hour warning before the pulse. If a tab was
+  // suspended, the warning is still logged on return as long as the event has not begun.
+  if (!emission.active && !emission.warningSent && toMinute < emission.nextAt && toMinute >= emission.nextAt-60) {
+    emission.warningSent=true;
+    emission.lastWarningAt=toMinute;
+    addLog(game,'Предупреждение: по радио передают, что выброс ожидается примерно через час. Найди надёжное укрытие и пополни запас воды.','danger');
+  }
+  while (cursor < toMinute + 0.0001) {
+    if (!emission.active && emission.nextAt <= toMinute) {
+      const start=Math.max(cursor, emission.nextAt);
+      const ends=emission.nextAt+24;
+      emission.active=true; emission.startedAt=emission.nextAt; emission.endsAt=ends;
+      addLog(game,'Сирены воют над Кордоном. Начинается выброс — немедленно укройся, если ещё не сделал этого.','danger');
+      // The warning phase lasts two simulated minutes. The dangerous pulse follows.
+      const dangerStart=emission.nextAt+2;
+      const overlap=Math.max(0,Math.min(toMinute,ends)-Math.max(fromMinute,dangerStart));
+      if (overlap>0 && !(game.player.sheltered && game.player.shelterLocationId===game.locationId)) {
+        const dose=Math.max(1,Math.ceil(overlap*1.7));
+        game.player.radiation=Math.min(100,(game.player.radiation||0)+dose);
+        game.player.hp=Math.max(1,game.player.hp-Math.ceil(overlap/5));
+        addLog(game,`Ты остался снаружи во время выброса. Радиация +${dose}%, здоровье ухудшилось. Нужно было укрыться.`,'danger');
+      } else if (overlap>0) addLog(game,'Выброс накрыл Кордон. Ты переждал его в укрытии — ущерба удалось избежать.','system');
+      if (toMinute>=ends) {
+        emission.active=false; emission.startedAt=null; emission.endsAt=null;
+        emission.nextAt=ends+Math.floor((9+Math.random()*2)*1440); emission.warningSent=false;
+        addLog(game,'Выброс отступил. Можно осторожно покинуть укрытие и осмотреться.','system');
+      }
+      cursor=Math.max(cursor,ends);
+      if (cursor>=toMinute) break;
+    } else if (emission.active) {
+      const start=Math.max(fromMinute,emission.startedAt+2);
+      const end=Math.min(toMinute,emission.endsAt);
+      if (end>start && !(game.player.sheltered && game.player.shelterLocationId===game.locationId)) {
+        const dose=Math.max(1,Math.ceil((end-start)*1.7));
+        game.player.radiation=Math.min(100,(game.player.radiation||0)+dose);
+        game.player.hp=Math.max(1,game.player.hp-Math.ceil((end-start)/5));
+        addLog(game,`Выброс застал тебя снаружи. Радиация +${dose}%.`,'danger');
+      }
+      if (toMinute>=emission.endsAt) {
+        const ended=emission.endsAt;
+        emission.active=false; emission.startedAt=null; emission.endsAt=null;
+        emission.nextAt=ended+Math.floor((9+Math.random()*2)*1440); emission.warningSent=false;
+        addLog(game,'Выброс закончился. Сирены постепенно стихают.','system');
+      }
+      cursor=toMinute;
+      break;
+    } else break;
+  }
+}
+
 export function advanceGame(game, minutes) {
-  syncRealElapsed(game);
+  const before=game.clock.worldMinutes||0;
+  const realElapsed=syncRealElapsed(game);
   advanceTime(game, minutes);
-  game.playMinutes += minutes;
-  tickVitals(game, minutes);
+  const after=game.clock.worldMinutes||0;
+  game.playMinutes += minutes+realElapsed;
+  tickVitals(game, minutes+realElapsed);
+  processEmission(game,before,after);
   simulateWorld(game);
 }
 
@@ -266,14 +351,19 @@ export function searchLocation(game, { corpse=false } = {}) {
 
 
 export function getExploreSpots(locationId) {
-  return EXPLORE_SPOTS.filter(spot=>spot.locationId===locationId);
+  const existing=EXPLORE_SPOTS.filter(spot=>spot.locationId===locationId);
+  if (!existing.some(spot=>spot.id==='area-outside')) existing.push({id:'area-outside',locationId,name:'Снаружи · открытая территория',aliases:['снаружи','территория','двор','улица','вокруг'],kind:'search',shelter:false,description:'Открытый участок местности. Здесь можно осмотреть следы, брошенные вещи и подходы к укрытиям.',loot:(getLocation(locationId)?.loot||['bread','water','bandage']).filter(id=>!['medusa','meat_chunk','gravi','tail','flesh-eye'].includes(id))});
+  return existing;
 }
 
+export function shelterForCurrentLocation(game) { return takeShelter(game); }
+
 export function startAreaSearch(game, spotId) {
-  const spot=EXPLORE_SPOTS.find(entry=>entry.id===spotId);
+  const spot=getExploreSpots(game.locationId).find(entry=>entry.id===spotId);
   if (!spot) return {ok:false,message:'Неизвестное место для исследования.'};
   if (spot.locationId!==game.locationId) return {ok:false,message:'Это место находится в другой локации.'};
   if (spot.kind==='campfire') return sitAtCampfire(game,spotId);
+  game.currentAreaId=spotId;
   game.searchedAreas ||= {};
   const now=game.clock.worldMinutes;
   const last=game.searchedAreas[spotId];
@@ -317,6 +407,7 @@ export function sitAtCampfire(game, spotId=null) {
   const spot=spotId ? EXPLORE_SPOTS.find(entry=>entry.id===spotId) : EXPLORE_SPOTS.find(entry=>entry.locationId===game.locationId && entry.kind==='campfire');
   if (!spot || spot.locationId!==game.locationId || spot.kind!=='campfire') return {ok:false,message:'В этой локации нет подходящего костра.'};
   if (game.activeEncounter) return {ok:false,message:'Во время боя нельзя спокойно сидеть у костра.'};
+  game.currentAreaId=spot.id;
   advanceGame(game,15);
   game.player.stress=Math.max(0,(game.player.stress||0)-8);
   game.player.stamina=Math.min(100,(game.player.stamina||0)+6);
@@ -339,6 +430,8 @@ export function travelTo(game, destinationId) {
   if (game.activeEncounter) return { ok:false, message:'Сначала разберись с текущей угрозой.' };
   const travelMinutes = getTravelMinutes(current.id, destination.id);
   advanceGame(game, travelMinutes);
+  leaveShelter(game);
+  game.currentAreaId=null;
   game.locationId = destinationId;
   game.distanceTravelled += 1;
   if (!game.player.locationsVisited.includes(destinationId)) game.player.locationsVisited.push(destinationId);
@@ -642,9 +735,11 @@ export function deactivateAnomaly(game) {
   if (game.boltsRemaining <= 0 || !countItem(game.inventory, 'boltpack')) return { ok:false, message:'Нужны болты. В снаряжении нет ни одной пачки.' };
   game.boltsRemaining -= 1;
   if (game.boltsRemaining % 10 === 0) removeItem(game.inventory, 'boltpack', 1);
+  game.combatEffect={type:'bolt',until:(game.clock.worldMinutes||0)+2};
+  advanceGame(game,1);
   game.anomalyStates[location.id] = true;
-  addLog(game, 'Ты проверил подозрительный участок болтом и отметил безопасный проход.');
-  return { ok:true, message:`Болт прошёл через поле «${location.anomalyName||'аномалия'}» без резкого отклонения. Ты отметил безопасный проход и отключил одну локальную аномалию.` };
+  addLog(game, 'Ты достал болт, бросил его через подозрительный участок и отметил безопасный проход.');
+  return { ok:true, message:`Ты бросил болт через поле «${location.anomalyName||'аномалия'}». После металлического звона и короткого всплеска энергии удалось отметить безопасный проход и отключить одну локальную аномалию.` };
 }
 
 export function startArtifactHunt(game) {
@@ -652,7 +747,7 @@ export function startArtifactHunt(game) {
   if (!location?.hazards?.length) return { ok:false, message:'Здесь нет заметных аномальных сигналов.' };
   if (!countItem(game.inventory, 'otklik')) return { ok:false, message:'Для мини-игры нужен детектор «Отклик».' };
   const pool = location.hazards.includes('gravity') ? ['medusa','gravi'] : location.id==='atp' ? ['gravi','medusa'] : ['medusa','meat_chunk'];
-  game.artifactHunt = { target:Math.floor(Math.random()*3), attempts:0, found:false, locationId:location.id, artifactId:pool[Math.floor(Math.random()*pool.length)] };
+  game.artifactHunt = { target:Math.floor(Math.random()*2), attempts:0, found:false, locationId:location.id, artifactId:pool[Math.floor(Math.random()*pool.length)] };
   return { ok:true, message:'Детектор ожил. Выбери один из трёх секторов, ориентируясь на усиление сигнала.' };
 }
 

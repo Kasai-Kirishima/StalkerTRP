@@ -2,12 +2,12 @@ import { loadState, saveState, createInitialState, exportSave, importSave } from
 import { ASSETS, FACTIONS, START_BUDGET, MAX_CARRY_KG, NPCS, ITEMS, LOCATIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS } from './data/catalog.js';
 import { renderMenu, renderAccount, renderCharacters, renderCreate, renderLoadout, renderGame, renderGameSettings, renderModal, esc } from './ui/views.js';
 import { canFitLoadout, getInventoryCost, getLoadoutWeight, addItem, getItem, getWeight, removeItem, useItem } from './systems/inventory.js';
-import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, simulateWorld, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, replyNpcFreeText } from './systems/world.js';
-import { playerAttack, defend, flee, beginWolfDogPack } from './systems/combat.js';
+import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, replyNpcFreeText, takeShelter, leaveShelter, sitAtCampfire, getExploreSpots } from './systems/world.js';
+import { playerAttack, defend, flee, beginWolfDogPack, reloadWeapon, aimWeapon, dodge, throwGrenade, throwBoltInCombat, useItemInCombat, selectWeapon } from './systems/combat.js';
 import { createMusicEngine } from './systems/music.js';
 import { buyFromTrader, sellToTrader } from './systems/world.js';
 import { processPlayerAction } from './systems/action-engine.js';
-import { getGameDateTime, syncRealElapsed } from './systems/game-clock.js';
+import { getGameDateTime } from './systems/game-clock.js';
 
 const root = document.getElementById('app');
 let state = loadState();
@@ -18,6 +18,7 @@ const allowedSavedIds=savedMusic.mode==='radio' ? (savedStation?.trackIds||[]) :
 const restoredQueue=(savedMusic.queue||[]).filter(id=>allowedSavedIds.includes(id));
 const restoredIndex=Math.max(0,restoredQueue.indexOf(savedMusic.trackId));
 const restoredMusic=restoredQueue.length ? {...savedMusic,queue:restoredQueue,index:restoredIndex,trackId:restoredQueue[restoredIndex],playing:false} : {mode:null,stationId:null,trackId:null,queue:[],index:0,playing:false};
+state.settings.weaponHudSide ||= 'right';
 state.ui = { ...(state.ui||{}), tab:'location', pdaOpen:false, modal:null, notification:'', music:restoredMusic, tradeNpcId:null, mapLocationId:null };
 let previousScreen = 'menu';
 let toastTimer = null;
@@ -262,7 +263,7 @@ function selectCharacter(id) {
   }
   state.activeCharacterId=id;
   state.game=char.game;
-  syncRealElapsed(state.game);
+  advanceGame(state.game,0);
   state.ui.tab='location';
   state.ui.pdaOpen=false;
   state.account.sessions=(state.account.sessions||0)+1;
@@ -282,6 +283,8 @@ function applyActionResult(result) {
   else if (result.action==='dialogue') state.game.dialogueNpcId=result.npcId;
   else if (result.action==='explore-find') state.ui.modal='explore-find';
   else if (result.action==='combat') state.ui.tab='location';
+  else if (result.action==='radio-on') { const station=RADIO_STATIONS.find(entry=>entry.locationId===state.game?.locationId); if(station) { startRadio(station.id); return; } else toast('Здесь нет местной радиостанции.','warning'); }
+  else if (result.action==='radio-off') { if(state.ui.music?.mode==='radio') stopMusic(); else toast('Радиоприёмник уже выключен.','info'); return; }
   if (state.ui.music?.mode==='radio') {
     const station=RADIO_STATIONS.find(entry=>entry.id===state.ui.music.stationId);
     if (station && station.locationId!==state.game?.locationId) { musicEngine.stop(); state.ui.music={...state.ui.music,playing:false}; }
@@ -330,7 +333,7 @@ root.addEventListener('click', (event) => {
     persist(); render(); return;
   }
   if (action==='finish-loadout') return finishLoadout();
-  if (action==='pda-toggle') { state.ui.pdaOpen=!state.ui.pdaOpen; if(state.ui.pdaOpen && !['location','map','stats','player','messages','quests','contacts'].includes(state.ui.tab)) state.ui.tab='location'; persist(); return render(); }
+  if (action==='pda-toggle') { if(!state.ui.pdaOpen && state.game.activeEncounter){toast('Во время боя КПК недоступен. Сначала выберись из схватки.','warning');return;} state.ui.pdaOpen=!state.ui.pdaOpen; if(state.ui.pdaOpen && !['location','map','stats','player','messages','quests','contacts'].includes(state.ui.tab)) state.ui.tab='location'; persist(); return render(); }
   if (action==='inventory-open') { state.ui.modal='inventory-panel'; state.ui.pdaOpen=false; persist(); return render(); }
   if (action==='explore-open') { state.ui.modal='explore-spots'; persist(); return render(); }
   if (action==='explore-spot') { const result=startAreaSearch(state.game,id); if(result.ok&&result.options){state.ui.modal='explore-find';} else if(result.ok){state.ui.modal=null;} persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
@@ -363,14 +366,44 @@ root.addEventListener('click', (event) => {
     if (result.ok) advanceGame(state.game,5);
     persist(); render(); toast(result.message,result.ok?'success':'warning'); return;
   }
+  if (action==='shelter' || action==='scene-shelter') { const result=takeShelter(state.game,action==='scene-shelter'?id:null); persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
+  if (action==='scene-spot') {
+    const spot=getExploreSpots(state.game.locationId).find(entry=>entry.id===id);
+    if(!spot){toast('Это место больше не отмечено.','warning');return;}
+    if(spot.kind==='campfire'){const result=sitAtCampfire(state.game,id);persist();render();toast(result.message,result.ok?'success':'warning');return;}
+    if(state.game.player.sheltered && state.game.player.shelterSpotId!==id) leaveShelter(state.game);
+    state.game.currentAreaId=id;
+    state.game.currentDescription=spot.description;
+    persist(); render(); toast(`Ты переместился к месту: ${spot.name}.`, 'info'); return;
+  }
+  if (action==='scene-search') {
+    const spotId=id||state.game.currentAreaId;
+    const result=startAreaSearch(state.game,spotId);
+    if(result.ok&&result.options) state.ui.modal='explore-find';
+    persist();render();toast(result.message,result.ok?'info':'warning');return;
+  }
+  if (action==='scene-back') { state.game.currentAreaId=null; leaveShelter(state.game); state.game.currentDescription=getLocation(state.game.locationId)?.desc||''; persist();render();return; }
+  if (action==='leave-shelter') { leaveShelter(state.game); state.game.currentAreaId=null; persist();render();toast('Ты покинул укрытие.','info');return; }
+  if (action==='toggle-weapon-side') { state.settings.weaponHudSide=state.settings.weaponHudSide==='left'?'right':'left'; persist(); render(); return; }
+  if (action==='combat-reload' || action==='combat-aim' || action==='combat-dodge' || action==='combat-grenade' || action==='combat-bolt') {
+    const result=action==='combat-reload'?reloadWeapon(state.game):action==='combat-aim'?aimWeapon(state.game):action==='combat-dodge'?dodge(state.game):action==='combat-grenade'?throwGrenade(state.game):throwBoltInCombat(state.game);
+    persist(); render(); toast(result.message,result.ok?'info':'warning'); return;
+  }
+  if (action==='combat-use-item') { const result=useItemInCombat(state.game,id); persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
+  if (action==='equip-weapon') { const result=selectWeapon(state.game,id); persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
+  if (action==='equip-mask') {
+    if(!['aurora','optik'].includes(id)||!countItem(state.game.inventory,id)){toast('Такого противогаза нет в рюкзаке.','warning');return;}
+    state.game.player.maskId=state.game.player.maskId===id?null:id;
+    persist();render();toast(state.game.player.maskId?`Надет противогаз «${getItem(id)?.name||id}».`:'Противогаз снят.','success');return;
+  }
   if (action==='sleep-open') { if (state.game.activeEncounter) { toast('Во время боя спать нельзя.','warning'); return; } state.ui.modal='sleep'; return render(); }
   if (action==='sleep') {
     const result=sleep(state.game,Number(button.dataset.hours));
     state.ui.modal=null; persist(); render(); toast(result.message,result.ok?'success':'warning'); return;
   }
   if (action==='use-item') {
-    const result=useItem(state.game,id);
-    if (result.ok) advanceGame(state.game,1);
+    const result=state.game.activeEncounter?useItemInCombat(state.game,id):useItem(state.game,id);
+    if (result.ok && !state.game.activeEncounter) advanceGame(state.game,1);
     persist(); render(); toast(result.message,result.ok?'success':'warning'); return;
   }
   if (action==='drop-item') {
@@ -592,12 +625,11 @@ async function resizeImage(file) {
 window.addEventListener('beforeunload', persist);
 setInterval(()=>{
   if (state.game) {
-    const elapsed=syncRealElapsed(state.game);
-    if (elapsed>0) {
-      // Let patrols advance as real time passes, even while the player is reading the PDA.
-      simulateWorld(state.game);
-      persist();
-    }
+    const before=state.game.clock?.worldMinutes||0;
+    // advanceGame(0) still synchronizes wall-clock time and processes vitals,
+    // squads and emission events; this prevents an emission being skipped while the tab is open.
+    advanceGame(state.game,0);
+    if ((state.game.clock?.worldMinutes||0)>before) persist();
   }
   updateClockDisplays();
 },15000);
