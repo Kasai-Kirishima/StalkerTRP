@@ -59,7 +59,10 @@ export const ASSETS = {
     stalnoishlem: new URL('../../assets/images/armor/stalnoishlemicon.webp', import.meta.url).href,
     pa8: new URL('../../assets/images/armor/protivogazpa-8icon.webp', import.meta.url).href,
     pa10: new URL('../../assets/images/armor/protivogazpa-10icon.webp', import.meta.url).href,
-    pg4: new URL('../../assets/images/armor/protivogazpg-4icon.webp', import.meta.url).href
+    pg4: new URL('../../assets/images/armor/protivogazpg-4icon.webp', import.meta.url).href,
+    'mask-loner-basic': new URL('../../assets/images/armor/protivogazpa-8icon.webp', import.meta.url).href,
+    'mask-bandit-basic': new URL('../../assets/images/armor/protivogazpa-8icon.webp', import.meta.url).href,
+    'mask-military-basic': new URL('../../assets/images/armor/protivogazpa-8icon.webp', import.meta.url).href
   },
   map: new URL('../../assets/images/cordon-clean.webp', import.meta.url).href,
   factions: {
@@ -129,6 +132,9 @@ export const ITEMS = [
   { id:'kozanplash', name:'Плащ с защитными вставками', price:2200, weight:4.2, w:2,h:3, cat:'Броня', desc:'Плотный плащ с дополнительными защитными слоями.', image:'', armor:16 },
   { id:'stalnoishlem', name:'Стальной шлем', price:1650, weight:2.1, w:2,h:2, cat:'Броня', desc:'Защитный шлем для опасных переходов.', image:'', armor:8 },
   { id:'pa8', name:'Противогаз ПА-8', price:950, weight:1.1, w:2,h:2, cat:'Защита', desc:'Фильтрующий противогаз базового класса.', image:'' },
+  { id:'mask-loner-basic', name:'Противогаз новичка «ПА-8Л»', price:520, weight:1.0, w:2,h:2, cat:'Защита', desc:'Простой подержанный противогаз, который часто достаётся новичкам-одиночкам. Защита базовая, фильтр лучше заменить при первой возможности.', image:'', faction:'loner', starterOnly:true },
+  { id:'mask-bandit-basic', name:'Самодельный противогаз «Бродяга»', price:480, weight:1.0, w:2,h:2, cat:'Защита', desc:'Потёртая маска с простым фильтром, которую обычно используют новички-бандиты.', image:'', faction:'bandit', starterOnly:true },
+  { id:'mask-military-basic', name:'Учебный противогаз ПМК-1', price:650, weight:1.1, w:2,h:2, cat:'Защита', desc:'Складской противогаз начального уровня, выдаваемый новобранцам военных подразделений.', image:'', faction:'military', starterOnly:true },
   { id:'pa10', name:'Противогаз ПА-10', price:1350, weight:1.25, w:2,h:2, cat:'Защита', desc:'Противогаз с улучшенной посадкой и фильтрацией.', image:'' },
   { id:'pg4', name:'Противогаз ПГ-4', price:1750, weight:1.4, w:2,h:2, cat:'Защита', desc:'Защитная маска для длительных переходов в загрязнённых районах.', image:'' }
 ];
@@ -397,8 +403,17 @@ export const SQUADS = [
 export const STARTER_ITEM_IDS = [
   'bread','water','sausage','vodka','shells','energy','canned',
   'knife','ammo9x18','ammo9x19','bandage','boltpack','rgd5','ai2',
-  'sawedoff','pm','binoculars','leather','kosyha','kozanka','debyt'
+  'sawedoff','pm','binoculars','leather','kosyha','kozanka','debyt',
+  'mask-loner-basic','mask-bandit-basic','mask-military-basic'
 ];
+
+// На старте доступны только простые комплекты, подходящие фракции и рангу новичка.
+// Тяжёлую броню и продвинутые противогазы можно найти или купить позднее.
+export const STARTER_LOADOUT_BY_FACTION = {
+  loner: { armor:['leather','kosyha'], mask:['mask-loner-basic'] },
+  bandit: { armor:['kozanka'], mask:['mask-bandit-basic'] },
+  military: { armor:['debyt'], mask:['mask-military-basic'] }
+};
 export const ITEM_ACQUISITION = {
   traderOnly: ['aksu','ammo545','vm17','gaduka','psz5','aurora','optik','zarya','biker','berill','kozanplash','stalnoishlem','pa8','pa10','pg4'],
   searchOnly: ['flash'],
@@ -406,5 +421,5 @@ export const ITEM_ACQUISITION = {
   mutantDrops: ['tail','flesh-eye'],
   artifactHunt: ['medusa','meat_chunk','gravi']
 };
-export const START_BUDGET = 2500;
+export const START_BUDGET = 3000;
 export const MAX_CARRY_KG = 50;

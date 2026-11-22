@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { ASSETS, IMAGE_FALLBACKS, FACTIONS, ITEMS, LOCATIONS, EXPLORE_SPOTS, NPCS, AVATAR_OPTIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS, START_BUDGET, MAX_CARRY_KG, STARTER_ITEM_IDS, ITEM_ACQUISITION } from '../src/data/catalog.js';
+import { ASSETS, IMAGE_FALLBACKS, FACTIONS, ITEMS, LOCATIONS, EXPLORE_SPOTS, NPCS, AVATAR_OPTIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS, START_BUDGET, MAX_CARRY_KG, STARTER_ITEM_IDS, STARTER_LOADOUT_BY_FACTION, ITEM_ACQUISITION } from '../src/data/catalog.js';
 import { createGame, travelTo, talkToNpc, getAvailableStalkers, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, sitAtCampfire, replyNpc, replyNpcFreeText, getTravelMinutes, getExploreSpots, advanceGame, takeShelter, leaveShelter, openStorage, getActiveLootItems, breakContainer, registerCorpseLoot } from '../src/systems/world.js';
 import { addItem, getWeight, canFitLoadout, countItem, useItem, transferItem } from '../src/systems/inventory.js';
 import { beginEncounter, beginWolfDogPack, playerAttack } from '../src/systems/combat.js';
@@ -146,6 +146,35 @@ for (const faction of FACTIONS) {
   assert.equal(game.randomTraders.length,4,'each new game should generate four traveling traders');
   assert.ok(game.traders.some(entry=>entry.id==='sidorovich'));
 }
+
+// Starter armour and a basic faction-matched gas mask are available at character creation.
+for (const faction of FACTIONS) {
+  const loadout=STARTER_LOADOUT_BY_FACTION[faction.id];
+  assert.ok(loadout?.armor?.length && loadout?.mask?.length===1,`${faction.id} should have beginner armour and exactly one suitable starter mask`);
+  for (const id of [...loadout.armor,...loadout.mask]) assert.ok(STARTER_ITEM_IDS.includes(id),`${id} should be selectable at character creation`);
+  const html=renderLoadout({pendingCharacter:{faction:faction.id},draft:{faction:faction.id},loadout:{selected:{}}});
+  for (const id of [...loadout.armor,...loadout.mask]) assert.ok(html.includes(`data-id=\"${id}\"`),`${id} should appear in the ${faction.id} starter shop`);
+  for (const other of FACTIONS.filter(entry=>entry.id!==faction.id)) {
+    const otherGear=STARTER_LOADOUT_BY_FACTION[other.id];
+    for (const id of [...otherGear.armor,...otherGear.mask]) assert.ok(!loadout.armor.includes(id)&&!loadout.mask.includes(id),`${id} must not be a ${faction.id} starter option`);
+  }
+}
+
+// Each new game spawns ten randomized villagers, soldiers on the checkpoints and bandits at ATP.
+const populationOne=createGame({name:'Население 1',faction:'loner'},[],START_BUDGET);
+const populationTwo=createGame({name:'Население 2',faction:'loner'},[],START_BUDGET);
+assert.equal(populationOne.ambientNpcs.filter(npc=>npc.location==='rookie-village').length,10,'the rookie village should spawn ten locals');
+assert.ok(populationOne.ambientNpcs.filter(npc=>npc.location==='rookie-village').every(npc=>npc.personalTask&&npc.routines&&npc.greeting),'each village NPC should have a personal routine and task');
+for (const checkpoint of ['north-checkpoint','bridge-checkpoint','south-checkpoint']) {
+  const guards=populationOne.ambientNpcs.filter(npc=>npc.location===checkpoint);
+  assert.equal(guards.length,4,`${checkpoint} should spawn a small military guard group`);
+  assert.ok(guards.every(npc=>npc.faction==='military'));
+}
+const atpBandits=populationOne.ambientNpcs.filter(npc=>npc.location==='atp');
+assert.equal(atpBandits.length,6,'ATP should spawn six ambient bandits');
+assert.ok(atpBandits.every(npc=>npc.faction==='bandit'));
+assert.equal(new Set(populationOne.ambientNpcs.map(npc=>npc.name)).size,populationOne.ambientNpcs.length,'spawned NPC names should be unique within one game');
+assert.notDeepEqual(populationOne.ambientNpcs.map(npc=>npc.name),populationTwo.ambientNpcs.map(npc=>npc.name),'new game sessions should reroll ambient NPC identities');
 
 let selected={};
 let purchase=canFitLoadout(selected,'bread',1,START_BUDGET);
@@ -549,6 +578,30 @@ assert.ok(directionReply.message.includes('Деревня новичков') && 
 const personalReply=replyNpcFreeText(conversationGame,'wolf','Расскажи, скучаешь по дому?');
 assert.ok(personalReply.ok && personalReply.message.length>20,'the expanded dialogue engine should answer personal small-talk');
 assert.equal(conversationGame.dialogueContext.lastIntent,'personal');
+
+// The four requested natural-language questions are recognized as dedicated conversation intents.
+for (const [phrase,intent] of [
+  ['Что нового слышно?','news'],
+  ['Что в Зоне происходит?','zone_situation'],
+  ['Кто такой Сидорович?','sidorovich_info'],
+  ['Расскажи про Кордон.','cordon_info']
+]) {
+  const reply=replyNpcFreeText(conversationGame,'wolf',phrase);
+  assert.ok(reply.ok && reply.message.length>35,`NPC should give a substantive answer to: ${phrase}`);
+  assert.equal(conversationGame.dialogueContext.lastIntent,intent,`the dialogue engine should classify: ${phrase}`);
+}
+
+// Trading opens from ordinary RP phrases and works with ordinary generated NPCs too.
+const freeTradeGame=createGame({name:'Свободная торговля',faction:'loner'},[],START_BUDGET);
+freeTradeGame.locationId='rookie-village';
+const ambientTrader=freeTradeGame.ambientNpcs.find(npc=>npc.location==='rookie-village');
+talkToNpc(freeTradeGame,ambientTrader.id);
+const tradePhrase=replyNpcFreeText(freeTradeGame,ambientTrader.id,'Давай торговать.');
+assert.equal(tradePhrase.action,'trade','the dialogue phrase «торговать» should request the trade panel');
+assert.ok(getAvailableTraders(freeTradeGame).find(person=>person.id===ambientTrader.id)?.stock.length,'a regular spawned villager should have a personal barter inventory');
+const generalTradeAction=processPlayerAction(freeTradeGame,`торговать с ${ambientTrader.name}`);
+assert.equal(generalTradeAction.action,'trade','the general action field should open trading when the player names a nearby NPC');
+assert.equal(generalTradeAction.npcId,ambientTrader.id);
 
 
 

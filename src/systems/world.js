@@ -30,6 +30,96 @@ const RANDOM_TRADER_NAMES = ['Серый','Муха','Гвоздь','Тихий'
 const STALKER_FIRST_NAMES = ['Макс','Саня','Клим','Боря','Феликс','Антон','Олег','Андрей','Макар','Алекс','Артём','Павел','Пётр','Никита','Марк','Костя','Егор','Нестор','Гриша','Захар','Хома','Ваня','Вася','Роман','Ростик','Леон','Лёва','Дима','Денис','Жора','Ян','Степан','Игнат','Тимур','Трофим','Юра'];
 const STALKER_NICKNAMES = ['Йог','Центнер','Упырь','Костлявый','Косой','Кислый','Енот','Нудный','Гидра','Гравий','Гром','Гитарист','Горбун','Шумахер','Щука','Затвор','Землянин','Зомби','Хомяк','Хитрый','Фитиль','Факел','Ветер','Волосатый','Веник','Автомат','Плохиш','Пастух','Пудель','Пистон','Петля','Паровоз','Пушкин','Робот','Рихтер','Рыболов','Онегин','Ловкач','Лимон','Диггер','Дикарь','Жук','Якут','Якорь','Чехов','Чумной','Чаплин','Сиплый','Старик','Моряк','Морпех','Мутный','Беляев','Балбес','Болтун','Бык','Башмак','Бухой','Бахмут','Барин','Белый','Юрта'];
 const FACTION_GROUPS = { loner:'Одиночки', bandit:'Бандиты', military:'Военные' };
+
+// Постоянные жители локаций. У каждого есть своя повседневная рутина и личное дело.
+const VILLAGE_ROUTINES = [
+  { role:'Новичок', task:'пытается найти пропавший рюкзак у старого сарая', morning:'обходит сараи в поисках пропавшего рюкзака', day:'расспрашивает местных о потерянном рюкзаке', evening:'сидит у костра и перебирает найденные вещи', night:'отдыхает в одном из пустых домов', greeting:'Если увидишь потёртый зелёный рюкзак — дай знать. Там почти всё, что у меня осталось.' },
+  { role:'Сталкер-ремонтник', task:'чинит старый фонарь и собирает детали', morning:'разбирает фонарь на детали', day:'пытается починить фонарь у сарая', evening:'проверяет, заработал ли старый фонарь', night:'прячет инструменты и отдыхает', greeting:'Фонарь барахлит. Ищу нормальный провод и батарейки, а то ночью тут хоть глаз выколи.' },
+  { role:'Повар у костра', task:'готовит еду для тех, кто вернулся с дороги', morning:'собирает воду и сухие ветки', day:'готовит нехитрый обед для новичков', evening:'раздаёт еду у костра', night:'убирает котелок и ложится спать', greeting:'Если есть крупа или консервы — неси. Пустой котелок сам себя не наполнит.' },
+  { role:'Дозорный', task:'следит за дорогой и считает проходящие группы', morning:'проверяет подходы к деревне', day:'наблюдает за дорогой со стороны ворот', evening:'меняется постом с другим новичком', night:'несёт тихое дежурство у входа', greeting:'Слежу, кто приходит и уходит. Последние дни на дороге стало многолюдно.' },
+  { role:'Сталкер-картограф', task:'сверяет старую карту с тропами вокруг Кордона', morning:'сверяет карту с ориентирами', day:'делает пометки о тропах возле деревни', evening:'перерисовывает маршрут при свете лампы', night:'складывает карту и отдыхает', greeting:'Старая карта врёт в мелочах. Пытаюсь отметить, где дорога просела и где лучше не срезать.' },
+  { role:'Сборщик припасов', task:'собирает воду и продукты для маленькой группы', morning:'проверяет запасы воды', day:'таскает ящики с провизией к дому', evening:'делит припасы между соседями', night:'спит рядом со своими вещами', greeting:'Провизии мало. Ищу воду, хлеб и что-нибудь долго хранящееся.' },
+  { role:'Охотник', task:'готовит снаряжение перед выходом к вагончику', morning:'чистит ружьё и проверяет патроны', day:'собирается к вагончику по следам собак', evening:'рассказывает у костра о следах мутантов', night:'держится поближе к освещённому дому', greeting:'У вагончика снова следы. Пока не решил, идти ли одному — стая там может быть немаленькая.' },
+  { role:'Новичок', task:'ищет проводника до остановки', morning:'ждёт проводника у тропы', day:'расспрашивает опытных сталкеров о дороге', evening:'слушает разговоры у костра', night:'ночует в доме рядом с деревней', greeting:'Мне бы до остановки добраться без приключений. Говорят, там можно встретить людей.' },
+  { role:'Сталкер-торговец', task:'обменивает мелкие припасы и ищет покупателя на хлам', morning:'раскладывает мелочёвку на старой доске', day:'предлагает припасы тем, кто возвращается с вылазки', evening:'считает выручку у костра', night:'прячет товар и отдыхает', greeting:'Есть немного мелочей на обмен. Ничего редкого, зато цены не кусаются.' },
+  { role:'Дежурный по лагерю', task:'проверяет двери, замки и порядок в домах', morning:'обходит пустые дома и проверяет двери', day:'чинит щеколды и укрепляет ставни', evening:'проверяет, все ли вернулись в деревню', night:'сидит на дежурстве возле фонаря', greeting:'Стараюсь, чтобы в домах был порядок. После захода солнца лучше не бродить одному.' }
+];
+const CHECKPOINT_ROUTINES = [
+  { role:'Часовой', task:'несёт службу и следит за дорогой', morning:'проверяет дорогу и бетонные заграждения', day:'несёт караул у въезда', evening:'сдаёт смену и докладывает командиру', night:'дежурит у прожектора', greeting:'Пост на месте. Двигайся спокойно и не создавай проблем.' },
+  { role:'Связист', task:'проверяет связь с соседними постами', morning:'проверяет радиостанцию', day:'передаёт сводку на соседний блокпост', evening:'записывает сообщения в журнал', night:'слушает эфир в караулке', greeting:'Связь временами хрипит. Если услышишь что-то необычное — сообщи дежурному.' },
+  { role:'Снабженец', task:'разбирает ящики с припасами', morning:'принимает ящики со снабжением', day:'сортирует патроны и аптечки', evening:'сверяет остатки по ведомости', night:'закрывает склад и отдыхает', greeting:'Склад не резиновый. Сначала назови, что именно тебе требуется.' },
+  { role:'Патрульный', task:'проверяет окрестности блокпоста', morning:'обходит периметр', day:'проверяет следы у дороги', evening:'возвращается с короткого патруля', night:'держит участок под наблюдением', greeting:'За периметром следы свежие. Не советую уходить с дороги без причины.' }
+];
+const ATP_ROUTINES = [
+  { role:'Часовой АТП', task:'охраняет въезд на территорию', morning:'проверяет въезд и считает машины', day:'стоит на посту у ворот АТП', evening:'меняется с напарником и проверяет двор', night:'охраняет проход между корпусами', greeting:'На территорию без разрешения Кефира не шастай.' },
+  { role:'Сборщик металла', task:'ищет детали для ремонта машин', morning:'осматривает брошенные машины', day:'снимает пригодные детали со старого кузова', evening:'складывает металл у мастерской', night:'прячет инструмент в гараже', greeting:'Ищу целые детали. Половина местных тачек уже разобрана, но кое-что ещё осталось.' },
+  { role:'Кладовщик', task:'сортирует найденные припасы', morning:'пересчитывает ящики в подсобке', day:'раскладывает добычу по кучам', evening:'докладывает Кефиру о запасах', night:'закрывает склад', greeting:'Не трогай ящики без спроса. Тут всё записано, даже если выглядит как хлам.' },
+  { role:'Разведчик', task:'следит за дорогой к свиноферме', morning:'проверяет тропу к свиноферме', day:'наблюдает за подходами к АТП', evening:'рассказывает Кефиру о движении на дороге', night:'сидит в укрытии и слушает окрестности', greeting:'У дороги бывает движение. Я слежу, чтобы нас не застали врасплох.' },
+  { role:'Боец Кефира', task:'тренируется и поддерживает порядок во дворе', morning:'проверяет снаряжение', day:'тренируется во дворе', evening:'играет в карты с остальными', night:'отдыхает в помещении АТП', greeting:'У нас свои порядки. Хочешь спокойно пройти — не цепляйся к людям.' },
+  { role:'Добытчик', task:'перебирает вещи, принесённые с вылазки', morning:'отделяет полезные вещи от мусора', day:'сортирует найденное с последней вылазки', evening:'ищет покупателя на лишние припасы', night:'прячет добычу до утра', greeting:'После вылазки набрал всякого. Могу кое-чем поменяться, если предложишь что-то полезное.' }
+];
+
+function shuffled(source) {
+  const result=[...source];
+  for (let index=result.length-1; index>0; index--) {
+    const swap=Math.floor(Math.random()*(index+1));
+    [result[index],result[swap]]=[result[swap],result[index]];
+  }
+  return result;
+}
+
+function createNpcNameFactory() {
+  // Draw names without replacement so a freshly spawned group does not contain
+  // several identical first-name / nickname combinations.
+  const firstNames=shuffled(STALKER_FIRST_NAMES);
+  const nicknames=shuffled(STALKER_NICKNAMES);
+  let fallbackIndex=0;
+  return () => {
+    const first=firstNames.shift() || STALKER_FIRST_NAMES[fallbackIndex%STALKER_FIRST_NAMES.length];
+    const nickname=nicknames.shift() || STALKER_NICKNAMES[fallbackIndex%STALKER_NICKNAMES.length];
+    fallbackIndex++;
+    return `${first} «${nickname}»`;
+  };
+}
+
+function createAmbientNpc(id, location, faction, template, index, makeName) {
+  return {
+    id, name:makeName(), role:template.role,
+    group:FACTION_GROUPS[faction]||'Путники', faction, location, icon:'',
+    ambient:true, personalTask:template.task,
+    routines:{ morning:template.morning, day:template.day, evening:template.evening, night:template.night },
+    activity:template.day, greeting:template.greeting,
+    memberIndex:index,
+    spawnedAt:Date.now()
+  };
+}
+
+function createAmbientNpcPopulation() {
+  const people=[];
+  const makeName=createNpcNameFactory();
+  // Every new game gets a fresh roll: identities and daily roles are shuffled,
+  // while each local stays assigned to the correct settlement / faction.
+  shuffled(VILLAGE_ROUTINES).forEach((template,index)=>people.push(createAmbientNpc(`village-local-${index+1}`,'rookie-village','loner',template,index,makeName)));
+  const checkpoints=['north-checkpoint','bridge-checkpoint','south-checkpoint'];
+  checkpoints.forEach((location,index)=>shuffled(CHECKPOINT_ROUTINES).forEach((template,personIndex)=>people.push(createAmbientNpc(`checkpoint-${index+1}-guard-${personIndex+1}`,location,'military',template,personIndex,makeName))));
+  shuffled(ATP_ROUTINES).forEach((template,index)=>people.push(createAmbientNpc(`atp-bandit-${index+1}`,'atp','bandit',template,index,makeName)));
+  return people;
+}
+
+function ensureAmbientNpcs(game) {
+  if (!Array.isArray(game.ambientNpcs)) game.ambientNpcs=createAmbientNpcPopulation();
+  refreshAmbientNpcActivities(game);
+  return game.ambientNpcs;
+}
+
+function refreshAmbientNpcActivities(game) {
+  if (!Array.isArray(game.ambientNpcs)) return;
+  const minute=((Number(game.clock?.worldMinutes)||0)%1440+1440)%1440;
+  const hour=Math.floor(minute/60);
+  const period=hour>=6&&hour<12?'morning':hour>=12&&hour<18?'day':hour>=18&&hour<23?'evening':'night';
+  for (const npc of game.ambientNpcs) npc.activity=npc.routines?.[period]||npc.personalTask||npc.role;
+}
+
 const NPC_TRADE_STOCK = {
   loner:['bread','water','sausage','canned','bandage','ammo9x18','shells','boltpack','knife','pm'],
   bandit:['vodka','bread','sausage','canned','ammo9x18','shells','knife','pm','biker'],
@@ -89,9 +179,10 @@ function findTrader(game, traderId) {
       const faction=profile.faction||'loner';
       const stockIds=profile.stockIds?.length ? profile.stockIds : NPC_TRADE_STOCK[faction]||NPC_TRADE_STOCK.loner;
       const multiplier=faction==='military'?1.18:faction==='bandit'?1.08:1.12;
+      const personalSelection=shuffled(stockIds).slice(0,Math.max(4,Math.min(7,stockIds.length)));
       record=game.npcTraders[traderId]={
         id:traderId, location:profile.location,
-        stock:makeStock(stockIds.filter(()=>Math.random()>.28),multiplier),
+        stock:makeStock(personalSelection,multiplier),
         buyMultiplier:faction==='military'?.46:faction==='bandit'?.36:.4,
         priceMultiplier:multiplier, barter:true
       };
@@ -142,6 +233,7 @@ export function createGame(character, starterInventory = [], money = 0) {
     dialogueHistory:[],
     lootRespawnMinutes:180,
     squads:SQUADS.map(squad => ({ ...squad })),
+    ambientNpcs:createAmbientNpcPopulation(),
     npcTraders:{},
     ...(() => { const traders=createTraderRecords(); return { traders:traders.fixed, randomTraders:traders.random }; })(),
     lastSquadMove:0,
@@ -211,6 +303,7 @@ function tickVitals(game, minutes) {
 }
 
 export function simulateWorld(game) {
+  ensureAmbientNpcs(game);
   const due = game.clock.worldMinutes - game.lastSquadMove;
   if (due < 90) return;
   const cycles = Math.floor(due / 90);
@@ -607,23 +700,25 @@ function ensureSquadMembers(game) {
 
 export function getAvailableStalkers(game, locationId=game.locationId) {
   ensureSquadMembers(game);
+  ensureAmbientNpcs(game);
   const squadMembers=game.squadMembers.map(member=>{
     const squad=(game.squads||[]).find(entry=>entry.id===member.squadId);
     return {...member,location:squad?.location||member.location};
   });
-  const people=[...NPCS,...(game.randomTraders||[]),...squadMembers];
+  const people=[...NPCS,...(game.randomTraders||[]),...(game.ambientNpcs||[]),...squadMembers];
   const seen=new Set();
   return people.filter(person=>(locationId==null || person.location===locationId) && !seen.has(person.id) && seen.add(person.id));
 }
 
 export function getStalkerById(game,npcId) {
   ensureSquadMembers(game);
+  ensureAmbientNpcs(game);
   const member=game.squadMembers.find(entry=>entry.id===npcId);
   if (member) {
     const squad=(game.squads||[]).find(entry=>entry.id===member.squadId);
     return {...member,location:squad?.location||member.location};
   }
-  return NPCS.find(entry=>entry.id===npcId) || (game.randomTraders||[]).find(entry=>entry.id===npcId) || null;
+  return NPCS.find(entry=>entry.id===npcId) || (game.randomTraders||[]).find(entry=>entry.id===npcId) || (game.ambientNpcs||[]).find(entry=>entry.id===npcId) || null;
 }
 
 function getDialogueNpc(game, npcId) {
@@ -764,6 +859,15 @@ export function replyNpcFreeText(game,npcId,rawText) {
   if (!text) return {ok:false,message:'Напиши, что хочешь сказать.'};
   let answer='';
   const includes=(...roots)=>roots.some(root=>text.includes(root));
+  if (includes('торгов','торговать','обмен','купить','продать','цен','товар','покажи ассортимент','что продаешь','что есть в наличии')) {
+    const answer=pick([`Ладно, ${npc.name==='Сидорович'?'сталкер':'договорились'}. Открываю обмен — посмотри, что у меня есть, и что готов предложить сам.`,`Давай к делу. В торговом окне увидишь мой запас и цены выкупа на твои вещи.`,`Есть о чём поговорить. Открывай сделку: товар слева, твой рюкзак справа.`]);
+    game.dialogueReply=answer;
+    game.dialogueHistory ||= [];
+    game.dialogueHistory.push({role:'player',text:String(rawText).slice(0,500)},{role:'npc',text:answer});
+    game.dialogueHistory=game.dialogueHistory.slice(-16);
+    addLog(game,`${npc.name}: ${answer}`);
+    return {ok:true,message:answer,action:'trade',traderId:npcId};
+  }
   const generated=generateDialogueReply(npc,game,rawText);
   if (includes('работ','задан','квест','поруч','помощ','дело','подработ')) {
     game.dialogueTopic='работа';

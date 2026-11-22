@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cordon-pda-v21-equipment-slots';
+const CACHE_NAME = 'cordon-pda-v23-random-npcs-trade-starter-gear';
 const APP_SHELL = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './assets/icons/radioactive.svg', './assets/images/cordon-clean.webp',

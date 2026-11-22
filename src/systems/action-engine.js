@@ -121,6 +121,21 @@ export function processPlayerAction(game, rawText) {
 
   const named=rememberMention(game,text);
   const reference=resolveReference(game,text);
+
+  // Торговлю можно открыть прямо из общего поля действий: укажи NPC по имени
+  // или просто напиши «торговать», чтобы выбрать ближайшего собеседника.
+  const tradeIntent=/(торг|обмен|сделк|купить|покуп|продать|продаж|покажи товар|открой торгов)/.test(text);
+  if (tradeIntent) {
+    const rememberedNpc=getNpcFromReference(game,reference);
+    const currentPeople=getAvailableStalkers(game,game.locationId);
+    const explicitNpc=named?.type==='npc'?named.entity:rememberedNpc;
+    const rememberedDialogue=currentPeople.find(person=>person.id===game.dialogueNpcId);
+    const target=explicitNpc?.location===game.locationId?explicitNpc:
+      rememberedDialogue || currentPeople.find(person=>person.id==='sidorovich') ||
+      currentPeople.find(person=>person.trader) || currentPeople.find(person=>person.faction===game.player.faction) || currentPeople[0];
+    if (!target) return {message:'Поблизости нет сталкера, с которым можно открыть обмен.'};
+    return {message:`Открываю торговлю с ${target.name}.`,action:'trade',npcId:target.id};
+  }
   const pronoun=hasPronounReference(text);
 
   // Combat is full-text: resolve the player's narrated move before ordinary RP intents.

@@ -573,12 +573,12 @@ html { zoom: var(--ui-scale, 1); }
 /* Local stalkers: every visible NPC can be approached or offered a deal. */
 .npc-interaction{display:flex;align-items:stretch;gap:3px;min-width:0}
 .npc-interaction .npc-chip{flex:1;min-width:0}
-.npc-trade-button{display:grid;place-items:center;min-width:27px;padding:3px 6px;border:1px solid #536448;background:#222d1d;color:#d6e5c4;font-weight:800;cursor:pointer}
+.npc-trade-button{display:grid;place-items:center;min-width:54px;padding:3px 7px;white-space:nowrap;border:1px solid #536448;background:#222d1d;color:#d6e5c4;font-size:10px;font-weight:800;cursor:pointer}
 .npc-trade-button:hover{background:#35452b;border-color:#91a879}
 .scene-no-contacts{color:#aab49c;font-size:10px;padding:6px}
 .dialogue-head-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
 .dialogue-head-actions .modal-close{position:static;flex:0 0 auto}
-@media(max-width:760px){.npc-trade-button{min-width:24px;padding:2px 4px;font-size:10px}.npc-interaction{gap:2px}.dialogue-head-actions{gap:3px}.dialogue-head-actions .button{font-size:8px;padding:5px 6px}}
+@media(max-width:760px){.npc-trade-button{min-width:48px;padding:2px 4px;font-size:9px}.npc-interaction{gap:2px}.dialogue-head-actions{gap:3px}.dialogue-head-actions .button{font-size:8px;padding:5px 6px}}
 
 /* Dedicated backpack slots for primary weapons, armor and gas mask. */
 .equipment-slots{grid-template-columns:repeat(6,minmax(0,1fr))}

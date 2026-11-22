@@ -1,5 +1,5 @@
 import { loadState, saveState, createInitialState, exportSave, importSave } from './core/storage.js';
-import { ASSETS, FACTIONS, START_BUDGET, MAX_CARRY_KG, NPCS, ITEMS, LOCATIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS } from './data/catalog.js';
+import { ASSETS, FACTIONS, START_BUDGET, MAX_CARRY_KG, NPCS, ITEMS, LOCATIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS, STARTER_LOADOUT_BY_FACTION } from './data/catalog.js';
 import { renderMenu, renderAccount, renderCharacters, renderCreate, renderLoadout, renderGame, renderGameSettings, renderModal, esc } from './ui/views.js';
 import { canFitLoadout, getInventoryCost, getLoadoutWeight, addItem, getItem, getWeight, countItem, removeItem, useItem, transferItem } from './systems/inventory.js';
 import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, breakContainer, replyNpcFreeText, takeShelter, leaveShelter, sitAtCampfire, getExploreSpots, getActiveLootItems, openStorage } from './systems/world.js';
@@ -284,6 +284,14 @@ function characterFromDraft() {
 
 function finishLoadout() {
   const selected=state.loadout.selected || {};
+  const factionId=state.pendingCharacter?.faction||state.draft?.faction||'loner';
+  const factionGear=STARTER_LOADOUT_BY_FACTION[factionId]||STARTER_LOADOUT_BY_FACTION.loner;
+  const selectedArmor=Object.entries(selected).filter(([id,qty])=>qty>0&&getItem(id)?.cat==='Броня');
+  const selectedMasks=Object.entries(selected).filter(([id,qty])=>qty>0&&getItem(id)?.cat==='Защита');
+  if (selectedArmor.length>1 || selectedMasks.length>1 || selectedArmor.some(([id])=>!factionGear.armor.includes(id)) || selectedMasks.some(([id])=>!factionGear.mask.includes(id))) {
+    toast('Выбери не больше одной брони и одного противогаза, подходящих твоей группировке.','warning');
+    return;
+  }
   const cost=getInventoryCost(selected);
   const weight=getLoadoutWeight(selected);
   if (cost>START_BUDGET || weight>MAX_CARRY_KG) {
@@ -368,6 +376,7 @@ function applyActionResult(result) {
   else if (result.action==='sleep') state.ui.modal='sleep';
   else if (result.action==='artifact') state.ui.modal=null;
   else if (result.action==='dialogue') state.game.dialogueNpcId=result.npcId;
+  else if (result.action==='trade') { state.ui.tradeNpcId=result.npcId; state.ui.modal='trade-panel'; state.ui.pdaOpen=false; }
   else if (result.action==='explore-find') state.ui.modal='explore-find';
   else if (result.action==='combat') state.ui.tab='location';
   else if (result.action==='radio-on') { const station=RADIO_STATIONS.find(entry=>entry.locationId===state.game?.locationId); if(station) { startRadio(station.id); return; } else toast('Здесь нет местной радиостанции.','warning'); }
@@ -421,7 +430,17 @@ root.addEventListener('click', (event) => {
   if (action==='reset-avatar') { state.draft.avatar=''; persist(); return render(); }
   if (action==='loadout-add' || action==='loadout-remove') {
     const delta=action==='loadout-add'?1:-1;
-    const result=canFitLoadout(state.loadout.selected,id,delta,START_BUDGET);
+    const selected=state.loadout.selected||{};
+    const item=getItem(id);
+    const factionId=state.pendingCharacter?.faction||state.draft?.faction||'loner';
+    const factionGear=STARTER_LOADOUT_BY_FACTION[factionId]||STARTER_LOADOUT_BY_FACTION.loner;
+    if (delta>0 && item?.cat==='Броня' && !factionGear.armor.includes(id)) { toast('Эта броня не подходит для стартового комплекта твоей группировки.','warning'); return; }
+    if (delta>0 && item?.cat==='Защита' && !factionGear.mask.includes(id)) { toast('Этот противогаз не входит в стартовый комплект твоей группировки.','warning'); return; }
+    if (delta>0 && item?.cat==='Броня' && (selected[id]||0)>=1) { toast('Можно взять только один комплект брони.','warning'); return; }
+    if (delta>0 && item?.cat==='Защита' && (selected[id]||0)>=1) { toast('Можно взять только один противогаз.','warning'); return; }
+    if (delta>0 && item?.cat==='Броня' && Object.entries(selected).some(([other,qty])=>qty>0&&getItem(other)?.cat==='Броня')) { toast('Сначала убери выбранную броню. В стартовый набор входит один комплект.','warning'); return; }
+    if (delta>0 && item?.cat==='Защита' && Object.entries(selected).some(([other,qty])=>qty>0&&getItem(other)?.cat==='Защита')) { toast('Сначала убери выбранный противогаз. В стартовый набор входит один.','warning'); return; }
+    const result=canFitLoadout(selected,id,delta,START_BUDGET);
     if (!result.ok) toast(result.reason,'warning');
     else state.loadout.selected=result.selected;
     persist(); render(); return;
@@ -761,6 +780,13 @@ root.addEventListener('submit', (event) => {
     const text=String(new FormData(event.target).get('message')||'').trim();
     if (!npcId || !text) return;
     const result=replyNpcFreeText(state.game,npcId,text);
+    if (result.action==='trade') {
+      state.ui.tradeNpcId=npcId;
+      state.ui.modal='trade-panel';
+      state.ui.pdaOpen=false;
+      persist(); render(); toast(result.message,'info');
+      return;
+    }
     persist(); render(); toast(result.message,result.ok?'info':'warning');
     return;
   }
