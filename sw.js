@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cordon-pda-v20-loot-equipment-dialogue';
+const CACHE_NAME = 'cordon-pda-v21-equipment-slots';
 const APP_SHELL = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './assets/icons/radioactive.svg', './assets/images/cordon-clean.webp',

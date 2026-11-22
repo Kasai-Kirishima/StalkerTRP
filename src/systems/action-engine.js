@@ -1,5 +1,5 @@
-import { NPCS, LOCATIONS, ITEMS, EXPLORE_SPOTS } from '../data/catalog.js';
-import { addLog, describeLocation, searchLocation, talkToNpc, startArtifactHunt, deactivateAnomaly, getLocation, scoutLocation, getAvailableTraders, travelTo, startAreaSearch, sitAtCampfire, takeShelter, advanceGame } from './world.js';
+import { LOCATIONS, ITEMS, EXPLORE_SPOTS } from '../data/catalog.js';
+import { addLog, describeLocation, searchLocation, talkToNpc, startArtifactHunt, deactivateAnomaly, getLocation, scoutLocation, getAvailableTraders, getAvailableStalkers, travelTo, startAreaSearch, sitAtCampfire, takeShelter, advanceGame } from './world.js';
 import { playerAttack, beginEncounter, combatTextAction } from './combat.js';
 import { useItem, countItem } from './inventory.js';
 import { containsReferencePronoun, getRememberedEntity, rememberEntity, grammaticalGender, genderedSubject, pronounInDative, tokenizeRussian, stemRussianWord } from './russian-language.js';
@@ -37,7 +37,7 @@ function entityMentioned(text, entity) {
 }
 
 function findNamedEntity(game,text) {
-  const people=[...NPCS,...(game.randomTraders||[])];
+  const people=getAvailableStalkers(game,null);
   const npc=people.find(person=>entityMentioned(text,person));
   if (npc) return {entity:npc,type:'npc'};
   const location=LOCATIONS.find(place=>entityMentioned(text,place));
@@ -71,7 +71,7 @@ function resolveReference(game,text) {
 }
 
 function allPeople(game) {
-  return [...NPCS,...(game.randomTraders||[])];
+  return getAvailableStalkers(game,null);
 }
 
 function getNpcFromReference(game,reference) {

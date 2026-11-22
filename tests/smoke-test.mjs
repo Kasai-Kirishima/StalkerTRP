@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { ASSETS, IMAGE_FALLBACKS, FACTIONS, ITEMS, LOCATIONS, EXPLORE_SPOTS, NPCS, AVATAR_OPTIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS, START_BUDGET, MAX_CARRY_KG, STARTER_ITEM_IDS, ITEM_ACQUISITION } from '../src/data/catalog.js';
-import { createGame, travelTo, talkToNpc, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, sitAtCampfire, replyNpc, replyNpcFreeText, getTravelMinutes, getExploreSpots, advanceGame, takeShelter, leaveShelter, openStorage, getActiveLootItems, breakContainer, registerCorpseLoot } from '../src/systems/world.js';
+import { createGame, travelTo, talkToNpc, getAvailableStalkers, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, sitAtCampfire, replyNpc, replyNpcFreeText, getTravelMinutes, getExploreSpots, advanceGame, takeShelter, leaveShelter, openStorage, getActiveLootItems, breakContainer, registerCorpseLoot } from '../src/systems/world.js';
 import { addItem, getWeight, canFitLoadout, countItem, useItem, transferItem } from '../src/systems/inventory.js';
 import { beginEncounter, beginWolfDogPack, playerAttack } from '../src/systems/combat.js';
 import { processPlayerAction } from '../src/systems/action-engine.js';
@@ -288,6 +288,22 @@ assert.ok(getAvailableTraders(shopGame).some(trader=>trader.id==='shnurok'));
 shopGame.locationId='south-checkpoint';
 assert.ok(getAvailableTraders(shopGame).some(trader=>trader.id==='kapterka'));
 
+// Every local stalker can be approached and offered a trade, including generated squad members.
+const contactGame=createGame({name:'Контакт',faction:'loner'},[],START_BUDGET);
+contactGame.locationId='rookie-village';
+const localPeople=getAvailableStalkers(contactGame);
+assert.ok(localPeople.some(person=>person.id==='wolf'),'key NPCs remain interactable');
+const squadContact=localPeople.find(person=>person.squadId==='squad-loners');
+assert.ok(squadContact,'members of the local squad should appear as individual contacts');
+assert.equal(talkToNpc(contactGame,squadContact.id).ok,true,'a generated squad member should accept dialogue');
+const squadTrader=getAvailableTraders(contactGame).find(person=>person.id===squadContact.id);
+assert.ok(squadTrader && squadTrader.stock.length>0,'any stalker should have a small personal barter inventory');
+const squadOffer=squadTrader.stock[0];
+assert.equal(buyFromTrader(contactGame,squadContact.id,squadOffer.id).ok,true,'a player can buy from a regular stalker');
+const contactScene=renderGame({game:contactGame,characters:[{id:'contact',name:'Контакт',faction:'loner'}],activeCharacterId:'contact',ui:{tab:'location',modal:null,pdaOpen:false,music:{}},settings:{}});
+assert.ok(contactScene.includes(`data-action="trade-open" data-id="${squadContact.id}"`),'local squad member should expose a direct trade action in the scene');
+
+
 // Artefact detector mini-game and bolt uses, including the secret camp's Funnel anomaly.
 const banditChar={name:'Проверка',faction:'bandit'};
 const banditGame=createGame(banditChar,[],START_BUDGET);
@@ -342,6 +358,10 @@ for (const restricted of ['aksu','ammo545','psz5','aurora','optik','zarya','otkl
   assert.equal(canFitLoadout({},restricted,1,START_BUDGET).ok,false,`${restricted} must be blocked from starter selection`);
 }
 for (const itemId of STARTER_ITEM_IDS) assert.ok(ITEMS.some(item=>item.id===itemId),`starter item ${itemId} must exist`);
+for (const armorId of ['leather','kosyha','kozanka','debyt']) assert.ok(STARTER_ITEM_IDS.includes(armorId),`${armorId} should be selectable as starter armour`);
+const starterArmourGame=createGame(character,[{id:'debyt',qty:1}],START_BUDGET-1800);
+assert.equal(starterArmourGame.player.armorId,'debyt','starter armour should be equipped when a new game is created');
+assert.equal(starterArmourGame.player.armor,12,'starter armour protection should be active immediately');
 assert.ok(ITEMS.every(item=>!['tail','flesh-eye','medusa','meat_chunk','gravi'].includes(item.id) || ['Добыча','Артефакты'].includes(item.cat)));
 assert.ok(LOCATIONS.every(location=>(location.loot||[]).every(id=>!['tail','flesh-eye','medusa','meat_chunk','gravi'].includes(id))), 'mutant parts/artifacts must not appear in ordinary stash search');
 const initialShopGame=createGame(character,[],START_BUDGET);
@@ -449,7 +469,7 @@ uiState.ui.tradeNpcId='sidorovich';
 uiState.game.locationId='sidorovich-bunker';
 uiState.ui.modal='trade-panel';
 const tradeHtml=renderModal(uiState);
-assert.ok(tradeHtml.includes('Товар торговца') && tradeHtml.includes('Продать торговцу'));
+assert.ok(tradeHtml.includes('Что предлагает') && tradeHtml.includes('Что предлагаешь ты'));
 assert.ok(!renderGame(uiState).includes('Раздел торговли'),'trade must not be part of PDA navigation');
 uiState.ui.modal=null;
 uiState.ui.tab='map';
@@ -526,6 +546,9 @@ const followupReply=replyNpcFreeText(conversationGame,'wolf','А что даль
 assert.ok(followupReply.ok && followupReply.message.includes('По поводу того, о чём говорили'),'NPC follow-up replies should use the previous conversation context');
 const directionReply=replyNpcFreeText(conversationGame,'wolf','Где я сейчас нахожусь?');
 assert.ok(directionReply.message.includes('Деревня новичков') && !directionReply.message.includes('rookie-village'),'direction replies should use human-readable location names');
+const personalReply=replyNpcFreeText(conversationGame,'wolf','Расскажи, скучаешь по дому?');
+assert.ok(personalReply.ok && personalReply.message.length>20,'the expanded dialogue engine should answer personal small-talk');
+assert.equal(conversationGame.dialogueContext.lastIntent,'personal');
 
 
 
@@ -569,6 +592,12 @@ assert.ok(lootMarkup.includes('Найденные вещи') || lootMarkup.inclu
 assert.ok(lootMarkup.includes('Рюкзак игрока') && lootMarkup.includes('Забрать всё') && lootMarkup.includes('Сложить всё'));
 const inventoryMarkup=renderModal({...lootPanelState,ui:{...lootPanelState.ui,modal:'inventory-panel'}});
 assert.ok(inventoryMarkup.includes('ОСНОВНОЙ 1') && inventoryMarkup.includes('Быстрый доступ'),'inventory should display two main weapon slots and quick access');
+for (const slot of ['primary1','primary2','pistol','knife','armor','mask']) assert.ok(inventoryMarkup.includes(`data-slot=\"${slot}\"`),`inventory should expose a dedicated ${slot} equipment slot`);
+const equipmentGame=createGame({name:'Экипировка',faction:'loner'},[],START_BUDGET);
+for (const id of ['debyt','pa8','pm','knife']) addItem(equipmentGame.inventory,id,1);
+const equipmentState={...lootPanelState,game:equipmentGame,ui:{...lootPanelState.ui,modal:'inventory-panel'}};
+const equipmentMarkup=renderModal(equipmentState);
+assert.ok(equipmentMarkup.includes('В слот брони') && equipmentMarkup.includes('В слот противогаза') && equipmentMarkup.includes('В слот оружия'),'inventory item cards should offer direct assignment to each equipment category');
 assert.ok(ITEMS.some(item=>item.id==='berill'&&item.armor>0),'armor catalog should include the Berill suit');
 assert.ok(ITEMS.some(item=>item.id==='pg4'&&item.cat==='Защита'),'gas mask catalog should include PG-4');
 

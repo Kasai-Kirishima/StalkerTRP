@@ -569,3 +569,21 @@ html { zoom: var(--ui-scale, 1); }
 .generated-stalker-name small{font:8px 'Share Tech Mono',monospace;letter-spacing:.12em;color:#aab981}
 .generated-stalker-name b{font-size:14px}
 @media(max-width:430px){.scene-entry-actions .button{font-size:8px;padding:4px 6px}.scene-places{max-width:calc(100% - 118px)}}
+
+/* Local stalkers: every visible NPC can be approached or offered a deal. */
+.npc-interaction{display:flex;align-items:stretch;gap:3px;min-width:0}
+.npc-interaction .npc-chip{flex:1;min-width:0}
+.npc-trade-button{display:grid;place-items:center;min-width:27px;padding:3px 6px;border:1px solid #536448;background:#222d1d;color:#d6e5c4;font-weight:800;cursor:pointer}
+.npc-trade-button:hover{background:#35452b;border-color:#91a879}
+.scene-no-contacts{color:#aab49c;font-size:10px;padding:6px}
+.dialogue-head-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.dialogue-head-actions .modal-close{position:static;flex:0 0 auto}
+@media(max-width:760px){.npc-trade-button{min-width:24px;padding:2px 4px;font-size:10px}.npc-interaction{gap:2px}.dialogue-head-actions{gap:3px}.dialogue-head-actions .button{font-size:8px;padding:5px 6px}}
+
+/* Dedicated backpack slots for primary weapons, armor and gas mask. */
+.equipment-slots{grid-template-columns:repeat(6,minmax(0,1fr))}
+.equipment-slot.equipped{border-style:solid;border-color:#c4c96a;box-shadow:inset 0 0 0 1px rgba(196,201,106,.25)}
+.equipment-slot>i{font:8px 'Share Tech Mono',monospace;font-style:normal;color:#d7df8c;letter-spacing:.08em}
+.equipment-slot[data-slot="armor"],.equipment-slot[data-slot="mask"]{background:linear-gradient(180deg,#1c2718,#111a11)}
+@media(max-width:700px){.equipment-slots{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:430px){.equipment-slots{grid-template-columns:repeat(3,minmax(0,1fr))}.equipment-slot{min-height:68px}.equipment-slot>span{min-height:29px}.equipment-slot img{max-width:30px;max-height:30px}}

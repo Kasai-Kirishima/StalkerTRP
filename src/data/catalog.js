@@ -397,10 +397,10 @@ export const SQUADS = [
 export const STARTER_ITEM_IDS = [
   'bread','water','sausage','vodka','shells','energy','canned',
   'knife','ammo9x18','ammo9x19','bandage','boltpack','rgd5','ai2',
-  'sawedoff','pm','binoculars'
+  'sawedoff','pm','binoculars','leather','kosyha','kozanka','debyt'
 ];
 export const ITEM_ACQUISITION = {
-  traderOnly: ['aksu','ammo545','vm17','gaduka','psz5','aurora','optik','zarya','biker','leather','berill','debyt','kosyha','kozanka','kozanplash','stalnoishlem','pa8','pa10','pg4'],
+  traderOnly: ['aksu','ammo545','vm17','gaduka','psz5','aurora','optik','zarya','biker','berill','kozanplash','stalnoishlem','pa8','pa10','pg4'],
   searchOnly: ['flash'],
   traderOrSearch: ['otklik','milmed'],
   mutantDrops: ['tail','flesh-eye'],

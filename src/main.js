@@ -1,7 +1,7 @@
 import { loadState, saveState, createInitialState, exportSave, importSave } from './core/storage.js';
 import { ASSETS, FACTIONS, START_BUDGET, MAX_CARRY_KG, NPCS, ITEMS, LOCATIONS, RADIO_TRACKS, RADIO_STATIONS, PLAYER_TRACKS } from './data/catalog.js';
 import { renderMenu, renderAccount, renderCharacters, renderCreate, renderLoadout, renderGame, renderGameSettings, renderModal, esc } from './ui/views.js';
-import { canFitLoadout, getInventoryCost, getLoadoutWeight, addItem, getItem, getWeight, removeItem, useItem, transferItem } from './systems/inventory.js';
+import { canFitLoadout, getInventoryCost, getLoadoutWeight, addItem, getItem, getWeight, countItem, removeItem, useItem, transferItem } from './systems/inventory.js';
 import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, breakContainer, replyNpcFreeText, takeShelter, leaveShelter, sitAtCampfire, getExploreSpots, getActiveLootItems, openStorage } from './systems/world.js';
 import { playerAttack, defend, flee, beginWolfDogPack, reloadWeapon, aimWeapon, dodge, throwGrenade, throwBoltInCombat, useItemInCombat, selectWeapon } from './systems/combat.js';
 import { createMusicEngine } from './systems/music.js';
@@ -57,6 +57,36 @@ function toast(message, kind='info') {
   el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(()=>el.classList.remove('show'), 2800);
+}
+
+function ensureEquipmentSlots(game) {
+  const previous=game.equipmentSlots||{};
+  const hasQuick=Array.isArray(previous.quick);
+  game.equipmentSlots={
+    primary1:previous.primary1??null,
+    primary2:previous.primary2??null,
+    pistol:previous.pistol??null,
+    knife:previous.knife??null,
+    armor:previous.armor??game.player?.armorId??null,
+    mask:previous.mask??game.player?.maskId??null,
+    quick:hasQuick?[...previous.quick.slice(0,4),...Array(Math.max(0,4-previous.quick.length)).fill(null)]:[null,null,null,null]
+  };
+  // Migrate older saves that contain weapons but do not yet have equipment slots.
+  for (const stack of game.inventory||[]) {
+    const item=getItem(stack.id);
+    if (!item) continue;
+    if (previous.pistol===undefined && item.weapon==='pistol' && !game.equipmentSlots.pistol) game.equipmentSlots.pistol=item.id;
+    if (previous.knife===undefined && item.weapon==='melee' && !game.equipmentSlots.knife) game.equipmentSlots.knife=item.id;
+    if (['rifle','shotgun','smg'].includes(item.weapon)) {
+      if (previous.primary1===undefined && !game.equipmentSlots.primary1) game.equipmentSlots.primary1=item.id;
+      else if (previous.primary2===undefined && !game.equipmentSlots.primary2 && game.equipmentSlots.primary1!==item.id) game.equipmentSlots.primary2=item.id;
+    }
+    if (!hasQuick && item.use) {
+      const empty=game.equipmentSlots.quick.findIndex(value=>!value);
+      if (empty>=0) game.equipmentSlots.quick[empty]=item.id;
+    }
+  }
+  return game.equipmentSlots;
 }
 
 function setScreen(screen) {
@@ -269,7 +299,27 @@ function finishLoadout() {
   if (!character) { toast('Сначала создай персонажа.','warning'); return; }
   const moneyLeft=START_BUDGET-cost;
   const game=createGame(character,inventory,moneyLeft);
-  game.player.armor=Math.min(30,inventory.reduce((sum,stack)=>sum+(getItem(stack.id)?.armor||0)*stack.qty,0));
+  const starterArmor=inventory.find(stack=>(getItem(stack.id)?.armor||0)>0);
+  const starterMask=inventory.find(stack=>getItem(stack.id)?.cat==='Защита');
+  const equipmentSlots={primary1:null,primary2:null,pistol:null,knife:null,armor:starterArmor?.id||null,mask:starterMask?.id||null,quick:[null,null,null,null]};
+  for (const stack of inventory) {
+    const item=getItem(stack.id);
+    if (!item) continue;
+    if (item.weapon==='pistol' && !equipmentSlots.pistol) equipmentSlots.pistol=item.id;
+    else if (item.weapon==='melee' && !equipmentSlots.knife) equipmentSlots.knife=item.id;
+    else if (['rifle','shotgun','smg'].includes(item.weapon)) {
+      if (!equipmentSlots.primary1) equipmentSlots.primary1=item.id;
+      else if (!equipmentSlots.primary2) equipmentSlots.primary2=item.id;
+    }
+    if (item.use) {
+      const empty=equipmentSlots.quick.findIndex(value=>!value);
+      if (empty>=0) equipmentSlots.quick[empty]=item.id;
+    }
+  }
+  game.equipmentSlots=equipmentSlots;
+  game.player.armorId=starterArmor?.id||null;
+  game.player.armor=Math.min(30,getItem(starterArmor?.id)?.armor||0);
+  game.player.maskId=starterMask?.id||null;
   character.game=game;
   character.money=moneyLeft;
   const existingIndex=state.characters.findIndex(entry=>entry.id===character.id);
@@ -378,7 +428,7 @@ root.addEventListener('click', (event) => {
   }
   if (action==='finish-loadout') return finishLoadout();
   if (action==='pda-toggle') { if(!state.ui.pdaOpen && state.game.activeEncounter){toast('Во время боя КПК недоступен. Сначала выберись из схватки.','warning');return;} state.ui.pdaOpen=!state.ui.pdaOpen; if(state.ui.pdaOpen && !['location','map','stats','player','messages','quests','contacts'].includes(state.ui.tab)) state.ui.tab='location'; persist(); return render(); }
-  if (action==='inventory-open') { state.ui.modal='inventory-panel'; state.ui.pdaOpen=false; persist(); return render(); }
+  if (action==='inventory-open') { ensureEquipmentSlots(state.game); state.ui.modal='inventory-panel'; state.ui.pdaOpen=false; persist(); return render(); }
   if (action==='explore-open') { state.ui.modal='explore-spots'; persist(); return render(); }
   if (action==='explore-spot') {
     const spot=getExploreSpots(state.game.locationId).find(entry=>entry.id===id);
@@ -400,36 +450,48 @@ root.addEventListener('click', (event) => {
   if (action==='loot-close') { state.game.activeLoot=null; state.ui.modal=null; persist(); render(); return; }
   if (action==='slot-assign') {
     const item=getItem(id); if(!item||!countItem(state.game.inventory,id)){toast('Предмет отсутствует в рюкзаке.','warning');return;}
-    const slots=state.game.equipmentSlots ||= {primary1:null,primary2:null,pistol:null,knife:null,quick:[null,null,null,null]};
+    const slots=ensureEquipmentSlots(state.game);
     let slot=button.dataset.slot;
     if(!slot) {
       if(item.weapon==='pistol') slot='pistol';
       else if(item.weapon==='melee') slot='knife';
       else if(['rifle','shotgun','smg'].includes(item.weapon)) slot=!slots.primary1||slots.primary1===id?'primary1':!slots.primary2||slots.primary2===id?'primary2':'primary1';
+      else if(item.armor) slot='armor';
+      else if(item.cat==='Защита') slot='mask';
       else if(item.use) { const index=slots.quick.findIndex(value=>!value); slot=`quick${index>=0?index:0}`; }
     }
-    if(slot?.startsWith('quick')) { const index=Number(slot.replace('quick','')); if(index>=0&&index<4) slots.quick[index]=id; }
-    else if(['primary1','primary2','pistol','knife'].includes(slot)) slots[slot]=id;
-    else {toast('Для этого предмета нет подходящего слота.','warning');return;}
+    const quickSlot=slot?.startsWith('quick');
+    const compatible=quickSlot ? !!item.use
+      : slot==='armor' ? !!item.armor
+      : slot==='mask' ? item.cat==='Защита'
+      : slot==='pistol' ? item.weapon==='pistol'
+      : slot==='knife' ? item.weapon==='melee'
+      : ['primary1','primary2'].includes(slot) ? ['rifle','shotgun','smg'].includes(item.weapon)
+      : false;
+    if(!compatible){toast('Этот предмет не подходит для выбранного слота.','warning');return;}
+    if(quickSlot) { const index=Number(slot.replace('quick','')); if(index<0||index>3){toast('Неизвестный быстрый слот.','warning');return;} slots.quick[index]=id; }
+    else slots[slot]=id;
     if(item.weapon&&item.weapon!=='grenade') selectWeapon(state.game,id);
-    if(item.armor) { state.game.player.armorId=id; state.game.player.armor=item.armor; }
-    if(getItem(id)?.cat==='Защита') state.game.player.maskId=id;
-    persist(); render(); toast(`${item.name} помещён в слот.`,'success'); return;
+    if(slot==='armor') { state.game.player.armorId=id; state.game.player.armor=item.armor||0; }
+    if(slot==='mask') state.game.player.maskId=id;
+    persist(); render(); toast(`${item.name} помещён в слот «${slot==='armor'?'Броня':slot==='mask'?'Противогаз':slot.startsWith('quick')?'Быстрый доступ':slot}».`,'success'); return;
   }
   if (action==='slot-select') {
-    const slot=button.dataset.slot; const slots=state.game.equipmentSlots||{}; const selected=slot?.startsWith('quick')?slots.quick?.[Number(slot.replace('quick',''))]:slots[slot];
+    const slot=button.dataset.slot; const slots=ensureEquipmentSlots(state.game); const selected=slot?.startsWith('quick')?slots.quick?.[Number(slot.replace('quick',''))]:slots[slot];
     const item=getItem(selected); if(!item||!countItem(state.game.inventory,selected)){toast('Этот слот пуст или предмет отсутствует в рюкзаке.','warning');return;}
+    if(slot==='armor') { state.game.player.armorId=selected; state.game.player.armor=item.armor||0; persist();render();toast(`Надета броня: ${item.name}.`,'success');return; }
+    if(slot==='mask') { state.game.player.maskId=selected; persist();render();toast(`Надет противогаз: ${item.name}.`,'success');return; }
     if(item.weapon&&item.weapon!=='grenade') { const result=selectWeapon(state.game,selected); persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
     if(item.use) { const result=useItem(state.game,selected); persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
-    if(item.armor) { state.game.player.armorId=selected; state.game.player.armor=item.armor; }
-    if(item.cat==='Защита') state.game.player.maskId=selected;
-    persist(); render(); toast(`Выбрано: ${item.name}.`,'success'); return;
+    toast('В этом слоте пока нет действия.','info'); return;
   }
   if (action==='equip-armor') {
     if(!getItem(id)?.armor||!countItem(state.game.inventory,id)){toast('Такой брони нет в рюкзаке.','warning');return;}
-    state.game.player.armorId=state.game.player.armorId===id?null:id;
-    state.game.player.armor=state.game.player.armorId?(getItem(id)?.armor||0):0;
-    persist();render();toast(state.game.player.armorId?`Надета броня: ${getItem(id).name}.`:'Броня снята.','success');return;
+    const next=state.game.player.armorId===id?null:id;
+    state.game.player.armorId=next;
+    state.game.player.armor=next?(getItem(next)?.armor||0):0;
+    ensureEquipmentSlots(state.game).armor=next;
+    persist();render();toast(next?`Надета броня: ${getItem(id).name}.`:'Броня снята.','success');return;
   }
   if (action==='explore-pick') { const result=claimAreaFind(state.game,id); if(result.ok) state.ui.modal=null; persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
   if (action==='tab') { const allowed=['location','map','stats','player','messages','quests','contacts']; if(!allowed.includes(tab)) return; state.ui.pdaOpen=true; state.ui.tab=tab; state.game.dialogueNpcId=null; state.ui.modal=null; persist(); return render(); }
@@ -494,6 +556,7 @@ root.addEventListener('click', (event) => {
   if (action==='equip-mask') {
     if(getItem(id)?.cat!=='Защита'||!countItem(state.game.inventory,id)){toast('Такого противогаза нет в рюкзаке.','warning');return;}
     state.game.player.maskId=state.game.player.maskId===id?null:id;
+    ensureEquipmentSlots(state.game).mask=state.game.player.maskId;
     persist();render();toast(state.game.player.maskId?`Надет противогаз «${getItem(id)?.name||id}».`:'Противогаз снят.','success');return;
   }
   if (action==='sleep-open') { if (state.game.activeEncounter) { toast('Во время боя спать нельзя.','warning'); return; } state.ui.modal='sleep'; return render(); }

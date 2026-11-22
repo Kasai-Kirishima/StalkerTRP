@@ -1,6 +1,6 @@
 {
   "name": "stalker-cordon-pda-prototype",
-  "version": "2.0.0",
+  "version": "2.2.0",
   "private": true,
   "type": "module",
   "description": "Responsive link-based STALKER text RP prototype with repeatable quests, radio and player, mutant combat and trading for GitHub Pages",

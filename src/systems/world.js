@@ -27,6 +27,14 @@ export function getTravelMinutes(fromId, toId) {
 
 
 const RANDOM_TRADER_NAMES = ['Серый','Муха','Гвоздь','Тихий','Пахарь','Клык','Рыжий','Шустрый','Филин','Крот'];
+const STALKER_FIRST_NAMES = ['Макс','Саня','Клим','Боря','Феликс','Антон','Олег','Андрей','Макар','Алекс','Артём','Павел','Пётр','Никита','Марк','Костя','Егор','Нестор','Гриша','Захар','Хома','Ваня','Вася','Роман','Ростик','Леон','Лёва','Дима','Денис','Жора','Ян','Степан','Игнат','Тимур','Трофим','Юра'];
+const STALKER_NICKNAMES = ['Йог','Центнер','Упырь','Костлявый','Косой','Кислый','Енот','Нудный','Гидра','Гравий','Гром','Гитарист','Горбун','Шумахер','Щука','Затвор','Землянин','Зомби','Хомяк','Хитрый','Фитиль','Факел','Ветер','Волосатый','Веник','Автомат','Плохиш','Пастух','Пудель','Пистон','Петля','Паровоз','Пушкин','Робот','Рихтер','Рыболов','Онегин','Ловкач','Лимон','Диггер','Дикарь','Жук','Якут','Якорь','Чехов','Чумной','Чаплин','Сиплый','Старик','Моряк','Морпех','Мутный','Беляев','Балбес','Болтун','Бык','Башмак','Бухой','Бахмут','Барин','Белый','Юрта'];
+const FACTION_GROUPS = { loner:'Одиночки', bandit:'Бандиты', military:'Военные' };
+const NPC_TRADE_STOCK = {
+  loner:['bread','water','sausage','canned','bandage','ammo9x18','shells','boltpack','knife','pm'],
+  bandit:['vodka','bread','sausage','canned','ammo9x18','shells','knife','pm','biker'],
+  military:['water','canned','bandage','ai2','ammo9x18','ammo545','shells','antirad','boltpack','pa8']
+};
 const getItemName = (id) => ({medusa:'Медуза',meat_chunk:'Ломоть мяса',gravi:'Грави'}[id] || id);
 const RANDOM_TRADER_STOCK = ['bread','water','canned','sausage','bandage','ammo9x18','ammo9x19','ammo545','shells','knife','vodka','boltpack','ai2','antirad','binoculars','pm'];
 
@@ -71,10 +79,25 @@ function ensureTraderRecords(game) {
 
 function findTrader(game, traderId) {
   ensureTraderRecords(game);
-  const profile=NPCS.find(npc=>npc.id===traderId && npc.trader);
-  const record=game.traders.find(entry=>entry.id===traderId) || game.randomTraders.find(entry=>entry.id===traderId);
-  if (!record) return null;
-  return { profile, record, trader:profile ? {...profile,...record} : {...record} };
+  const profile=getDialogueNpc(game,traderId);
+  if (!profile) return null;
+  let record=game.traders.find(entry=>entry.id===traderId) || game.randomTraders.find(entry=>entry.id===traderId);
+  if (!record) {
+    game.npcTraders ||= {};
+    record=game.npcTraders[traderId];
+    if (!record) {
+      const faction=profile.faction||'loner';
+      const stockIds=profile.stockIds?.length ? profile.stockIds : NPC_TRADE_STOCK[faction]||NPC_TRADE_STOCK.loner;
+      const multiplier=faction==='military'?1.18:faction==='bandit'?1.08:1.12;
+      record=game.npcTraders[traderId]={
+        id:traderId, location:profile.location,
+        stock:makeStock(stockIds.filter(()=>Math.random()>.28),multiplier),
+        buyMultiplier:faction==='military'?.46:faction==='bandit'?.36:.4,
+        priceMultiplier:multiplier, barter:true
+      };
+    }
+  }
+  return { profile, record, trader:{...profile,...record} };
 }
 
 function updatePurchasedCounters(game, itemId, direction=1) {
@@ -93,7 +116,7 @@ export function createGame(character, starterInventory = [], money = 0) {
     emission:{ nextAt:Math.floor((9+Math.random()*2)*1440), active:false, startedAt:null, endsAt:null, lastWarningAt:0 },
     player: {
       hp:100, maxHp:100, stamina:100, radiation:0, hunger:12, thirst:18, stress:0,
-      reputation:0, rating:0, rank:faction?.rank || 'Новичок', armor:0, maskId:null, sheltered:false, shelterSpotId:null,
+      reputation:0, rating:0, rank:faction?.rank || 'Новичок', armor:Math.min(30,starterInventory.reduce((sum,stack)=>sum+(getItem(stack.id)?.armor||0)*stack.qty,0)), armorId:starterInventory.find(stack=>(getItem(stack.id)?.armor||0)>0)?.id||null, maskId:null, sheltered:false, shelterSpotId:null,
       faction:character.faction, kills:0, artifacts:0, questsDone:0, locationsVisited:[faction?.spawn || 'rookie-village']
     },
     money,
@@ -119,6 +142,7 @@ export function createGame(character, starterInventory = [], money = 0) {
     dialogueHistory:[],
     lootRespawnMinutes:180,
     squads:SQUADS.map(squad => ({ ...squad })),
+    npcTraders:{},
     ...(() => { const traders=createTraderRecords(); return { traders:traders.fixed, randomTraders:traders.random }; })(),
     lastSquadMove:0,
     activeEncounter:null,
@@ -552,8 +576,58 @@ export function scoutLocation(game, destinationId) {
   return { ok:true, message:`Осмотр через бинокль: ${destination.name}. ${destination.desc}${hazard}${people}` };
 }
 
+function ensureSquadMembers(game) {
+  game.squadMembers ||= [];
+  for (const squad of game.squads||[]) {
+    const existing=game.squadMembers.filter(member=>member.squadId===squad.id);
+    const needed=Math.max(1,Number(squad.members)||1);
+    for (let index=existing.length; index<needed; index++) {
+      const faction=squad.faction||'loner';
+      const first=pick(STALKER_FIRST_NAMES);
+      const nickname=pick(STALKER_NICKNAMES);
+      game.squadMembers.push({
+        id:`${squad.id}-member-${index+1}`,
+        name:`${first} «${nickname}»`,
+        role:index===0?'Сталкер':'Боец отряда',
+        group:FACTION_GROUPS[faction]||'Путники',
+        faction, squadId:squad.id, memberIndex:index,
+        location:squad.location, icon:'',
+        greeting:pick([
+          'Здорово. Не видел тебя раньше. Ты по делу или просто пережидаешь? ',
+          'Привет, сталкер. Дорога сегодня какая-то беспокойная. ',
+          'Чего хотел? Только говори потише, вокруг уши есть. ',
+          'Здорово. У костра места хватит, если не собираешься устраивать шум. ',
+          'Слушаю. Если знаешь что-то полезное — выкладывай.'
+        ]).trim()
+      });
+    }
+  }
+  return game.squadMembers;
+}
+
+export function getAvailableStalkers(game, locationId=game.locationId) {
+  ensureSquadMembers(game);
+  const squadMembers=game.squadMembers.map(member=>{
+    const squad=(game.squads||[]).find(entry=>entry.id===member.squadId);
+    return {...member,location:squad?.location||member.location};
+  });
+  const people=[...NPCS,...(game.randomTraders||[]),...squadMembers];
+  const seen=new Set();
+  return people.filter(person=>(locationId==null || person.location===locationId) && !seen.has(person.id) && seen.add(person.id));
+}
+
+export function getStalkerById(game,npcId) {
+  ensureSquadMembers(game);
+  const member=game.squadMembers.find(entry=>entry.id===npcId);
+  if (member) {
+    const squad=(game.squads||[]).find(entry=>entry.id===member.squadId);
+    return {...member,location:squad?.location||member.location};
+  }
+  return NPCS.find(entry=>entry.id===npcId) || (game.randomTraders||[]).find(entry=>entry.id===npcId) || null;
+}
+
 function getDialogueNpc(game, npcId) {
-  return NPCS.find(entry => entry.id === npcId) || (game.randomTraders||[]).find(entry => entry.id === npcId) || null;
+  return getStalkerById(game,npcId);
 }
 
 export function getSidorovichJobState(game) {
@@ -737,12 +811,7 @@ export function replyNpcFreeText(game,npcId,rawText) {
 
 export function getAvailableTraders(game, locationId=game.locationId) {
   ensureTraderRecords(game);
-  const fixed=NPCS.filter(npc=>npc.trader && npc.location===locationId).map(npc=>{
-    const record=game.traders.find(entry=>entry.id===npc.id);
-    return {...npc,...record};
-  });
-  const wanderers=game.randomTraders.filter(trader=>trader.location===locationId);
-  return [...fixed,...wanderers];
+  return getAvailableStalkers(game,locationId).map(person=>findTrader(game,person.id)?.trader).filter(Boolean);
 }
 
 export function getTraderById(game, traderId) {
