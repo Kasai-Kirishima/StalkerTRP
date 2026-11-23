@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { ASSETS, IMAGE_FALLBACKS, FACTIONS, ITEMS, LOCATIONS, EXPLORE_SPOTS, NPCS, AVATAR_OPTIONS, NPC_APPEARANCES, START_BUDGET, MAX_CARRY_KG, STARTER_ITEM_IDS, STARTER_LOADOUT_BY_FACTION, ITEM_ACQUISITION } from '../src/data/catalog.js';
-import { createGame, travelTo, talkToNpc, getAvailableStalkers, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, sitAtCampfire, replyNpc, replyNpcFreeText, getTravelMinutes, getExploreSpots, advanceGame, takeShelter, leaveShelter, openStorage, getActiveLootItems, breakContainer, registerCorpseLoot, getFactionRelation, nameSecretAnomaly, turnInSecretAnomalyQuest, turnInPudelQuest, claimAtpRescueReward, beginAtpRescue, useTrampoline, simulateWorld, useVortex, escapeVortex, useCarousel, escapeCarousel, generateStalkerName } from '../src/systems/world.js';
+import { createGame, travelTo, talkToNpc, getAvailableStalkers, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, sitAtCampfire, replyNpc, replyNpcFreeText, getTravelMinutes, getExploreSpots, advanceGame, takeShelter, leaveShelter, openStorage, getActiveLootItems, breakContainer, registerCorpseLoot, getFactionRelation, nameSecretAnomaly, turnInSecretAnomalyQuest, turnInPudelQuest, claimAtpRescueReward, beginAtpRescue, useTrampoline, simulateWorld, useVortex, escapeVortex, useCarousel, escapeCarousel, generateStalkerName, acceptPersonalQuest, turnInPersonalQuest, grantReputation, getTradeBuyPrice } from '../src/systems/world.js';
 import { addItem, getWeight, canFitLoadout, countItem, useItem, transferItem } from '../src/systems/inventory.js';
 import { beginEncounter, beginWolfDogPack, playerAttack, getBestWeapon } from '../src/systems/combat.js';
+import { getItemCondition, damageItemCondition, getRepairCost, repairItemCondition, toggleArtifactBelt, removeArtifactFromBelt } from '../src/systems/equipment-condition.js';
+import { getMainStoryQuest, mainStoryAction, resolveMainStoryEncounter } from '../src/systems/main-story.js';
 import { processPlayerAction } from '../src/systems/action-engine.js';
 import { generateDialogueReply, findRoute, matchLocationTarget, isRouteQuestion } from '../src/systems/dialogue-engine.js';
 import { rememberEntity, stemRussianWord, containsReferencePronoun, genderedSubject } from '../src/systems/russian-language.js';
@@ -266,7 +268,7 @@ for (const image of ['kozankaicon.webp','zaraicon.webp','berilicon.webp','pz-5ic
 const imageUrls=[...activeVisualSources.matchAll(/https?:\/\/[^\s'\"`)>]+/g)].map(match=>match[0]).filter(url=>/\.\w{3,4}(?:[?#]|$)|\/images(?:[/?#]|$)|\/upload\//i.test(url));
 assert.ok(imageUrls.every(url=>url===ASSETS.menu),'only the main-menu background may use an external image URL');
 assert.ok(Object.values(IMAGE_FALLBACKS).every(value=>!value),'no remote image fallbacks are allowed');
-assert.equal(NPCS.length,7,'five quest and key NPCs plus two additional traders');
+assert.equal(NPCS.length,10,'key traders, the village technician, the courier, and the farm scout should be present in the catalog');
 assert.ok(NPCS.some(n=>n.id==='sidorovich'&&n.trader));
 assert.ok(NPCS.some(n=>n.id==='shnurok'&&n.location==='atp'&&n.trader));
 assert.ok(NPCS.some(n=>n.id==='kapterka'&&n.location==='south-checkpoint'&&n.trader));
@@ -301,10 +303,10 @@ for (const faction of FACTIONS) {
 
 // Starter economy supports a practical multi-item kit and distinct leather jacket/cosukha art.
 assert.equal(START_BUDGET,5000,'starting budget should allow one practical faction kit without funding an advanced loadout');
-assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=295"),'service worker registration URL should refresh with the release');
+assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=297"),'service worker registration URL should refresh with the release');
 const serviceWorkerSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8');
 assert.ok(serviceWorkerSource.includes('./src/data/bundled-music.js')&&serviceWorkerSource.includes('./src/data/radio-stations.js'),'offline shell should cache the built-in music manifest and base radio station data');
-assert.ok(serviceWorkerSource.includes('cordon-pda-v2950-local-zip-music-radio'),'service worker cache name should change for the current release');
+assert.ok(serviceWorkerSource.includes('cordon-pda-v2970-mobile-quest-equipment'),'service worker cache name should change for the current release');
 const swUrl=new URL('../sw.js',import.meta.url);
 const precachePaths=[...serviceWorkerSource.matchAll(/\"(\.\/[^\"]+)\"/g)].map(match=>match[1]);
 assert.ok(precachePaths.length>=150,'the offline shell should include the expanded artwork bundle');
@@ -349,7 +351,8 @@ for (const faction of FACTIONS) {
   }
   assert.ok(Object.entries(selectedKit).every(([id,qty])=>qty<=2),`${faction.id} basic kit quantities should stay modest`);
 }
-assert.ok(ITEMS.every(item=>Number.isFinite(item.price)&&item.price>0),'every tradable item should have a positive base price');
+assert.ok(ITEMS.filter(item=>item.cat!=='Задания').every(item=>Number.isFinite(item.price)&&item.price>0),'every tradable item should have a positive base price');
+assert.ok(ITEMS.filter(item=>item.cat==='Задания').every(item=>item.price===0),'story quest items should not have a sale price');
 assert.ok(NPCS.filter(npc=>npc.trader).every(npc=>npc.priceMultiplier>=1.14&&npc.priceMultiplier<=1.18&&npc.buyMultiplier>=.39&&npc.buyMultiplier<=.42),'fixed traders should use controlled markups and buyback rates');
 
 // Each new game spawns ten randomized villagers, soldiers on the checkpoints and bandits at ATP.
@@ -1171,6 +1174,173 @@ assert.equal(capturedAiRequest.url,'https://example.test/npc-chat');
 assert.ok(JSON.parse(capturedAiRequest.options.body).messages.length>=2);
 const aiFailed=await requestNpcAiReply({endpoint:'https://example.test/npc-chat',game:aiGame,npc:aiNpc,playerMessage:'Привет',fetchImpl:async()=>({ok:false,status:503})});
 assert.equal(aiFailed.ok,false,'an unavailable AI endpoint must leave the local dialogue fallback available');
+
+// Release 2.9.7: playable mobile layout and interconnected story/equipment systems.
+const mobileCss=fs.readFileSync(new URL('../styles.css',import.meta.url),'utf8');
+assert.match(mobileCss,/@media\s*\(max-width:\s*760px\)/,'mobile layout must have a dedicated compact breakpoint');
+assert.match(mobileCss,/\.mobile-game-nav\s*\{[^}]*position:\s*fixed/s,'mobile navigation must stay reachable at the bottom of the screen');
+assert.match(mobileCss,/env\(safe-area-inset-bottom\)/,'mobile controls must respect the phone safe-area inset');
+assert.match(mobileCss,/orientation:\s*landscape/,'mobile landscape mode must remain playable');
+const mobileViewport=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+assert.match(mobileViewport,/viewport-fit=cover/,'mobile viewport must account for phone notches and rounded edges');
+assert.match(mobileViewport,/interactive-widget=resizes-content/,'the mobile layout viewport should resize when the on-screen keyboard opens');
+const pwaManifest=JSON.parse(fs.readFileSync(new URL('../manifest.webmanifest',import.meta.url),'utf8'));
+assert.equal(pwaManifest.orientation,'any','the installed PWA must not force the phone into landscape orientation');
+const mobileGame=createGame({name:'Телефон',faction:'loner'},[],START_BUDGET);
+const mobileHtml=renderGame({screen:'game',characters:[{id:'mobile',name:'Телефон',faction:'loner'}],activeCharacterId:'mobile',settings:{},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game:mobileGame});
+assert.ok(mobileHtml.includes('mobile-game-nav'),'mobile game view must include quick navigation');
+assert.ok(mobileHtml.includes('action-composer'),'mobile game view must retain the action input');
+
+// The main storyline starts with the journal note and progresses only after the required NPC/action.
+const storyGame=createGame({name:'Проверка сюжета',faction:'loner'},[],START_BUDGET);
+storyGame.money=20000;
+assert.equal(storyGame.mainStory.stage,'meet-wolf');
+assert.ok(storyGame.log.some(entry=>entry.text.includes('Записка:')),'new loner character should receive the opening note');
+assert.equal(getMainStoryQuest(storyGame).location,'rookie-village');
+const storyTalk=(npcId,locationId)=>{storyGame.locationId=locationId;const result=talkToNpc(storyGame,npcId);assert.equal(result.ok,true,`story NPC ${npcId} should be available at ${locationId}`);return storyGame.dialogueHistory[0]?.text||'';};
+const storyAction=(action,locationId)=>{storyGame.locationId=locationId;const result=mainStoryAction(storyGame,action);assert.equal(result.ok,true,`${action} should work at ${locationId}: ${result.message}`);return result;};
+assert.match(storyTalk('wolf','rookie-village'),/Сидорович/);
+assert.equal(storyGame.mainStory.stage,'go-to-sidorovich');
+assert.match(storyTalk('sidorovich','sidorovich-bunker'),/флешк/);
+assert.equal(storyGame.mainStory.stage,'find-first-flash');
+storyAction('story-flash-search','trailer');
+assert.equal(countItem(storyGame.inventory,'flash'),1);
+storyTalk('sidorovich','sidorovich-bunker');
+assert.equal(storyGame.mainStory.stage,'deliver-supplies');
+assert.equal(countItem(storyGame.inventory,'supply-bundle'),1);
+storyAction('story-supplies-deliver','forest-camp');
+storyTalk('sidorovich','sidorovich-bunker');
+assert.equal(storyGame.mainStory.stage,'fetch-meat');
+storyAction('story-meat-pickup','anomaly-dump');
+storyTalk('sidorovich','sidorovich-bunker');
+assert.equal(countItem(storyGame.inventory,'wrapped-present'),1,'the checkpoint delivery must use a unique wrapped gift item');
+assert.match(ITEMS.find(item=>item.id==='wrapped-present').desc,/ленточк/,'wrapped gift must have the requested ribbon description');
+storyAction('story-present-deliver','south-checkpoint');
+storyTalk('sidorovich','sidorovich-bunker');
+storyAction('story-underpass-start','underpass');
+const underpassEncounter=storyGame.activeEncounter; storyGame.activeEncounter=null;
+resolveMainStoryEncounter(storyGame,underpassEncounter);
+storyTalk('sidorovich','sidorovich-bunker');
+assert.equal(getAvailableStalkers(storyGame,'ravine-tunnel').some(npc=>npc.id==='wounded-courier'),true,'wounded courier should appear only at the courier story stage');
+assert.match(storyTalk('wounded-courier','ravine-tunnel'),/локомотив/);
+storyGame.player.reputation=20; storyGame.locationId='locomotive';
+assert.equal(mainStoryAction(storyGame,'story-bandit-negotiate').ok,true,'the player should be able to negotiate with the locomotive bandits');
+storyTalk('sidorovich','sidorovich-bunker');
+storyAction('story-elevator-start','elevator');
+const elevatorEncounter=storyGame.activeEncounter; storyGame.activeEncounter=null;
+resolveMainStoryEncounter(storyGame,elevatorEncounter);
+storyTalk('sidorovich','sidorovich-bunker');
+assert.equal(getAvailableStalkers(storyGame,'farmstead').some(npc=>npc.id==='cordon-scout'),true,'scout should appear at the farmstead story stage');
+assert.match(storyTalk('cordon-scout','farmstead'),/ферм/);
+storyAction('story-farm-start','pig-farm');
+const farmEncounter=storyGame.activeEncounter; storyGame.activeEncounter=null;
+resolveMainStoryEncounter(storyGame,farmEncounter);
+storyTalk('sidorovich','sidorovich-bunker');
+assert.equal(storyGame.mainStory.stage,'beyond-cordon','the current Cordon storyline should end at the northern exit before the not-yet-built Garbage region');
+
+// Failed supply delivery creates a real 5,000-Coupon debt and cannot be paid short.
+const debtGame=createGame({name:'Долг',faction:'loner'},[],START_BUDGET);
+debtGame.money=4999; debtGame.mainStory.stage='deliver-supplies'; addItem(debtGame.inventory,'supply-bundle',1);
+assert.equal(mainStoryAction(debtGame,'story-supplies-fail').ok,true);
+debtGame.locationId='sidorovich-bunker';
+assert.equal(mainStoryAction(debtGame,'story-pay-debt').ok,false,'the 5,000-Coupon debt must not accept an underpayment');
+debtGame.money=5000;
+assert.equal(mainStoryAction(debtGame,'story-pay-debt').ok,true);
+assert.equal(debtGame.mainStory.stage,'fetch-meat');
+
+// Named NPCs answer building and trade questions with location-grounded information.
+const npcKnowledgeGame=createGame({name:'Проверка диалогов',faction:'loner'},[],START_BUDGET);
+npcKnowledgeGame.locationId='rookie-village'; talkToNpc(npcKnowledgeGame,'wolf');
+const wolfBuildings=replyNpcFreeText(npcKnowledgeGame,'wolf','Расскажи о зданиях в деревне и где найти техника');
+assert.equal(wolfBuildings.ok,true);
+assert.match(wolfBuildings.message,/подвал старого дома/);
+npcKnowledgeGame.locationId='sidorovich-bunker'; talkToNpc(npcKnowledgeGame,'sidorovich');
+const sidorovichTrade=replyNpcFreeText(npcKnowledgeGame,'sidorovich','Что продаёшь и есть ли скидка?');
+assert.equal(sidorovichTrade.ok,true);
+assert.match(sidorovichTrade.message,/репутац/);
+const sidorovichBuildings=replyNpcFreeText(npcKnowledgeGame,'sidorovich','Расскажи про здания и места торговли на Кордоне');
+assert.equal(sidorovichBuildings.ok,true);
+assert.match(sidorovichBuildings.message,/Маслов/);
+npcKnowledgeGame.locationId='south-checkpoint'; talkToNpc(npcKnowledgeGame,'dzerzhinsky');
+assert.match(replyNpcFreeText(npcKnowledgeGame,'dzerzhinsky','Что находится на блокпосту?').message,/казарм/);
+
+// Ordinary stalkers can give, track and pay out a small one-item errand.
+const personalQuestGame=createGame({name:'Мелкое поручение',faction:'loner'},[],START_BUDGET);
+const localQuestNpc=personalQuestGame.ambientNpcs.find(npc=>npc.location==='rookie-village'&&npc.smallQuest);
+assert.ok(localQuestNpc,'the village should have ordinary stalkers with small errands');
+assert.ok(getAvailableStalkers(personalQuestGame,'rookie-village').some(npc=>npc.id===localQuestNpc.id));
+talkToNpc(personalQuestGame,localQuestNpc.id);
+assert.match(replyNpc(personalQuestGame,localQuestNpc.id,'работа'),/Принесёшь|нужна одна вещь/);
+assert.equal(acceptPersonalQuest(personalQuestGame,localQuestNpc.id).ok,true);
+addItem(personalQuestGame.inventory,localQuestNpc.smallQuest.itemId,1);
+const cashBeforeErrand=personalQuestGame.money;
+assert.equal(turnInPersonalQuest(personalQuestGame,localQuestNpc.id).ok,true);
+assert.equal(personalQuestGame.money,cashBeforeErrand+localQuestNpc.smallQuest.reward);
+assert.equal(localQuestNpc.smallQuest.status,'completed');
+
+// Five belt slots, deterioration, Maslov's repair and reputation discounts are functional.
+const equipmentMechanicsGame=createGame({name:'Снаряжение',faction:'loner'},[],START_BUDGET);
+for(const [id,qty] of [['medusa',2],['stone-flower',1],['meat_chunk',1],['gravi',1]]) addItem(equipmentMechanicsGame.inventory,id,qty);
+for(const id of ['medusa','medusa','stone-flower','meat_chunk','gravi']) assert.equal(toggleArtifactBelt(equipmentMechanicsGame,id).ok,true,`artifact ${id} should be wearable`);
+assert.equal(equipmentMechanicsGame.artifactBelt.filter(Boolean).length,5,'the artifact belt must support five occupied slots');
+addItem(equipmentMechanicsGame.inventory,'medusa',1);
+assert.equal(toggleArtifactBelt(equipmentMechanicsGame,'medusa').ok,false,'the sixth artifact must not fit on a full belt');
+assert.equal(removeArtifactFromBelt(equipmentMechanicsGame,2).ok,true);
+assert.equal(equipmentMechanicsGame.artifactBelt.filter(Boolean).length,4);
+addItem(equipmentMechanicsGame.inventory,'pm',1); addItem(equipmentMechanicsGame.inventory,'ammo9x18',1);
+addItem(equipmentMechanicsGame.inventory,'leather',1); addItem(equipmentMechanicsGame.inventory,'mask-loner-basic',1);
+equipmentMechanicsGame.money=10000; equipmentMechanicsGame.player.maskId='mask-loner-basic'; equipmentMechanicsGame.player.armorId='leather'; equipmentMechanicsGame.player.armor=8;
+damageItemCondition(equipmentMechanicsGame,'pm',35); damageItemCondition(equipmentMechanicsGame,'leather',40); damageItemCondition(equipmentMechanicsGame,'mask-loner-basic',25);
+const baseRepairCost=getRepairCost(equipmentMechanicsGame,'pm');
+equipmentMechanicsGame.player.reputation=100;
+assert.ok(getRepairCost(equipmentMechanicsGame,'pm')<baseRepairCost,'high reputation should reduce Maslov repair costs');
+assert.equal(repairItemCondition(equipmentMechanicsGame,'pm').ok,true);
+assert.equal(getItemCondition(equipmentMechanicsGame,'pm'),100);
+assert.equal(repairItemCondition(equipmentMechanicsGame,'leather').ok,true);
+assert.equal(repairItemCondition(equipmentMechanicsGame,'mask-loner-basic').ok,true);
+const trader={id:'test-trader'}; const stock={id:'bread',price:100};
+equipmentMechanicsGame.player.reputation=0; const standardPrice=getTradeBuyPrice(equipmentMechanicsGame,trader,stock);
+equipmentMechanicsGame.player.reputation=100; assert.ok(getTradeBuyPrice(equipmentMechanicsGame,trader,stock)<standardPrice,'good reputation should lower trader prices');
+const basementGame=createGame({name:'Техник',faction:'loner'},[],START_BUDGET); basementGame.currentAreaId='village-basement';
+assert.ok(getAvailableStalkers(basementGame,'rookie-village').some(npc=>npc.id==='maslov'),'Maslov must be physically present in the old house basement');
+
+// Combat wears down weapons and armour; radiation wears down gas masks.
+const combatWearGame=createGame({name:'Износ',faction:'loner'},[],START_BUDGET);
+addItem(combatWearGame.inventory,'pm',1); addItem(combatWearGame.inventory,'ammo9x18',1); addItem(combatWearGame.inventory,'leather',1);
+combatWearGame.equippedWeaponId='pm'; combatWearGame.weaponMagazines={pm:8}; combatWearGame.player.armorId='leather'; combatWearGame.player.armor=8;
+combatWearGame.activeEncounter={type:'bandit',name:'Проверочный противник',hp:300,maxHp:300,damage:15,count:1};
+const randomBeforeCombat=Math.random; Math.random=()=>.99;
+const weaponAttackResult=playerAttack(combatWearGame); Math.random=randomBeforeCombat;
+assert.equal(weaponAttackResult.ok,true);
+assert.ok(getItemCondition(combatWearGame,'pm')<100,'firing must wear down the weapon');
+assert.ok(getItemCondition(combatWearGame,'leather')<100,'taking a hit must wear down armour');
+combatWearGame.itemCondition.pm=0;
+assert.equal(getBestWeapon(combatWearGame.inventory,combatWearGame),null,'a completely broken weapon must no longer be usable');
+const maskWearGame=createGame({name:'Износ противогаза',faction:'loner'},[],START_BUDGET);
+addItem(maskWearGame.inventory,'mask-loner-basic',1); maskWearGame.player.maskId='mask-loner-basic';
+maskWearGame.clock.lastRealTime=Date.now(); maskWearGame.emission.nextAt=60; advanceGame(maskWearGame,10); advanceGame(maskWearGame,55);
+assert.ok(getItemCondition(maskWearGame,'mask-loner-basic')<100,'a gas mask must deteriorate while filtering radiation during an emission');
+
+// Military NPCs and player ranks/callsigns should stay synchronized as reputation grows.
+const militaryGame=createGame({name:'Военный тест',faction:'military'},[],START_BUDGET);
+assert.ok(militaryGame.player.callsign,'military player character should receive a callsign');
+assert.equal(militaryGame.player.militaryRank,'Рядовой');
+grantReputation(militaryGame,30);
+assert.equal(militaryGame.player.rank,'Ефрейтор');
+assert.equal(militaryGame.player.militaryRank,'Ефрейтор','the military rank label must update together with the public rank');
+militaryGame.locationId='south-checkpoint';
+const localMilitary=getAvailableStalkers(militaryGame,'south-checkpoint').filter(npc=>npc.faction==='military');
+assert.ok(localMilitary.length>0);
+assert.ok(localMilitary.every(npc=>npc.militaryRank&&npc.callsign),'military NPCs must have both rank and callsign');
+
+// Item details and the Maslov workshop render compact, useful information.
+const detailState={game:equipmentMechanicsGame,ui:{modal:'item-details',itemDetailsId:'pm'}};
+const itemDetailsHtml=renderModal(detailState);
+assert.ok(itemDetailsHtml.includes('ПМм')&&itemDetailsHtml.includes('Урон')&&itemDetailsHtml.includes('Состояние'),'item details should show description, stats and durability');
+damageItemCondition(equipmentMechanicsGame,'pm',30);
+const repairState={game:equipmentMechanicsGame,ui:{modal:'repair-panel'}};
+const repairHtml=renderModal(repairState);
+assert.ok(repairHtml.includes('Мастерская Маслова')&&repairHtml.includes('Починить'),'the basement technician should offer item repair actions');
 
 console.log('Smoke tests passed: PDA/map modes, imported NPC/faction/quest artwork, local audio player, bandit dialogue, proportional costume inventory layout, quest visibility/progress, trade overlays, RP exploration, profile and combat.');
 

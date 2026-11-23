@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cordon-pda-v2950-local-zip-music-radio';
+const CACHE_NAME = 'cordon-pda-v2970-mobile-quest-equipment';
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -54,6 +54,8 @@ const APP_SHELL = [
   "./assets/items/vm17.webp",
   "./assets/items/vodka.webp",
   "./assets/items/water.webp",
+  "./assets/items/wrapped-present.svg",
+  "./assets/items/supply-bundle.svg",
   "./assets/mutants/kaban1.webp",
   "./assets/mutants/kaban2.webp",
   "./assets/mutants/kaban3.webp",
@@ -157,6 +159,8 @@ const APP_SHELL = [
   "./src/systems/dialogue-engine.js",
   "./src/systems/game-clock.js",
   "./src/systems/inventory.js",
+  "./src/systems/equipment-condition.js",
+  "./src/systems/main-story.js",
   "./src/systems/music.js",
   "./src/systems/music-archive.js",
   "./src/systems/npc-ai.js",

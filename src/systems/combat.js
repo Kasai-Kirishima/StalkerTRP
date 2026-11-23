@@ -2,6 +2,8 @@ import { getItem, countItem, removeItem, addItem, useItem } from './inventory.js
 import { LOCATIONS, NPC_APPEARANCES, ASSETS } from '../data/catalog.js';
 import { addLog, advanceGame, registerCorpseLoot, advanceAtpRescue } from './world.js';
 import { rememberEntity } from './russian-language.js';
+import { getItemCondition, damageItemCondition } from './equipment-condition.js';
+import { resolveMainStoryEncounter } from './main-story.js';
 
 const weapons = ['aksu','gaduka','pm','vm17','sawedoff','knife'];
 const magazineSize = ammo => ammo==='shells'?2:ammo==='ammo545'?30:ammo==='ammo9x19'?30:ammo==='ammo9x18'?8:0;
@@ -36,7 +38,7 @@ function syncAmmoStack(game, ammo) {
 export function getBestWeapon(inventory, game=null) {
   const available = id => {
     const item=getItem(id);
-    if (!item || countItem(inventory,id)<=0) return false;
+    if (!item || countItem(inventory,id)<=0 || getItemCondition(game,id)<=0) return false;
     if (!item.ammo) return true;
     if (!game) return countItem(inventory,item.ammo)>0;
     return ensureMagazine(game,item)>0 || (game.ammoRounds?.[item.ammo]||0)>0;
@@ -57,6 +59,23 @@ export function selectWeapon(game, weaponId) {
 }
 
 
+function updateCombatRank(game) {
+  const rating=Math.max(0,Number(game.player?.rating)||0);
+  const faction=game.player?.faction;
+  if(faction==='military') {
+    game.player.rank=rating>=80?'Сержант':rating>=30?'Ефрейтор':'Рядовой';
+    game.player.militaryRank=game.player.rank;
+  } else if(faction==='bandit') game.player.rank=rating>=80?'Авторитет':rating>=30?'Бывалый':'Шпана';
+  else game.player.rank=rating>=80?'Опытный':rating>=30?'Бывалый':'Новичок';
+}
+
+function awardCombatKill(game) {
+  game.player.kills=(game.player.kills||0)+1;
+  game.player.rating=(game.player.rating||0)+2;
+  game.player.reputation=(game.player.reputation||0)+2;
+  updateCombatRank(game);
+}
+
 function rewardForDefeat(enemy) {
   const type=enemy?.type||'';
   const min=type==='blind-dog'?18:type==='flesh'?30:45;
@@ -66,9 +85,12 @@ function rewardForDefeat(enemy) {
 
 function enemyReply(game, enemy, multiplier=1, lead='') {
   if (!enemy || !game.activeEncounter) return {ok:true,message:lead||'Противник больше не представляет угрозы.'};
-  const armor=Math.min(20,game.player.armor||0);
+  const armorId=game.player.armorId||game.equipmentSlots?.armor||null;
+  const armorCondition=armorId?getItemCondition(game,armorId):100;
+  const armor=Math.min(20,(game.player.armor||0)*(.35+.65*armorCondition/100));
   const received=Math.max(1,Math.round((enemy.damage-Math.floor(armor/5))*multiplier));
   game.player.hp=Math.max(1,game.player.hp-received);
+  if (armorId && armor>0) damageItemCondition(game,armorId,.35+received*.055);
   game.player.stamina=Math.max(0,game.player.stamina-3);
   const message=`${lead?lead+' ':''}${enemy.name} отвечает атакой. Ты получаешь ${received} урона.`;
   advanceGame(game,1); addLog(game,message,'danger');
@@ -116,9 +138,9 @@ export function throwGrenade(game) {
   if (!countItem(game.inventory,'rgd5')) return {ok:false,message:'В рюкзаке нет РГД-5.'};
   removeItem(game.inventory,'rgd5',1); game.combatEffect={type:'grenade',until:(game.clock.worldMinutes||0)+3}; const damage=42+Math.floor(Math.random()*17); enemy.hp=Math.max(0,enemy.hp-damage); advanceGame(game,2);
   let message=`Ты бросаешь РГД-5. Взрыв наносит ${damage} урона.`;
-  if (enemy.hp<=0) { const reward=rewardForDefeat(enemy); game.money+=reward; game.player.kills+=1; game.player.rating+=2; game.player.reputation+=2; if(enemy.type==='blind-dog'&&Math.random()<.72)addItem(game.inventory,'tail',1); if(enemy.type==='flesh'&&Math.random()<.48)addItem(game.inventory,'flesh-eye',1); if(enemy.atpAssault){game.activeEncounter=null;advanceAtpRescue(game);} else if(enemy.wolfDogPack&&game.wolfDogQuest?.status==='active'){game.wolfDogQuest.killed=Math.min(game.wolfDogQuest.total||5,(game.wolfDogQuest.killed||0)+1);const quest=game.quests?.find(entry=>entry.id==='wolf-dog-pack');if(quest)quest.progress=game.wolfDogQuest.killed;const remain=(game.wolfDogQuest.total||5)-game.wolfDogQuest.killed;if(remain>0){game.activeEncounter={type:'blind-dog',name:'Слепой пёс',hp:55,maxHp:55,damage:8+Math.floor(Math.random()*5),count:1,imageIndex:0,image:'',wolfDogPack:true,packIndex:game.wolfDogQuest.killed+1};message+=` Уничтожено ${game.wolfDogQuest.killed}/5. Выбегает следующая собака.`;}else{game.wolfDogQuest.status='ready';if(quest)quest.status='ready';}} else game.activeEncounter=null; message+=` Противник повержен. Найдено ${reward} Купонов.`; }
+  if (enemy.hp<=0) { const reward=rewardForDefeat(enemy); game.money+=reward; awardCombatKill(game); if(enemy.type==='blind-dog'&&Math.random()<.72)addItem(game.inventory,'tail',1); if(enemy.type==='flesh'&&Math.random()<.48)addItem(game.inventory,'flesh-eye',1); if(enemy.atpAssault){game.activeEncounter=null;advanceAtpRescue(game);} else if(enemy.wolfDogPack&&game.wolfDogQuest?.status==='active'){game.wolfDogQuest.killed=Math.min(game.wolfDogQuest.total||5,(game.wolfDogQuest.killed||0)+1);const quest=game.quests?.find(entry=>entry.id==='wolf-dog-pack');if(quest)quest.progress=game.wolfDogQuest.killed;const remain=(game.wolfDogQuest.total||5)-game.wolfDogQuest.killed;if(remain>0){game.activeEncounter={type:'blind-dog',name:'Слепой пёс',hp:55,maxHp:55,damage:8+Math.floor(Math.random()*5),count:1,imageIndex:0,image:'',wolfDogPack:true,packIndex:game.wolfDogQuest.killed+1};message+=` Уничтожено ${game.wolfDogQuest.killed}/5. Выбегает следующая собака.`;}else{game.wolfDogQuest.status='ready';if(quest)quest.status='ready';}} else game.activeEncounter=null; message+=` Противник повержен. Найдено ${reward} Купонов.`; }
   else { const reply=enemyReply(game,enemy,.5); message+=` ${reply.message}`; }
-  if (enemy.hp<=0 && !game.activeEncounter) registerCorpseLoot(game,enemy);
+  if (enemy.hp<=0 && !game.activeEncounter) { const storyResult=resolveMainStoryEncounter(game,enemy); if (storyResult) message+=` ${storyResult}`; registerCorpseLoot(game,enemy); }
   addLog(game,message,enemy.hp>0?'danger':'system'); return {ok:true,message};
 }
 
@@ -193,7 +215,10 @@ export function playerAttack(game) {
   const enemy = game.activeEncounter;
   if (!enemy) return { ok:false, message:'Сейчас никто не угрожает.' };
   const weapon = getBestWeapon(game.inventory,game);
-  if (!weapon) return { ok:false, message:'У тебя нет подходящего оружия. Можно попытаться отступить.' };
+  if (!weapon) {
+    const owned=(game.inventory||[]).map(stack=>getItem(stack.id)).filter(item=>item?.weapon&&item.weapon!=='grenade');
+    return { ok:false, message:owned.length?'Оружие неисправно или нет подходящих патронов. Переключись на исправный ствол или обратись к Маслову за ремонтом.':'У тебя нет подходящего оружия. Можно попытаться отступить.' };
+  }
   if (game.combatCooldownUntil && game.clock.worldMinutes < game.combatCooldownUntil) return {ok:false,message:`Нужно выждать ${Math.ceil(game.combatCooldownUntil-game.clock.worldMinutes)} мин. перед следующим действием.`};
   if (weapon.ammo) {
     const loaded=ensureMagazine(game,weapon);
@@ -203,7 +228,9 @@ export function playerAttack(game) {
   const hadAim=!!game.player.aimed && (game.clock.worldMinutes||0)<=Number(game.player.aimedUntil||0);
   game.player.aimed=false; game.player.aimedUntil=0;
   game.combatEffect={type:'fire',until:(game.clock.worldMinutes||0)+2};
-  const damage = Math.max(4, weapon.damage + Math.floor(Math.random()*9) - 4 + (hadAim?8:0));
+  const weaponCondition=getItemCondition(game,weapon.id);
+  const damage = Math.max(3, Math.round((weapon.damage + Math.floor(Math.random()*9) - 4 + (hadAim?8:0))*(.55+.45*weaponCondition/100)));
+  damageItemCondition(game,weapon.id,.28+damage*.009);
   enemy.hp = Math.max(0, enemy.hp - damage);
   advanceGame(game, 2);
   game.combatCooldownUntil=(game.clock.worldMinutes||0)+1;
@@ -211,9 +238,7 @@ export function playerAttack(game) {
   if (enemy.hp <= 0) {
     const reward = rewardForDefeat(enemy);
     game.money += reward;
-    game.player.kills += 1;
-    game.player.rating += 2;
-    game.player.reputation += 2;
+    awardCombatKill(game);
     if (game.lastMentionedEntity?.type==='creature') game.lastMentionedEntity.alive=false;
     game.activeEncounter = null;
     const atpWave=!!enemy.atpAssault;
@@ -242,13 +267,20 @@ export function playerAttack(game) {
         message += ' Все пять собак у вагончика уничтожены. Вернись к Волку в деревню новичков.';
       }
     }
-    if (!game.activeEncounter) registerCorpseLoot(game,enemy);
+    if (!game.activeEncounter) {
+      const storyResult=resolveMainStoryEncounter(game,enemy);
+      if (storyResult) message+=` ${storyResult}`;
+      registerCorpseLoot(game,enemy);
+    }
     addLog(game, message);
     return { ok:true, finished:true, message };
   }
-  const armor = Math.min(12, game.player.armor || 0);
+  const armorId=game.player.armorId||game.equipmentSlots?.armor||null;
+  const armorCondition=armorId?getItemCondition(game,armorId):100;
+  const armor = Math.min(12, (game.player.armor || 0)*(.35+.65*armorCondition/100));
   const received = Math.max(1, enemy.damage - Math.floor(armor / 5));
   game.player.hp = Math.max(0, game.player.hp - received);
+  if (armorId && armor>0) damageItemCondition(game,armorId,.35+received*.055);
   game.player.stamina = Math.max(0, game.player.stamina - 8);
   message += ` В ответ противник наносит ${received} урона.`;
   if (game.player.hp <= 0) {

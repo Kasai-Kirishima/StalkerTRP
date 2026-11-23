@@ -2,7 +2,7 @@ import { loadState, saveState, createInitialState, exportSave, importSave } from
 import { ASSETS, FACTIONS, START_BUDGET, MAX_CARRY_KG, NPCS, ITEMS, LOCATIONS, STARTER_LOADOUT_BY_FACTION } from './data/catalog.js';
 import { renderMenu, renderAccount, renderCharacters, renderCreate, renderLoadout, renderGame, renderGameSettings, renderModal, esc } from './ui/views.js';
 import { canFitLoadout, getInventoryCost, getLoadoutWeight, addItem, getItem, getWeight, countItem, removeItem, useItem, transferItem } from './systems/inventory.js';
-import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, breakContainer, replyNpcFreeText, takeShelter, leaveShelter, sitAtCampfire, getExploreSpots, getActiveLootItems, openStorage, turnInPudelQuest, turnInSecretAnomalyQuest, claimAtpRescueReward, beginAtpRescue, generateStalkerName } from './systems/world.js';
+import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, breakContainer, replyNpcFreeText, takeShelter, leaveShelter, sitAtCampfire, getExploreSpots, getActiveLootItems, openStorage, turnInPudelQuest, turnInSecretAnomalyQuest, claimAtpRescueReward, beginAtpRescue, generateStalkerName, acceptPersonalQuest, turnInPersonalQuest } from './systems/world.js';
 import { playerAttack, defend, flee, beginWolfDogPack, reloadWeapon, aimWeapon, dodge, throwGrenade, throwBoltInCombat, useItemInCombat, selectWeapon } from './systems/combat.js';
 import { createMusicEngine } from './systems/music.js';
 import { BUNDLED_MUSIC_TRACKS } from './data/bundled-music.js';
@@ -14,6 +14,8 @@ import { getGameDateTime } from './systems/game-clock.js';
 import { createSoundEngine } from './systems/sound.js';
 import { requestNpcAiReply, isValidNpcAiEndpoint } from './systems/npc-ai.js';
 import { isRouteQuestion } from './systems/dialogue-engine.js';
+import { mainStoryAction } from './systems/main-story.js';
+import { toggleArtifactBelt, removeArtifactFromBelt, repairItemCondition, ensureConditionState } from './systems/equipment-condition.js';
 
 const root = document.getElementById('app');
 let state = loadState();
@@ -321,6 +323,7 @@ function finishLoadout() {
     }
   }
   game.equipmentSlots=equipmentSlots;
+  ensureConditionState(game);
   game.player.armorId=starterArmor?.id||null;
   game.player.armor=Math.min(30,getItem(starterArmor?.id)?.armor||0);
   game.player.maskId=starterMask?.id||null;
@@ -335,6 +338,7 @@ function finishLoadout() {
   state.account.sessions=(state.account.sessions||0)+1;
   state.ui.tab='location';
   state.ui.pdaOpen=false;
+  if (game.mainStory?.stage==='meet-wolf' && !game.mainStory.noteShown) { game.mainStory.noteShown=true; state.ui.modal='story-note'; }
   state.screen='game';
   describeLocation(state.game);
   persist();
@@ -357,6 +361,7 @@ function selectCharacter(id) {
   advanceGame(state.game,0);
   state.ui.tab='location';
   state.ui.pdaOpen=false;
+  if (state.game.mainStory?.stage==='meet-wolf' && !state.game.mainStory.noteShown) { state.game.mainStory.noteShown=true; state.ui.modal='story-note'; }
   state.account.sessions=(state.account.sessions||0)+1;
   state.screen='game';
   persist();
@@ -404,7 +409,8 @@ root.addEventListener('click', (event) => {
   if (action==='back-create') return setScreen('create');
   if (action==='back-characters') return setScreen('characters');
   if (action==='exit') { state.ui.modal='exit'; return render(); }
-  if (action==='close-modal') { state.ui.modal=null; state.ui.exploreSpotId=null; return render(); }
+  if (action==='close-modal') { const previous=state.ui.modalReturn||null; state.ui.modal=state.ui.modal==='item-details'?'inventory-panel':previous; state.ui.modalReturn=null; state.ui.exploreSpotId=null; return render(); }
+  if (action==='story-note-close') { state.ui.modal=null; persist(); return render(); }
   if (action==='close-dialogue') { state.game.dialogueNpcId=null; persist(); return render(); }
   if (action==='flashlight-toggle') { state.ui.flashlight=!state.ui.flashlight; persist(); return render(); }
   if (action==='generate-stalker-name') {
@@ -456,6 +462,26 @@ root.addEventListener('click', (event) => {
   if (action==='finish-loadout') return finishLoadout();
   if (action==='pda-toggle') { if(!state.ui.pdaOpen && state.game.activeEncounter){toast('Во время боя КПК недоступен. Сначала выберись из схватки.','warning');return;} state.ui.pdaOpen=!state.ui.pdaOpen; if(state.ui.pdaOpen && !['map','stats','player','messages','quests','contacts','encyclopedia','help'].includes(state.ui.tab)) state.ui.tab='map'; persist(); return render(); }
   if (action==='inventory-open') { ensureEquipmentSlots(state.game); state.ui.modal='inventory-panel'; state.ui.pdaOpen=false; persist(); return render(); }
+  if (action==='item-details') { state.ui.itemDetailsId=id; state.ui.modal='item-details'; state.ui.modalReturn='inventory-panel'; return render(); }
+  if (action==='artifact-belt-toggle') { const result=toggleArtifactBelt(state.game,id); persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
+  if (action==='artifact-belt-remove') { const result=removeArtifactFromBelt(state.game,button.dataset.index); persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
+  if (action==='belt-info') { toast('На поясе помещается до пяти разных артефактов. Нажми на артефакт в рюкзаке, чтобы закрепить или снять его.','info'); return; }
+  if (action==='repair-open') {
+    if (state.game.locationId!=='rookie-village' || state.game.currentAreaId!=='village-basement') { toast('Маслов принимает снаряжение только в подвале старого дома в Деревне новичков.','warning'); return; }
+    state.ui.modalReturn=state.ui.modal==='item-details'?'item-details':null; state.ui.modal='repair-panel'; persist(); return render();
+  }
+  if (action==='repair-item') {
+    if (state.game.locationId!=='rookie-village' || state.game.currentAreaId!=='village-basement') { toast('Для ремонта нужно вернуться к Маслову в подвал.','warning'); return; }
+    const result=repairItemCondition(state.game,id); persist(); render(); toast(result.message,result.ok?'success':'warning'); return;
+  }
+  if (action==='story-action') {
+    const result=mainStoryAction(state.game,id);
+    if (result.ok && state.game.activeEncounter) { state.ui.tab='location'; state.ui.pdaOpen=false; state.ui.modal=null; }
+    persist(); render(); toast(result.message,result.ok?'success':'warning'); return;
+  }
+  if (action==='personal-job-accept') { const result=acceptPersonalQuest(state.game,id); persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
+  if (action==='personal-job-turnin') { const result=turnInPersonalQuest(state.game,id); persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
+
   if (action==='explore-open') { state.ui.modal='explore-spots'; persist(); return render(); }
   if (action==='explore-spot') {
     const spot=getExploreSpots(state.game.locationId).find(entry=>entry.id===id);
@@ -601,6 +627,7 @@ root.addEventListener('click', (event) => {
   }
   if (action==='drop-item') {
     if (removeItem(state.game.inventory,id,1)) {
+      if (state.game.artifactBelt) { let keep= countItem(state.game.inventory,id); state.game.artifactBelt=state.game.artifactBelt.map(value=>{ if(value!==id)return value; if(keep>0){keep--;return value;} return null; }); }
       if (id==='boltpack') state.game.boltsRemaining=Math.max(0,(state.game.boltsRemaining ?? 0)-10);
       if (['ammo9x18','ammo9x19','ammo545','shells'].includes(id)) {
         const capacity=id==='shells'?8:id==='ammo545'?30:12;
@@ -922,6 +949,6 @@ setInterval(()=>{
   updateClockDisplays();
 },15000);
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=295').catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=297').catch(()=>{}));
 }
 render();

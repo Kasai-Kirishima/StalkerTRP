@@ -3,6 +3,8 @@ import { advanceTime, createClock, getGameDateTime, syncRealElapsed } from './ga
 import { addItem, getItem, removeItem, countItem } from './inventory.js';
 import { rememberEntity } from './russian-language.js';
 import { generateDialogueReply } from './dialogue-engine.js';
+import { ensureMainStory, mainStoryTalk, isMainStoryPass, tickMainStory } from './main-story.js';
+import { damageItemCondition, getItemCondition, ensureConditionState } from './equipment-condition.js';
 
 const pick = (array) => array[Math.floor(Math.random() * array.length)];
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -128,9 +130,17 @@ function createNpcNameFactory() {
 
 function createAmbientNpc(id, location, faction, template, index, makeName) {
   const look=npcLook(faction);
+  const smallItems=['bread','water','bandage','canned','sausage','boltpack','ammo9x18'];
+  const smallItem=smallItems[index%smallItems.length];
+  const militaryRanks=['Рядовой','Ефрейтор','Младший сержант','Сержант','Старший сержант'];
+  const militaryCalls=['Клык','Гранит','Сокол','Беркут','Шрам','Туман','Рубеж','Кедр','Факел','Барс'];
+  const smallQuest={itemId:smallItem,quantity:1,reward:Math.max(100,Math.ceil(({bread:60,water:75,bandage:210,canned:160,sausage:110,boltpack:220,ammo9x18:175}[smallItem])*1.55)),status:'available'};
   return {
     id, name:makeName(), role:template.role,
     group:FACTION_GROUPS[faction]||'Путники', faction, location, ...look,
+    militaryRank:faction==='military'?militaryRanks[index%militaryRanks.length]:null,
+    callsign:faction==='military'?militaryCalls[(index+location.length)%militaryCalls.length]:null,
+    smallQuest,
     ambient:true, personalTask:template.task,
     routines:{ morning:template.morning, day:template.day, evening:template.evening, night:template.night },
     activity:template.day, greeting:template.greeting,
@@ -271,13 +281,13 @@ function updatePurchasedCounters(game, itemId, direction=1) {
 
 export function createGame(character, starterInventory = [], money = 0) {
   const faction = getFaction(character.faction);
-  return {
+  const game = {
     clock: createClock(),
     emission:{ nextAt:Math.floor((9+Math.random()*2)*1440), active:false, startedAt:null, endsAt:null, lastWarningAt:0 },
     player: {
       hp:100, maxHp:100, stamina:100, radiation:0, hunger:12, thirst:18, stress:0,
       reputation:0, rating:0, rank:faction?.rank || 'Новичок', armor:Math.min(30,starterInventory.reduce((sum,stack)=>sum+(getItem(stack.id)?.armor||0)*stack.qty,0)), armorId:starterInventory.find(stack=>(getItem(stack.id)?.armor||0)>0)?.id||null, maskId:null, sheltered:false, shelterSpotId:null,
-      faction:character.faction, kills:0, artifacts:0, questsDone:0, locationsVisited:[faction?.spawn || 'rookie-village']
+      faction:character.faction, kills:0, artifacts:0, questsDone:0, callsign:character.faction==='military'?(character.callsign||pick(['Кедр','Сокол','Рубеж','Факел','Гранит','Барс'])):null, militaryRank:character.faction==='military'?'Рядовой':null, locationsVisited:[faction?.spawn || 'rookie-village']
     },
     money,
     economyVersion:ECONOMY_VERSION,
@@ -287,6 +297,9 @@ export function createGame(character, starterInventory = [], money = 0) {
     atpRescue:{started:false,cleared:false,rewardClaimed:false,remaining:6},
     locationLights:{},
     inventory:starterInventory.map(entry => ({ ...entry })),
+    itemCondition:{},
+    artifactBelt:[null,null,null,null,null],
+    currentAreaId:null,
     ammoRounds:{ ammo9x18:countItem(starterInventory,'ammo9x18')*12, ammo9x19:countItem(starterInventory,'ammo9x19')*12, ammo545:countItem(starterInventory,'ammo545')*30, shells:countItem(starterInventory,'shells')*8 },
     boltsRemaining:countItem(starterInventory,'boltpack')*10,
     locationId:faction?.spawn || 'rookie-village',
@@ -324,6 +337,9 @@ export function createGame(character, starterInventory = [], money = 0) {
     weather:pick(['Пасмурно','Мелкий дождь','Сухой ветер','Низкая облачность']),
     visitedAt:{ [faction?.spawn || 'rookie-village']:0 }
   };
+  ensureMainStory(game);
+  ensureConditionState(game);
+  return game;
 }
 
 export function addLog(game, text, type='system') {
@@ -338,6 +354,7 @@ function updateRank(game) {
   else if (game.player.faction === 'bandit') game.player.rank = rating >= 80 ? 'Авторитет' : rating >= 30 ? 'Бывалый' : 'Шпана';
   else game.player.rank = rating >= 80 ? 'Сержант' : rating >= 30 ? 'Ефрейтор' : 'Рядовой';
   if (!faction) game.player.rank = 'Новичок';
+  if (game.player.faction === 'military') game.player.militaryRank = game.player.rank;
 }
 
 export function grantReputation(game, amount) {
@@ -432,6 +449,15 @@ export function leaveShelter(game) {
   if (game.currentAreaId) game.currentAreaId=null;
 }
 
+function applyRadiationDose(game, baseDose) {
+  const maskId=game.player?.maskId;
+  const condition=maskId?getItemCondition(game,maskId):0;
+  const protectedDose=maskId&&condition>=15?Math.max(1,Math.ceil(baseDose*.65)):Math.max(1,Math.ceil(baseDose));
+  if(maskId) damageItemCondition(game,maskId,.8+baseDose*.08);
+  game.player.radiation=Math.min(100,(game.player.radiation||0)+protectedDose);
+  return protectedDose;
+}
+
 function processEmission(game, fromMinute, toMinute) {
   const emission=ensureEmission(game);
   let cursor=fromMinute;
@@ -452,8 +478,8 @@ function processEmission(game, fromMinute, toMinute) {
       const dangerStart=emission.nextAt+2;
       const overlap=Math.max(0,Math.min(toMinute,ends)-Math.max(fromMinute,dangerStart));
       if (overlap>0 && !(game.player.sheltered && game.player.shelterLocationId===game.locationId)) {
-        const dose=Math.max(1,Math.ceil(overlap*1.7));
-        game.player.radiation=Math.min(100,(game.player.radiation||0)+dose);
+        const baseDose=Math.max(1,Math.ceil(overlap*1.7));
+        const dose=applyRadiationDose(game,baseDose);
         game.player.hp=Math.max(1,game.player.hp-Math.ceil(overlap/5));
         addLog(game,`Ты остался снаружи во время выброса. Радиация +${dose}%, здоровье ухудшилось. Нужно было укрыться.`,'danger');
       } else if (overlap>0) addLog(game,'Выброс накрыл Кордон. Ты переждал его в укрытии — ущерба удалось избежать.','system');
@@ -468,8 +494,8 @@ function processEmission(game, fromMinute, toMinute) {
       const start=Math.max(fromMinute,emission.startedAt+2);
       const end=Math.min(toMinute,emission.endsAt);
       if (end>start && !(game.player.sheltered && game.player.shelterLocationId===game.locationId)) {
-        const dose=Math.max(1,Math.ceil((end-start)*1.7));
-        game.player.radiation=Math.min(100,(game.player.radiation||0)+dose);
+        const baseDose=Math.max(1,Math.ceil((end-start)*1.7));
+        const dose=applyRadiationDose(game,baseDose);
         game.player.hp=Math.max(1,game.player.hp-Math.ceil((end-start)/5));
         addLog(game,`Выброс застал тебя снаружи. Радиация +${dose}%.`,'danger');
       }
@@ -494,6 +520,7 @@ export function advanceGame(game, minutes) {
   tickVitals(game, minutes+realElapsed);
   processEmission(game,before,after);
   simulateWorld(game);
+  tickMainStory(game);
 }
 
 export function describeLocation(game, locationId = game.locationId) {
@@ -731,7 +758,7 @@ export function travelTo(game, destinationId) {
     if(anomalyQuest) anomalyQuest.progress=1;
     hazardNotice += ` ${scene}`;
   }
-  if (destination.territory && destination.territory!==game.player.faction && getFactionRelation(game.player.faction,destination.territory)==='hostile') {
+  if (destination.territory && destination.territory!==game.player.faction && getFactionRelation(game.player.faction,destination.territory)==='hostile' && !isMainStoryPass(game,destinationId)) {
     const enemyFaction=destination.territory;
     game.activeEncounter={type:enemyFaction,name:enemyFaction==='military'?'Военный патруль':'Бандитский дозор',hp:68,maxHp:68,damage:9+Math.floor(Math.random()*5),count:1,faction:enemyFaction,...npcLook(enemyFaction)};
     const message=enemyFaction==='military'?'Военные замечают чужака на охраняемой территории и требуют остановиться.':'Бандитский дозор перекрывает путь и требует объяснений.';
@@ -748,8 +775,9 @@ export function travelTo(game, destinationId) {
   if (destination.hazards?.length && !game.anomalyStates[destinationId]) {
     if (destination.hazards.includes('radiation')) {
       const dose = 3 + Math.floor(Math.random()*5);
-      game.player.radiation = Math.min(100, game.player.radiation + dose);
-      hazardNotice += ` Дозиметр зашумел: радиация +${dose}%.`;
+      const maskId=game.player.maskId;
+      const protectedDose=applyRadiationDose(game,dose);
+      hazardNotice += ` Дозиметр зашумел: радиация +${protectedDose}%.`;
     }
     if (destination.hazards.includes('gravity')) {
       const damage = 2 + Math.floor(Math.random()*5);
@@ -797,7 +825,10 @@ function ensureSquadMembers(game) {
         name:`${first} ${nickname}`,
         role:index===0?'Сталкер':'Боец отряда',
         group:FACTION_GROUPS[faction]||'Путники',
-        faction, squadId:squad.id, memberIndex:index,
+        faction,
+        militaryRank:faction==='military'?['Рядовой','Ефрейтор','Младший сержант','Сержант','Старший сержант'][index%5]:null,
+        callsign:faction==='military'?['Клык','Гранит','Сокол','Беркут','Шрам','Туман','Рубеж','Кедр','Факел','Барс'][(index+squad.id.length)%10]:null,
+        squadId:squad.id, memberIndex:index,
         location:squad.location, ...npcLook(faction),
         greeting:pick([
           'Здорово. Не видел тебя раньше. Ты по делу или просто пережидаешь? ',
@@ -824,7 +855,10 @@ export function getAvailableStalkers(game, locationId=game.locationId) {
   const territory=getLocation(locationId)?.territory;
   return people.filter(person=>{
     if (locationId!=null && person.location!==locationId) return false;
+    if (person.areaId && person.areaId!==game.currentAreaId) return false;
     if (person.captured && game.currentAreaId!=='atp-first-floor-prisoners') return false;
+    if (person.id==='wounded-courier' && game.mainStory?.stage!=='find-courier') return false;
+    if (person.id==='cordon-scout' && game.mainStory?.stage!=='scout-farm') return false;
     if (person.faction==='loner' && ['bandit','military'].includes(territory) && !person.captured) return false;
     if (person.faction==='bandit' && territory==='military') return false;
     if (person.faction==='bandit' && ['rookie-village','sidorovich-bunker'].includes(locationId)) return false;
@@ -933,10 +967,12 @@ export function talkToNpc(game, npcId) {
   const npc = getDialogueNpc(game,npcId);
   if (!npc) return { ok:false, message:'Собеседник не найден.' };
   if (npc.location !== game.locationId) return { ok:false, message:`${npc.name} сейчас не здесь. По последним сведениям он находится: ${getLocation(npc.location)?.name||'неизвестно'}.` };
+  if (npc.areaId && npc.areaId!==game.currentAreaId) return {ok:false,message:`${npc.name} находится внутри: ${npc.areaId==='village-basement'?'в подвале старого дома':'в другом помещении'}. Сначала доберись туда.`};
   game.dialogueNpcId = npcId;
   game.dialogueTopic = null;
   game.dialogueReply = '';
-  game.dialogueHistory=[{role:'npc',text:npc.greeting||'Чего хотел, сталкер?'}];
+  const storyGreeting=mainStoryTalk(game,npcId);
+  game.dialogueHistory=[{role:'npc',text:storyGreeting||npc.greeting||'Чего хотел, сталкер?'}];
   rememberEntity(game, npc, 'npc');
   recordKnowledge(game,'people',npc.id,npc.name,`${npc.role||'Персонаж'} · ${npc.group||npc.faction||'Путник'}`);
   const jobs=getSidorovichJobState(game);
@@ -954,6 +990,13 @@ export function replyNpc(game, npcId, topic) {
   if (!npc) return 'Собеседник не найден.';
   game.dialogueTopic=topic.toLowerCase();
   let answer='';
+  if (npc.ambient && ['работа','задание','помощь','поручение'].some(word=>topic.toLowerCase().includes(word))) {
+    const job=npc.smallQuest;
+    if (!job) return `${npc.name}: «Пока ничего подходящего нет. Может, позже появится просьба».`;
+    const item=getItem(job.itemId);
+    const answer=job.status==='completed'?`Я помню, ты уже помог мне. Спасибо ещё раз.`:`Слушай, выручишь? Мне нужна одна вещь: ${item?.name||job.itemId.toLowerCase()}. Принесёшь — отдам ${job.reward} Купонов. Небольшое дело, но мне самому сейчас не отлучиться.`;
+    game.dialogueReply=answer; return answer;
+  }
   if (npcId==='wolf' && ['работа','задание','помощь','поручение'].some(word=>topic.toLowerCase().includes(word))) {
     const job=game.wolfDogQuest;
     if (job?.status==='active') answer=`Волк: «Ты уже взялся за собак у вагончика. Пока уничтожено ${job.killed} из пяти. Не возвращайся раньше времени».`;
@@ -1002,6 +1045,24 @@ export function replyNpcFreeText(game,npcId,rawText) {
   if (!text) return {ok:false,message:'Напиши, что хочешь сказать.'};
   const includes=(...roots)=>roots.some(root=>text.includes(root));
   let answer='';
+  const buildingNoun=/(здани|строени|построй|дом|сарай|подвал|бункер|казарм|склад|элеватор|локомотив|тоннел|база|укрыти|помещен|объект|торговая точк|лавк|магазин|ангар|ферм|штаб|барак|караулк|башн|переход|вагончик|блокпост|шлагбаум|будк|контрольный пункт|пост)/.test(text);
+  const buildingIntent=/(где|куда|как прой|как добрат|попасть|находится|расположен|есть ли|что за|опиши|кто живет|что внутри|войти|зайти|внутри|расскажи\s+(?:про|о|об)\s+(?:этот\s+)?(?:дом|здани|строени|построй|сарай|подвал|бункер|казарм|склад|элеватор|локомотив|тоннел|база|укрыти|помещен|объект|магазин|ангар|ферм|штаб|барак|караулк|башн|переход|вагончик|блокпост|пост|будк|шлагбаум|контрольный пункт))/i.test(text);
+  const buildingQuestion=buildingNoun&&buildingIntent;
+  if (buildingQuestion) {
+    if (npcId==='sidorovich') answer='Мой бункер под деревней — торговая точка, склад и место, где можно переждать непогоду. В самой деревне есть костёр, жилые дома, старый сарай и отдельный подвал старого дома — там работает Маслов, он чинит оружие, броню и противогазы. В лесном лагере ориентируйся на костёр и палатку проводников. На АТП — ворота, гаражи и двухэтажное здание, но там хозяйничают братки. По товарам: у меня обычно еда, медикаменты, патроны, базовое оружие и часть снаряжения. Точные остатки и цены смотри в окне обмена; хорошая репутация даёт скидку.';
+    else if (npcId==='wolf') answer='В деревне ориентиры простые: костёр, жилые домики, старый сарай и подвал старого дома. Сидорович устроился в отдельном бункере под деревней, а в подвале старого дома теперь работает техник Маслов. К нему можно отнести изношенное оружие, броню или противогаз. За деревней не считай ни одно здание безопасным: сначала осмотрись, проверь людей у входа и сверись с КПК.';
+    else if (npcId==='dzerzhinsky') answer='На южном блокпосту увидишь шлагбаум, караульную будку, казарму и склад снабжения. Для прохода обращайся к дежурному. В казарму и склад без разрешения не заходи. Сидорович обычно торгует в бункере под деревней; здесь же снабжение выдаётся по списку.';
+    else if (npcId==='kapterka') answer='Склад снабжения и казарма находятся за основным постом. Мой товар выдаётся через ведомость. Не путай служебный склад с заброшенными постройками за периметром. Запасы смотри в окне обмена — я не обещаю, что всё будет в наличии.';
+    else if (npcId==='dzerzhinsky') answer='На южном блокпосту есть шлагбаум, караульная будка, казарма и склад снабжения. По дороге не ходи за ограждение без разрешения. Если нужен военный товар, обратись к каптёрке; гражданские сделки — к Сидоровичу в бункерной лавке.';
+    else if (npcId==='kefir') answer='АТП — наша территория. Ворота, гаражи и двухэтажный корпус — всё под присмотром моих людей. По торговле иди к Шнурку, а насчёт склада сначала спроси разрешения. Чужие ящики не трогай.';
+    else if (npcId==='shnurok' || npc.location==='atp') answer='На АТП ориентируйся по воротам, гаражам и двухэтажному зданию. Внутри люди Кефира, поэтому сначала спроси разрешение. У Шнурка можно выменять патроны, еду, простое оружие и часть снаряжения — остатки и цены увидишь в окне сделки.';
+    else if (npcId==='kostya-pudel') answer='На хуторе ориентиры — костёр, остатки жилого дома и хозяйственные постройки. Здесь не магазин: если нужны патроны и медикаменты, ищи торговца в деревне или на АТП. У меня можно услышать местные слухи и получить небольшую просьбу.';
+    else if (npc.location==='south-checkpoint' || npc.faction==='military') answer='Военный объект устроен просто: внешний пост, караульная будка, казарма и склад. Внутрь проходи только с разрешения дежурного. Снабжение выдаёт каптёрка, а за пропуском обращайся к командиру.';
+    else if (npc.location==='farmstead') answer='Здесь старый хутор: костёр, развалины жилого дома и хозяйственные постройки. Постоянного магазина нет. За припасами иди в деревню к Сидоровичу, а у местных спрашивай про безопасные тропы и недавние следы.';
+    else if (npc.location==='forest-camp') answer='В лесном лагере несколько палаток, костёр и место отдыха проводников. Торговля здесь обычно небольшая: сначала спроси конкретного сталкера, потом открывай обмен. За крупным ассортиментом отправляйся к Сидоровичу.';
+    else answer=`Здесь рядом: ${getLocation(game.locationId)?.name||'текущий участок'}. ${getLocation(game.locationId)?.desc||'Осмотрись и сверяйся с картой КПК.'} Точные точки осмотра открой кнопкой «Места и обыск».`;
+    game.dialogueReply=answer; game.dialogueHistory ||= []; game.dialogueHistory.push({role:'player',npcId,text:String(rawText).slice(0,500)},{role:'npc',npcId,text:answer}); game.dialogueHistory=game.dialogueHistory.slice(-16); addLog(game,`${npc.name}: ${answer}`); return {ok:true,message:answer};
+  }
   if (npc.captured) {
     answer=includes('кто','что случ','как попал','как захват','захват','почему','плен','когда','расскажи')
       ? 'Нас двоих держат здесь уже не первый день. Бандиты с АТП перехватили нашу группу, вещи забрали, а нас заперли на первом этаже. Мы слышали, что во дворе дежурит несколько человек. Если станет тихо, попробуем уйти.'
@@ -1012,8 +1073,8 @@ export function replyNpcFreeText(game,npcId,rawText) {
     return {ok:true,message:answer};
   }
 
-  if (includes('торгов','торговать','обмен','купить','продать','цен','товар','покажи ассортимент','что продаешь','что есть в наличии')) {
-    const answer=pick([`Ладно, ${npc.name==='Сидорович'?'сталкер':'договорились'}. Открываю обмен — посмотри, что у меня есть, и что готов предложить сам.`,`Давай к делу. В торговом окне увидишь мой запас и цены выкупа на твои вещи.`,`Есть о чём поговорить. Открывай сделку: товар слева, твой рюкзак справа.`]);
+  if (includes('торгов','торговать','обмен','купить','продать','цен','товар','покажи ассортимент','что продаешь','что есть в наличии','сколько стоит','за сколько возьмешь') || /\bпочем\b/.test(text)) {
+    const answer=npcId==='wolf'?'Я не торговец. За припасами, патронами и снаряжением иди к Сидоровичу в бункер под деревней. Только смотри на цену и не трать последние деньги — в Зоне запас лишним не бывает.':npcId==='sidorovich'?'Торговля у меня в бункере. Покупай еду, медикаменты, патроны и доступное снаряжение; найденное можешь продать. Остатки меняются, цену увидишь перед подтверждением. Хорошая репутация снижает стоимость покупки.':npc.trader?`Я не такой крупный торговец, как Сидорович, но обменяться можем. Открой окно сделки — там будут мои запасы и цена выкупа.`:pick([`Ладно, ${npc.name==='Сидорович'?'сталкер':'договорились'}. Открываю обмен — посмотри, что у меня есть, и что готов предложить сам.`,`Давай к делу. В торговом окне увидишь мой запас и цены выкупа на твои вещи.`,`Есть о чём поговорить. Открывай сделку: товар слева, твой рюкзак справа.`]);
     game.dialogueReply=answer;
     game.dialogueHistory ||= [];
     game.dialogueHistory.push({role:'player',npcId,text:String(rawText).slice(0,500)},{role:'npc',npcId,text:answer});
@@ -1075,22 +1136,49 @@ export function getTraderById(game, traderId) {
   return findTrader(game,traderId)?.trader || null;
 }
 
+export function getTradeBuyPrice(game, trader, stock) {
+  const reputation=Math.max(0,Number(game.player?.reputation)||0);
+  const discount=Math.min(.2,Math.floor(reputation/10)*.02);
+  const base=Math.max(1,Number(stock?.price)||0);
+  return Math.max(1,Math.ceil(base*(1-discount)));
+}
+
+export function acceptPersonalQuest(game,npcId) {
+  const npc=(game.ambientNpcs||[]).find(entry=>entry.id===npcId);
+  if (!npc?.smallQuest || npc.location!==game.locationId || (npc.areaId && npc.areaId!==game.currentAreaId)) return {ok:false,message:'У этого сталкера пока нет доступного поручения рядом.'};
+  if (npc.smallQuest.status==='completed') return {ok:false,message:'Ты уже выполнил просьбу этого сталкера.'};
+  npc.smallQuest.status='active';
+  const item=getItem(npc.smallQuest.itemId);
+  return {ok:true,message:`Поручение принято: принеси ${item?.name||npc.smallQuest.itemId}. Награда — ${npc.smallQuest.reward} Купонов.`};
+}
+
+export function turnInPersonalQuest(game,npcId) {
+  const npc=(game.ambientNpcs||[]).find(entry=>entry.id===npcId); const job=npc?.smallQuest;
+  if (!npc || npc.location!==game.locationId || (npc.areaId && npc.areaId!==game.currentAreaId) || !job || job.status!=='active') return {ok:false,message:'У этого сталкера нет активного поручения рядом.'};
+  if (countItem(game.inventory,job.itemId)<job.quantity) return {ok:false,message:`Не хватает предмета: ${getItem(job.itemId)?.name||job.itemId}.`};
+  if (!removeItem(game.inventory,job.itemId,job.quantity)) return {ok:false,message:'Не удалось передать предмет.'};
+  job.status='completed'; game.money+=job.reward; grantReputation(game,2);
+  const message=`${npc.name} принял ${getItem(job.itemId)?.name||job.itemId}. Получено ${job.reward} Купонов и +2 репутации.`; addLog(game,message); return {ok:true,message};
+}
+
 export function buyFromTrader(game, traderId, itemId) {
   const found=findTrader(game,traderId);
   if (!found) return { ok:false, message:'Торговец больше не находится на связи.' };
   const stock=found.record.stock.find(entry=>entry.id===itemId && entry.qty>0);
   if (!stock) return { ok:false, message:'Этого товара сейчас нет в наличии.' };
-  if (game.money<stock.price) return { ok:false, message:'Не хватает денег.' };
+  const finalPrice=getTradeBuyPrice(game,found.trader,stock);
+  if (game.money<finalPrice) return { ok:false, message:`Не хватает денег. С учётом скидки нужно ${finalPrice} Купонов.` };
   const result=addItem(game.inventory,itemId,1);
   if (!result.ok) return { ok:false, message:result.reason };
-  game.money-=stock.price;
+  game.money-=finalPrice;
   stock.qty-=1;
   updatePurchasedCounters(game,itemId,1);
   if (stock.qty<=0) found.record.stock=found.record.stock.filter(entry=>entry!==stock);
   const name=getItem(itemId)?.name||itemId;
-  const message=`Куплено у ${found.trader.name}: ${name} за ${stock.price} Купонов.`;
+  const discount=Math.round((1-finalPrice/stock.price)*100);
+  const message=`Куплено у ${found.trader.name}: ${name} за ${finalPrice} Купонов${discount?` (скидка ${discount}%)`:''}.`;
   addLog(game,message);
-  return { ok:true, message, price:stock.price };
+  return { ok:true, message, price:finalPrice };
 }
 
 export function sellToTrader(game, traderId, itemId, quantity=1) {
@@ -1099,6 +1187,7 @@ export function sellToTrader(game, traderId, itemId, quantity=1) {
   const item=getItem(itemId);
   const qty=Math.max(1,Math.floor(Number(quantity)||1));
   if (!item || countItem(game.inventory,itemId)<qty) return { ok:false, message:'В рюкзаке нет такого количества предметов.' };
+  if (item.cat==='Задания') return {ok:false,message:'Сюжетные предметы нельзя продавать. Сначала передай их указанному персонажу.'};
   const price=Math.max(1,Math.floor(item.price*(found.record.buyMultiplier||.4)));
   if (!removeItem(game.inventory,itemId,qty)) return { ok:false, message:'Не удалось изъять предмет из рюкзака.' };
   game.money+=price*qty;
