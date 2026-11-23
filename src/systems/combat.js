@@ -195,7 +195,10 @@ export function beginEncounter(game, type='blind-dog') {
   const mutantKey=type==='flesh'?'flesh':type==='boar'?'boar':'blindDog';
   const mutantLooks=ASSETS.mutants?.[mutantKey]||[];
   const mutantAppearance=mutantLooks.length?mutantLooks[Math.floor(Math.random()*mutantLooks.length)]:'';
-  game.activeEncounter = { type, name, hp, maxHp:hp, damage, count:1, imageIndex:0, image:'', ...(faction?{faction,icon:look?.icon||'',appearance:look?.appearance||'',insignia:ASSETS.factionInsignias?.[faction]||''}:mutantAppearance?{appearance:mutantAppearance}:{}) };
+  const enemyWeaponPools={military:['aksu','vm17','pm'],bandit:['gaduka','sawedoff','pm'],loner:['vm17','sawedoff','pm']};
+  const weaponPool=(enemyWeaponPools[faction]||[]).filter(id=>getItem(id)?.weapon && ASSETS.weaponImages?.[id]);
+  const weaponId=weaponPool.length?weaponPool[Math.floor(Math.random()*weaponPool.length)]:null;
+  game.activeEncounter = { type, name, hp, maxHp:hp, damage, count:1, imageIndex:0, image:'', ...(faction?{faction,icon:look?.icon||'',appearance:look?.appearance||'',insignia:ASSETS.factionInsignias?.[faction]||'',...(weaponId?{weaponId}:{})}:mutantAppearance?{appearance:mutantAppearance}:{}) };
   rememberEntity(game, game.activeEncounter, 'creature');
   return true;
 }

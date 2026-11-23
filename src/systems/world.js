@@ -181,14 +181,14 @@ function refreshAmbientNpcActivities(game) {
 }
 
 const NPC_TRADE_STOCK = {
-  loner:['bread','water','sausage','canned','bandage','ammo9x18','shells','boltpack','knife','pm'],
-  bandit:['vodka','bread','sausage','canned','ammo9x18','shells','knife','pm','biker'],
-  military:['water','canned','bandage','ai2','ammo9x18','ammo545','shells','antirad','boltpack','pa8']
+  loner:['bread','water','sausage','canned','energy','bandage','ai2','antirad','ammo9x18','ammo9x19','shells','boltpack','knife','pm','sawedoff','binoculars','otklik','leather','kozanplash','zarya','berill','stalnoishlem','pg4','mask-loner-basic'],
+  bandit:['vodka','bread','sausage','canned','energy','bandage','ammo9x18','ammo9x19','shells','knife','pm','sawedoff','gaduka','biker','kozanka','kosyha','stalnoishlem','pg4','binoculars','mask-bandit-basic'],
+  military:['water','canned','energy','bandage','ai2','ammo9x18','ammo545','shells','antirad','boltpack','binoculars','pm','aksu','vm17','debyt','pa8','pa10','zarya','berill','stalnoishlem','pg4','mask-military-basic']
 };
 const getItemName = (id) => ({medusa:'Медуза',meat_chunk:'Ломоть мяса',gravi:'Грави','stone-flower':'Каменный цветок'}[id] || id);
-const RANDOM_TRADER_STOCK = ['bread','water','canned','sausage','bandage','ammo9x18','ammo9x19','ammo545','shells','knife','vodka','boltpack','ai2','antirad','binoculars','pm'];
+const RANDOM_TRADER_STOCK = ['bread','water','canned','sausage','energy','bandage','ammo9x18','ammo9x19','ammo545','shells','knife','vodka','boltpack','ai2','antirad','binoculars','pm','sawedoff','otklik','leather','kozanka','pa8','kosyha','stalnoishlem','pg4','zarya'];
 
-const ECONOMY_VERSION = 3;
+const ECONOMY_VERSION = 4;
 
 function makeStock(ids, multiplier=1) {
   return [...new Set(ids)].map(id=>{
@@ -235,9 +235,25 @@ function ensureTraderRecords(game) {
       const faction=profile?.faction || trader.faction || 'loner';
       const markup=profile?.priceMultiplier || trader.priceMultiplier || (faction==='military'?1.14:faction==='bandit'?1.08:1.10);
       trader.priceMultiplier=markup;
-      for (const entry of trader.stock||[]) {
+      trader.stock ||= [];
+      for (const entry of trader.stock) {
         const item=getItem(entry.id);
         if (item) entry.price=Math.max(1,Math.ceil(item.price*markup));
+      }
+      // Add the newly catalogued protective gear to existing saves without resetting stock.
+      const factionGear={
+        loner:['zarya','berill','stalnoishlem','pg4'],
+        bandit:['kosyha','stalnoishlem','pg4'],
+        military:['zarya','berill','stalnoishlem','pg4']
+      };
+      const permitted=profile?.stockIds?.length ? profile.stockIds : (trader.random ? RANDOM_TRADER_STOCK : NPC_TRADE_STOCK[faction]||[]);
+      const gearToAdd=(factionGear[faction]||[]).filter(id=>permitted.includes(id));
+      // Regular fixed vendors receive their configured gear; wandering traders receive at most two extra pieces.
+      const additions=trader.random ? gearToAdd.slice(0,2) : gearToAdd;
+      for (const id of additions) {
+        if (trader.stock.some(entry=>entry.id===id)) continue;
+        const item=getItem(id);
+        if (item) trader.stock.push({id,qty:1,price:Math.max(1,Math.ceil(item.price*markup))});
       }
       if (profile?.buyMultiplier!=null) trader.buyMultiplier=profile.buyMultiplier;
       else trader.buyMultiplier=faction==='military'?.46:faction==='bandit'?.39:.42;
@@ -1051,7 +1067,6 @@ export function replyNpcFreeText(game,npcId,rawText) {
   if (buildingQuestion) {
     if (npcId==='sidorovich') answer='Мой бункер под деревней — торговая точка, склад и место, где можно переждать непогоду. В самой деревне есть костёр, жилые дома, старый сарай и отдельный подвал старого дома — там работает Маслов, он чинит оружие, броню и противогазы. В лесном лагере ориентируйся на костёр и палатку проводников. На АТП — ворота, гаражи и двухэтажное здание, но там хозяйничают братки. По товарам: у меня обычно еда, медикаменты, патроны, базовое оружие и часть снаряжения. Точные остатки и цены смотри в окне обмена; хорошая репутация даёт скидку.';
     else if (npcId==='wolf') answer='В деревне ориентиры простые: костёр, жилые домики, старый сарай и подвал старого дома. Сидорович устроился в отдельном бункере под деревней, а в подвале старого дома теперь работает техник Маслов. К нему можно отнести изношенное оружие, броню или противогаз. За деревней не считай ни одно здание безопасным: сначала осмотрись, проверь людей у входа и сверись с КПК.';
-    else if (npcId==='dzerzhinsky') answer='На южном блокпосту увидишь шлагбаум, караульную будку, казарму и склад снабжения. Для прохода обращайся к дежурному. В казарму и склад без разрешения не заходи. Сидорович обычно торгует в бункере под деревней; здесь же снабжение выдаётся по списку.';
     else if (npcId==='kapterka') answer='Склад снабжения и казарма находятся за основным постом. Мой товар выдаётся через ведомость. Не путай служебный склад с заброшенными постройками за периметром. Запасы смотри в окне обмена — я не обещаю, что всё будет в наличии.';
     else if (npcId==='dzerzhinsky') answer='На южном блокпосту есть шлагбаум, караульная будка, казарма и склад снабжения. По дороге не ходи за ограждение без разрешения. Если нужен военный товар, обратись к каптёрке; гражданские сделки — к Сидоровичу в бункерной лавке.';
     else if (npcId==='kefir') answer='АТП — наша территория. Ворота, гаражи и двухэтажный корпус — всё под присмотром моих людей. По торговле иди к Шнурку, а насчёт склада сначала спроси разрешения. Чужие ящики не трогай.';

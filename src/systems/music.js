@@ -21,8 +21,9 @@ export function createMusicEngine(onEnded = () => {}, onError = () => {}) {
   function addBundledTracks(definitions = []) {
     const added = [];
     for (const definition of definitions) {
-      if (!definition?.id || !definition?.url || tracks.has(definition.id)) continue;
-      tracks.set(definition.id, { url: definition.url, objectUrl: false, file: null });
+      if (!definition?.id || tracks.has(definition.id)) continue;
+      const url = typeof definition.url === 'string' && definition.url ? definition.url : null;
+      tracks.set(definition.id, { url, objectUrl: false, file: null });
       added.push({
         id: definition.id,
         title: definition.title || definition.fileName || 'Без названия',
@@ -30,7 +31,8 @@ export function createMusicEngine(onEnded = () => {}, onError = () => {}) {
         label: definition.fileName || definition.title || 'Встроенная композиция',
         fileName: definition.fileName || '',
         size: Number(definition.size) || 0,
-        source: 'bundled',
+        source: definition.source || (url ? 'bundled' : 'catalog'),
+        hasAudio: !!url,
         stations: Array.isArray(definition.stations) ? [...definition.stations] : []
       });
     }
@@ -52,6 +54,7 @@ export function createMusicEngine(onEnded = () => {}, onError = () => {}) {
   async function play(track) {
     if (!track?.id || !tracks.has(track.id)) return false;
     const entry = tracks.get(track.id);
+    if (!entry.url) return false;
     const node = ensureAudio();
     if (currentUrl && currentUrl !== entry.url) node.pause();
     currentUrl = entry.url;

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cordon-pda-v2970-mobile-quest-equipment';
+const CACHE_NAME = 'cordon-pda-v2980-mobile-quest-equipment';
 const APP_SHELL = [
   "./",
   "./index.html",

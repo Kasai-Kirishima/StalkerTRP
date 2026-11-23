@@ -1,5 +1,5 @@
 import { loadState, saveState, createInitialState, exportSave, importSave } from './core/storage.js';
-import { ASSETS, FACTIONS, START_BUDGET, MAX_CARRY_KG, NPCS, ITEMS, LOCATIONS, STARTER_LOADOUT_BY_FACTION } from './data/catalog.js';
+import { ASSETS, FACTIONS, START_BUDGET, MAX_CARRY_KG, NPCS, ITEMS, LOCATIONS, AVATAR_OPTIONS, STARTER_LOADOUT_BY_FACTION } from './data/catalog.js';
 import { renderMenu, renderAccount, renderCharacters, renderCreate, renderLoadout, renderGame, renderGameSettings, renderModal, esc } from './ui/views.js';
 import { canFitLoadout, getInventoryCost, getLoadoutWeight, addItem, getItem, getWeight, countItem, removeItem, useItem, transferItem } from './systems/inventory.js';
 import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, breakContainer, replyNpcFreeText, takeShelter, leaveShelter, sitAtCampfire, getExploreSpots, getActiveLootItems, openStorage, turnInPudelQuest, turnInSecretAnomalyQuest, claimAtpRescueReward, beginAtpRescue, generateStalkerName, acceptPersonalQuest, turnInPersonalQuest } from './systems/world.js';
@@ -7,7 +7,6 @@ import { playerAttack, defend, flee, beginWolfDogPack, reloadWeapon, aimWeapon, 
 import { createMusicEngine } from './systems/music.js';
 import { BUNDLED_MUSIC_TRACKS } from './data/bundled-music.js';
 import { getRadioStationForLocation } from './data/radio-stations.js';
-import { extractAudioFilesFromZip } from './systems/music-archive.js';
 import { buyFromTrader, sellToTrader } from './systems/world.js';
 import { processPlayerAction } from './systems/action-engine.js';
 import { getGameDateTime } from './systems/game-clock.js';
@@ -71,6 +70,8 @@ function ensureEquipmentSlots(game) {
     primary2:previous.primary2??null,
     pistol:previous.pistol??null,
     knife:previous.knife??null,
+    binoculars:previous.binoculars??null,
+    bolt:previous.bolt??null,
     armor:previous.armor??game.player?.armorId??null,
     mask:previous.mask??game.player?.maskId??null,
     quick:hasQuick?[...previous.quick.slice(0,4),...Array(Math.max(0,4-previous.quick.length)).fill(null)]:[null,null,null,null]
@@ -81,6 +82,8 @@ function ensureEquipmentSlots(game) {
     if (!item) continue;
     if (previous.pistol===undefined && item.weapon==='pistol' && !game.equipmentSlots.pistol) game.equipmentSlots.pistol=item.id;
     if (previous.knife===undefined && item.weapon==='melee' && !game.equipmentSlots.knife) game.equipmentSlots.knife=item.id;
+    if (previous.binoculars===undefined && item.id==='binoculars') game.equipmentSlots.binoculars=item.id;
+    if (previous.bolt===undefined && item.id==='boltpack') game.equipmentSlots.bolt=item.id;
     if (['rifle','shotgun','smg'].includes(item.weapon)) {
       if (previous.primary1===undefined && !game.equipmentSlots.primary1) game.equipmentSlots.primary1=item.id;
       else if (previous.primary2===undefined && !game.equipmentSlots.primary2 && game.equipmentSlots.primary1!==item.id) game.equipmentSlots.primary2=item.id;
@@ -101,7 +104,7 @@ function setScreen(screen) {
 }
 
 function render() {
-  if (state.game && state.ui.music?.mode==='radio') {
+  if (state.game && String(state.ui.music?.mode||'').startsWith('radio')) {
     const currentStation=getRadioStationForLocation(state.game.locationId);
     if (!currentStation || currentStation.id!==state.ui.music.stationId) {
       musicEngine.stop();
@@ -163,20 +166,35 @@ function availablePlayerTracks() { return state.ui.localMusicTracks||[]; }
 function startPlayerTrack(trackId) {
   const tracks=availablePlayerTracks();
   const start=tracks.findIndex(track=>track.id===trackId);
-  if (start<0) { toast('Выбери композицию из музыкальной библиотеки.','warning'); return; }
+  if (start<0) { toast('Выбери композицию из музыкального каталога.','warning'); return; }
   const queue=tracks.map(track=>track.id);
   const ordered=[...queue.slice(start),...queue.slice(0,start)];
+  const selected=trackById(ordered[0]);
+  if (selected?.source==='catalog' || !selected?.hasAudio) {
+    musicEngine.stop();
+    state.ui.music={mode:'catalog',stationId:null,queue:ordered,index:0,trackId:ordered[0],playing:false};
+    persist(); render();
+    toast(`Выбрано в музыкальном каталоге: «${selected.title}».`,'info');
+    return;
+  }
   state.ui.music={mode:'local',stationId:null,queue:ordered,index:0,trackId:ordered[0],playing:true};
-  musicEngine.play(trackById(ordered[0]));
+  musicEngine.play(selected);
   persist(); render();
 }
 
 function startBaseRadio() {
   const station=getRadioStationForLocation(state.game?.locationId);
-  if (!station) { toast('В этой локации нет базовой радиостанции.','warning'); return; }
-  const tracks=availablePlayerTracks().filter(track=>track.source==='local' || (track.source==='bundled' && (!track.stations?.length || track.stations.includes(station.id))));
-  if (!tracks.length) { toast('В папке assets/music пока нет встроенных аудиозаписей. Добавь туда треки и выполни npm run music:manifest.','warning'); return; }
+  if (!station) { toast('Радио доступно только на АТП, в Деревне новичков и на Южном блокпосте.','warning'); return; }
+  const tracks=availablePlayerTracks().filter(track=>track.source==='catalog' || track.source==='local' || (track.source==='bundled' && (!track.stations?.length || track.stations.includes(station.id))));
+  if (!tracks.length) { toast('Музыкальный каталог пока пуст.','warning'); return; }
   const ordered=shuffled(tracks);
+  if (ordered.every(track=>track.source==='catalog' || !track.hasAudio)) {
+    musicEngine.stop();
+    state.ui.music={mode:'radio-catalog',stationId:station.id,queue:ordered.map(track=>track.id),index:0,trackId:ordered[0].id,playing:true};
+    persist(); render();
+    toast(`Радио ${station.name} включено. В эфирном каталоге: «${ordered[0].title}».`,'info');
+    return;
+  }
   state.ui.music={mode:'radio',stationId:station.id,queue:ordered.map(track=>track.id),index:0,trackId:ordered[0].id,playing:true};
   musicEngine.play(ordered[0]);
   persist(); render();
@@ -184,9 +202,9 @@ function startBaseRadio() {
 
 function toggleBaseRadio() {
   const station=getRadioStationForLocation(state.game?.locationId);
-  if (!station) { toast('В этой локации нет базовой радиостанции.','warning'); return; }
+  if (!station) { toast('Радио доступно только на АТП, в Деревне новичков и на Южном блокпосте.','warning'); return; }
   const music=state.ui.music||{};
-  if (music.mode==='radio' && music.stationId===station.id && music.trackId) toggleMusic();
+  if (String(music.mode||'').startsWith('radio') && music.stationId===station.id && music.trackId) stopMusic();
   else startBaseRadio();
 }
 
@@ -194,19 +212,28 @@ function advanceMusic(automatic=false,direction=1) {
   const music=state.ui.music||{};
   if (!music.queue?.length) return;
   const queue=music.queue.filter(id=>trackById(id));
-  if (!queue.length) { state.ui.music={mode:'local',queue:[],index:0,trackId:null,playing:false}; persist(); render(); return; }
+  if (!queue.length) { state.ui.music={mode:'catalog',queue:[],index:0,trackId:null,playing:false}; persist(); render(); return; }
   const current=Math.max(0,queue.indexOf(music.trackId));
   const index=(current+direction+queue.length)%queue.length;
   const id=queue[index];
-  state.ui.music={...music,queue,index,trackId:id,playing:true};
-  musicEngine.play(trackById(id));
+  const track=trackById(id);
+  const catalogOnly=track?.source==='catalog' || !track?.hasAudio;
+  state.ui.music={...music,queue,index,trackId:id,playing:catalogOnly?music.mode==='radio-catalog':true};
+  if (!catalogOnly) musicEngine.play(track);
+  else musicEngine.stop();
   persist();
   if (state.screen==='game') render();
+  if (music.mode==='radio-catalog') toast(`В эфире каталога: «${track?.title||'Без названия'}».`,'info');
 }
 
 function toggleMusic() {
   const music=state.ui.music||{};
-  if (!music.trackId) { toast('Добавь аудиофайлы в библиотеку плеера.','info'); return; }
+  if (!music.trackId) { toast('Выбери композицию из встроенного каталога.','info'); return; }
+  const track=trackById(music.trackId);
+  if (track?.source==='catalog' || !track?.hasAudio) {
+    toast('Это встроенный каталог названий. Выбери другую запись или переключи эфир.','info');
+    return;
+  }
   if (music.playing) { musicEngine.pause(); state.ui.music={...music,playing:false}; }
   else { state.ui.music={...music,playing:true}; musicEngine.resume(); }
   persist(); render();
@@ -261,7 +288,9 @@ function transferAllLoot(direction='take') {
 }
 
 function beginNewCharacter() {
-  state.draft = { name:'', birthDate:'', height:'', weight:'', personality:'', biography:'', notes:'', faction:'loner', avatar:'' };
+  const starterLooks=AVATAR_OPTIONS.filter(look=>look.faction==='loner'&&look.group!=='npc');
+  const defaultLook=starterLooks[Math.floor(Math.random()*starterLooks.length)];
+  state.draft = { name:'', birthDate:'', height:'', weight:'', personality:'', biography:'', notes:'', faction:'loner', avatar:defaultLook?.src||'', appearance:defaultLook?.appearance||'' };
   state.pendingCharacter = null;
   state.loadout = { selected:{} };
   setScreen('create');
@@ -274,7 +303,7 @@ function characterFromDraft() {
     id:globalThis.crypto?.randomUUID?.() || `char-${Date.now()}`,
     name:d.name.trim(), birthDate:d.birthDate, height:d.height, weight:d.weight,
     personality:d.personality, biography:d.biography, notes:d.notes,
-    faction:faction.id, avatar:d.avatar || '', appearance:d.appearance || '', rank:faction.rank,
+    faction:faction.id, avatar:d.avatar || AVATAR_OPTIONS.find(look=>look.faction===faction.id&&look.group!=='npc')?.src || '', appearance:d.appearance || AVATAR_OPTIONS.find(look=>look.faction===faction.id&&look.group!=='npc')?.appearance || '', rank:faction.rank,
     spawnName:getLocation(faction.spawn)?.name || 'Кордон',
     stats:{ kills:0, artifacts:0, questsDone:0, distance:0 }, createdAt:Date.now(), game:null
   };
@@ -307,7 +336,7 @@ function finishLoadout() {
   const game=createGame(character,inventory,moneyLeft);
   const starterArmor=inventory.find(stack=>(getItem(stack.id)?.armor||0)>0);
   const starterMask=inventory.find(stack=>getItem(stack.id)?.cat==='Защита');
-  const equipmentSlots={primary1:null,primary2:null,pistol:null,knife:null,armor:starterArmor?.id||null,mask:starterMask?.id||null,quick:[null,null,null,null]};
+  const equipmentSlots={primary1:null,primary2:null,pistol:null,knife:null,binoculars:null,bolt:null,armor:starterArmor?.id||null,mask:starterMask?.id||null,quick:[null,null,null,null]};
   for (const stack of inventory) {
     const item=getItem(stack.id);
     if (!item) continue;
@@ -356,8 +385,12 @@ function selectCharacter(id) {
     setScreen('loadout');
     return;
   }
+  const savedLook=AVATAR_OPTIONS.find(look=>look.faction===char.faction&&look.group!=='npc')||AVATAR_OPTIONS.find(look=>look.group!=='npc');
+  char.avatar ||= savedLook?.src || '';
+  char.appearance ||= savedLook?.appearance || '';
   state.activeCharacterId=id;
   state.game=char.game;
+  ensureEquipmentSlots(state.game); // migrate older saves to the full weapon + utility + quick-use hotbar
   advanceGame(state.game,0);
   state.ui.tab='location';
   state.ui.pdaOpen=false;
@@ -380,7 +413,11 @@ function applyActionResult(result) {
   else if (result.action==='stats') { state.ui.tab='stats'; state.ui.pdaOpen=true; }
   else if (result.action==='sleep') state.ui.modal='sleep';
   else if (result.action==='artifact') state.ui.modal=null;
-  else if (result.action==='dialogue') state.game.dialogueNpcId=result.npcId;
+  else if (result.action==='dialogue') { state.ui.modal=null; state.game.dialogueNpcId=result.npcId; }
+  else if (result.action==='nearby-people') { state.game.dialogueNpcId=null; state.ui.modal='nearby-people'; state.ui.pdaOpen=false; }
+  else if (result.action==='radio-toggle') { toggleBaseRadio(); return; }
+  else if (result.action==='radio-on') { const station=getRadioStationForLocation(state.game?.locationId); if(station && state.ui.music?.stationId===station.id && String(state.ui.music?.mode||'').startsWith('radio') && state.ui.music?.trackId){toast(`Радио ${station.name} уже включено.`,'info');return;} startBaseRadio(); return; }
+  else if (result.action==='radio-off' || result.action==='radio-stop') { if(String(state.ui.music?.mode||'').startsWith('radio')) stopMusic(); else toast('Радио уже выключено.','info'); return; }
   else if (result.action==='trade') { state.ui.tradeNpcId=result.npcId; state.ui.modal='trade-panel'; state.ui.pdaOpen=false; }
   else if (result.action==='explore-find') state.ui.modal='explore-find';
   else if (result.action==='combat') state.ui.tab='location';
@@ -508,6 +545,8 @@ root.addEventListener('click', (event) => {
     if(!slot) {
       if(item.weapon==='pistol') slot='pistol';
       else if(item.weapon==='melee') slot='knife';
+      else if(item.id==='binoculars') slot='binoculars';
+      else if(item.id==='boltpack') slot='bolt';
       else if(['rifle','shotgun','smg'].includes(item.weapon)) slot=!slots.primary1||slots.primary1===id?'primary1':!slots.primary2||slots.primary2===id?'primary2':'primary1';
       else if(item.armor) slot='armor';
       else if(item.cat==='Защита') slot='mask';
@@ -519,6 +558,8 @@ root.addEventListener('click', (event) => {
       : slot==='mask' ? item.cat==='Защита'
       : slot==='pistol' ? item.weapon==='pistol'
       : slot==='knife' ? item.weapon==='melee'
+      : slot==='binoculars' ? item.id==='binoculars'
+      : slot==='bolt' ? item.id==='boltpack'
       : ['primary1','primary2'].includes(slot) ? ['rifle','shotgun','smg'].includes(item.weapon)
       : false;
     if(!compatible){toast('Этот предмет не подходит для выбранного слота.','warning');return;}
@@ -534,8 +575,10 @@ root.addEventListener('click', (event) => {
     const item=getItem(selected); if(!item||!countItem(state.game.inventory,selected)){toast('Этот слот пуст или предмет отсутствует в рюкзаке.','warning');return;}
     if(slot==='armor') { state.game.player.armorId=selected; state.game.player.armor=item.armor||0; persist();render();toast(`Надета броня: ${item.name}.`,'success');return; }
     if(slot==='mask') { state.game.player.maskId=selected; persist();render();toast(`Надет противогаз: ${item.name}.`,'success');return; }
+    if(slot==='binoculars') { toast('Бинокль поднят. Опиши, какую соседнюю локацию осмотреть.','info'); return; }
+    if(slot==='bolt') { const result=state.game.activeEncounter?throwBoltInCombat(state.game):deactivateAnomaly(state.game); persist();render();toast(result.message||'Болт проверил направление.','info');return; }
     if(item.weapon&&item.weapon!=='grenade') { const result=selectWeapon(state.game,selected); persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
-    if(item.use) { const result=useItem(state.game,selected); persist(); render(); toast(result.message,result.ok?'success':'warning'); return; }
+    if(item.use) { const result=state.game.activeEncounter?useItemInCombat(state.game,selected):useItem(state.game,selected); if(result.ok&&!state.game.activeEncounter) advanceGame(state.game,1); if(result.ok){state.game.consumptionAnimation={itemId:selected,until:Date.now()+1500};setTimeout(()=>{if(state.game?.consumptionAnimation?.itemId===selected){state.game.consumptionAnimation=null;persist();if(state.screen==='game')render();}},1550);} persist();render();toast(result.message,result.ok?'success':'warning');return; }
     toast('В этом слоте пока нет действия.','info'); return;
   }
   if (action==='equip-armor') {
@@ -623,6 +666,7 @@ root.addEventListener('click', (event) => {
   if (action==='use-item') {
     const result=state.game.activeEncounter?useItemInCombat(state.game,id):useItem(state.game,id);
     if (result.ok && !state.game.activeEncounter) advanceGame(state.game,1);
+    if (result.ok) { state.game.consumptionAnimation={itemId:id,until:Date.now()+1500}; setTimeout(()=>{ if(state.game?.consumptionAnimation?.itemId===id){state.game.consumptionAnimation=null;persist();if(state.screen==='game')render();}},1550); }
     persist(); render(); toast(result.message,result.ok?'success':'warning'); return;
   }
   if (action==='drop-item') {
@@ -644,7 +688,7 @@ root.addEventListener('click', (event) => {
   }
   if (action==='talk') {
     const result=talkToNpc(state.game,id);
-    if (result.ok) state.game.dialogueNpcId=id;
+    if (result.ok) { state.ui.modal=null; state.game.dialogueNpcId=id; }
     persist(); render(); if (!result.ok) toast(result.message,'warning'); return;
   }
   if (action==='dialogue-topic') {
@@ -699,6 +743,8 @@ root.addEventListener('click', (event) => {
   }
   if (action==='player-stop' || action==='radio-stop') { stopMusic(); return; }
   if (action==='radio-toggle') { toggleBaseRadio(); return; }
+  if (action==='radio-on') { const station=getRadioStationForLocation(state.game?.locationId); if(station && state.ui.music?.stationId===station.id && String(state.ui.music?.mode||'').startsWith('radio') && state.ui.music?.trackId){toast(`Радио ${station.name} уже включено.`,'info');return;} startBaseRadio(); return; }
+  if (action==='radio-off') { if(String(state.ui.music?.mode||'').startsWith('radio')) stopMusic(); else toast('Радио уже выключено.','info'); return; }
   if (action==='radio-next') { if (state.ui.music?.mode==='radio') advanceMusic(false,1); else startBaseRadio(); return; }
   if (action==='player-play-track') {
     if(state.ui.music?.mode==='local' && state.ui.music.trackId===id) toggleMusic();
@@ -714,11 +760,11 @@ root.addEventListener('click', (event) => {
 });
 
 root.addEventListener('input', (event) => {
-  if (event.target.name==='faction') { state.draft.faction=event.target.value; state.draft.avatar=''; state.draft.appearance=''; persist(); render(); return; }
+  if (event.target.name==='faction') { state.draft.faction=event.target.value; persist(); render(); return; }
   const field=event.target.dataset.field;
   if (field) {
     state.draft[field]=event.target.value;
-    if (field==='faction') { state.draft.avatar=''; state.draft.appearance=''; render(); }
+    if (field==='faction') render();
     persist();
   }
   const setting=event.target.dataset.setting;
@@ -729,31 +775,11 @@ root.addEventListener('input', (event) => {
 });
 
 root.addEventListener('change', async (event) => {
-  if (event.target.id==='local-music-files' && event.target.files?.length) {
-    const added=musicEngine.addFiles(event.target.files);
-    state.ui.localMusicTracks=[...(state.ui.localMusicTracks||[]),...added];
-    persist(); render(); toast(added.length?`Добавлено файлов: ${added.length}. Они доступны и в радио баз.`:'Не нашёл поддерживаемые аудиофайлы.','info'); return;
-  }
-  if (event.target.id==='local-music-archive' && event.target.files?.length) {
-    const archive=event.target.files[0];
-    event.target.value='';
-    try {
-      toast('Читаю ZIP-архив локально…','info');
-      const files=await extractAudioFilesFromZip(archive);
-      const added=musicEngine.addFiles(files);
-      state.ui.localMusicTracks=[...(state.ui.localMusicTracks||[]),...added];
-      persist(); render();
-      toast(`Импортировано треков: ${added.length}. Они доступны в плеере и радио баз.`,'success');
-    } catch (error) {
-      toast(error?.message||'Не удалось прочитать музыкальный архив.','warning');
-    }
-    return;
-  }
-  if (event.target.name==='faction') { state.draft.faction=event.target.value; state.draft.avatar=''; state.draft.appearance=''; persist(); render(); return; }
+  if (event.target.name==='faction') { state.draft.faction=event.target.value; persist(); render(); return; }
   const field=event.target.dataset.field;
   if (field) {
     state.draft[field]=event.target.value;
-    if (field==='faction') { state.draft.avatar=''; state.draft.appearance=''; render(); }
+    if (field==='faction') render();
     persist();
   }
   const setting=event.target.dataset.setting;
@@ -949,6 +975,6 @@ setInterval(()=>{
   updateClockDisplays();
 },15000);
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=297').catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=298').catch(()=>{}));
 }
 render();

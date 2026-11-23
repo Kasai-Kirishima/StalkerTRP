@@ -303,10 +303,10 @@ for (const faction of FACTIONS) {
 
 // Starter economy supports a practical multi-item kit and distinct leather jacket/cosukha art.
 assert.equal(START_BUDGET,5000,'starting budget should allow one practical faction kit without funding an advanced loadout');
-assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=297"),'service worker registration URL should refresh with the release');
+assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=298"),'service worker registration URL should refresh with the release');
 const serviceWorkerSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8');
 assert.ok(serviceWorkerSource.includes('./src/data/bundled-music.js')&&serviceWorkerSource.includes('./src/data/radio-stations.js'),'offline shell should cache the built-in music manifest and base radio station data');
-assert.ok(serviceWorkerSource.includes('cordon-pda-v2970-mobile-quest-equipment'),'service worker cache name should change for the current release');
+assert.ok(serviceWorkerSource.includes('cordon-pda-v2980-mobile-quest-equipment'),'service worker cache name should change for the current release');
 const swUrl=new URL('../sw.js',import.meta.url);
 const precachePaths=[...serviceWorkerSource.matchAll(/\"(\.\/[^\"]+)\"/g)].map(match=>match[1]);
 assert.ok(precachePaths.length>=150,'the offline shell should include the expanded artwork bundle');
@@ -515,7 +515,8 @@ legacyStockGame.economyVersion=0;
 legacyStockGame.traders.find(t=>t.id==='sidorovich').stock.find(entry=>entry.id==='bread').price=1;
 const migratedSidorovich=getAvailableTraders(legacyStockGame,'sidorovich-bunker').find(t=>t.id==='sidorovich');
 assert.ok(migratedSidorovich.stock.find(entry=>entry.id==='bread').price>1,'old saves should receive new trader prices without losing stock');
-assert.equal(legacyStockGame.economyVersion,3,'old saves should be marked with the current economy version');
+assert.equal(legacyStockGame.economyVersion,4,'old saves should be marked with the current economy version');
+assert.ok(['zarya','berill','stalnoishlem','pg4'].every(id=>migratedSidorovich.stock.some(entry=>entry.id===id)),'Sidorovich legacy stock should receive the newly catalogued protective gear');
 assert.ok(migratedSidorovich.stock.every(entry=>!['tail','flesh-eye','medusa','meat_chunk','gravi'].includes(entry.id)),'legacy saves must be migrated off mutant/artifact sale stock');
 
 // Trader locations: Shnurok on ATP, military quartermaster at southern checkpoint.
@@ -523,6 +524,10 @@ shopGame.locationId='atp';
 assert.ok(getAvailableTraders(shopGame).some(trader=>trader.id==='shnurok'));
 shopGame.locationId='south-checkpoint';
 assert.ok(getAvailableTraders(shopGame).some(trader=>trader.id==='kapterka'));
+const kapterkaStock=getAvailableTraders(shopGame,'south-checkpoint').find(trader=>trader.id==='kapterka').stock;
+assert.ok(['zarya','berill','stalnoishlem','pg4'].every(id=>kapterkaStock.some(entry=>entry.id===id)),'military quartermaster should stock all newly added protective items');
+const shnurokStock=getAvailableTraders(shopGame,'atp').find(trader=>trader.id==='shnurok').stock;
+assert.ok(['kosyha','stalnoishlem','pg4'].every(id=>shnurokStock.some(entry=>entry.id===id)),'ATP trader should stock faction-appropriate protective items');
 
 // Every local stalker can be approached and offered a trade, including generated squad members.
 const contactGame=createGame({name:'Контакт',faction:'loner'},[],START_BUDGET);
@@ -589,7 +594,7 @@ assert.deepEqual(ITEM_ACQUISITION.mutantDrops,['tail','flesh-eye']);
 assert.deepEqual(ITEM_ACQUISITION.artifactHunt,['medusa','meat_chunk','gravi']);
 assert.ok(ITEM_ACQUISITION.traderOnly.every(id=>!STARTER_ITEM_IDS.includes(id)));
 assert.ok(ITEM_ACQUISITION.searchOnly.every(id=>!STARTER_ITEM_IDS.includes(id)));
-for (const restricted of ['aksu','ammo545','psz5','aurora','optik','zarya','otklik','flash','tail','flesh-eye','medusa','meat_chunk','gravi']) {
+for (const restricted of ['aksu','ammo545','psz5','aurora','optik','zarya','kosyha','otklik','flash','tail','flesh-eye','medusa','meat_chunk','gravi']) {
   assert.ok(!STARTER_ITEM_IDS.includes(restricted),`${restricted} must not be in starter selection`);
   assert.equal(canFitLoadout({},restricted,1,START_BUDGET).ok,false,`${restricted} must be blocked from starter selection`);
 }
@@ -685,7 +690,8 @@ const createHtml=renderCreate(uiState);
 assert.ok(createHtml.includes('generate-stalker-name') && createHtml.includes('Случайное имя'),'character creation should offer the built-in random stalker name generator');
 assert.ok(createHtml.includes('open-avatars') && createHtml.includes('open-appearances') && createHtml.includes('appearance-upload') && createHtml.includes('ПРИНАДЛЕЖНОСТЬ К ГРУППИРОВКЕ'),'portrait and full-body appearance should be independently selectable and uploadable');
 assert.ok(createHtml.includes('pda-screen-wrap') && createHtml.includes('kpkfon.webp'),'character creation must use the provided PDA housing');
-assert.ok(!createHtml.includes('faction-insignia') && !createHtml.includes('rank-insignia') && !createHtml.includes('⚑'),'faction selection must not show an extra flag/badge below faction names');
+assert.ok(createHtml.includes('faction-choice-insignia'),'faction choices should display their group insignia');
+assert.ok(createHtml.includes('pda-extra-details') && createHtml.includes('Дополнительные данные персонажа'),'optional biography data should be collapsed so the character form stays compact');
 assert.ok(createHtml.includes('Стартовую локацию') || createHtml.includes('стартовую локацию'),'faction selection should explain its effect without extra badges');
 assert.ok(renderLoadout(uiState).includes('СТАРТОВАЯ ПОДБОРКА'));
 assert.ok(renderLoadout(uiState).includes('Плащ') && renderLoadout(uiState).includes('до 3 шт.'),'beginner characters should be able to choose a faction-allowed cloak and several basic supplies');
@@ -694,7 +700,9 @@ const idleViewState={...uiState,game:createGame(character,[],START_BUDGET)};
 const closedPdaHtml=renderGame(idleViewState);
 assert.ok(closedPdaHtml.includes('КПК') && closedPdaHtml.includes('pda-toggle-button'));
 assert.ok(!closedPdaHtml.includes('aria-label="Разделы КПК"'),'PDA tabs must stay hidden until the device is opened');
-assert.ok(closedPdaHtml.includes('scene-gm') && closedPdaHtml.includes('scene-entry-actions'),'the closed-PDA game view should show the location narrative and scene actions');
+assert.ok(closedPdaHtml.includes('scene-gm'),'the closed-PDA game view should show the location narrative');
+assert.ok(!closedPdaHtml.includes('scene-places') && !closedPdaHtml.includes('scene-interactions'),'the lower-left world data/functions panel should be removed');
+assert.ok(closedPdaHtml.includes('equipment-hotbar') && closedPdaHtml.includes('quick-hotbar'),'the world view should show weapon and four quick-use slots under the weapon panel');
 assert.ok(/weapon-hud (?:left|right) idle/.test(closedPdaHtml) && !closedPdaHtml.includes('data-action="combat-attack"'),'exploration should use a compact equipment HUD without disabled combat controls');
 uiState.ui.pdaOpen=true;
 assert.ok(renderGame(uiState).includes('aria-label="Разделы КПК"'),'opening the PDA should reveal tabs across the top');
@@ -702,22 +710,23 @@ uiState.game.locationId='rookie-village';
 uiState.ui.pdaOpen=false;
 uiState.ui.tab='location';
 const locationHtml=renderGame(uiState);
-assert.ok(locationHtml.includes('Радио Деревни новичков') && locationHtml.includes('data-action="radio-toggle"'),'Rookie Village should expose its local base radio panel');
-assert.ok(locationHtml.includes('Добавь музыку через КПК → Плеер') && locationHtml.includes('data-action="radio-toggle"'),'base radio should direct the player to import local music when the library is empty');
+assert.ok(!locationHtml.includes('data-action="radio-toggle"') && !locationHtml.includes('Радио Деревни новичков'),'base radio must be activated by natural command, not shown as a HUD panel');
+assert.equal(getRadioStationForLocation('rookie-village')?.id,'loner-village','Rookie Village should expose its radio only through the interaction system');
 assert.equal(getRadioStationForLocation('atp')?.id,'bandit-atp','the ATP bandit base should have its own radio station');
-assert.equal(getRadioStationForLocation('forest-camp')?.id,'loner-forest','the forest camp should have a local radio station');
-assert.ok(getRadioStationForLocation('north-checkpoint') && getRadioStationForLocation('bridge-checkpoint') && getRadioStationForLocation('south-checkpoint'),'military checkpoints should share the military radio network');
+assert.equal(getRadioStationForLocation('forest-camp'),null,'ordinary forest camp should not expose a radio function');
+assert.equal(getRadioStationForLocation('north-checkpoint'),null,'radio should not appear at every military outpost');
+assert.equal(getRadioStationForLocation('south-checkpoint')?.id,'south-checkpoint','South Checkpoint should have its own radio station');
 assert.equal(getRadioStationForLocation('elevator'),null,'ordinary travel locations should not expose base radios');
-assert.equal(RADIO_STATIONS.length,4,'the Cordon should have four base radio networks');
-for(const track of BUNDLED_MUSIC_TRACKS) assert.ok(fs.existsSync(new URL(track.url)),`bundled music file should exist: ${track.fileName}`);
+assert.equal(RADIO_STATIONS.length,3,'only the Rookie Village, ATP and South Checkpoint should have radio points');
+assert.equal(BUNDLED_MUSIC_TRACKS.length,71,'the built-in music title catalog should contain the 71 names from the supplied music folder');
+for(const track of BUNDLED_MUSIC_TRACKS) assert.ok(track.source==='catalog' && track.title && !track.url,'the website should embed music titles only, without requiring a local import or claiming audio is bundled');
 const originalDocument=globalThis.document;
 const fakeAudio={listeners:{},src:'',paused:true,addEventListener(type,fn){this.listeners[type]=fn;},load(){},async play(){this.paused=false;return true;},pause(){this.paused=true;},removeAttribute(name){if(name==='src')this.src='';}};
 globalThis.document={createElement(tag){assert.equal(tag,'audio');return fakeAudio;},body:{appendChild(){}}};
 try { const engine=createMusicEngine(); const sample={id:'bundled-smoke',title:'Проверочный эфир',url:'./assets/music/smoke.ogg',fileName:'smoke.ogg',stations:['loner-village']}; const [meta]=engine.addBundledTracks([sample]); assert.equal(meta.source,'bundled'); assert.equal(engine.count,1); assert.equal(await engine.play(meta),true); assert.equal(fakeAudio.src,sample.url); engine.stop(); engine.clear(); } finally { if(originalDocument===undefined) delete globalThis.document; else globalThis.document=originalDocument; }
 assert.ok(!/https?:\/\//i.test(locationHtml),'the location scene must not add external music URLs');
 assert.ok(!locationHtml.includes('music-dock'),'the bottom music dock should remain removed');
-assert.ok(locationHtml.includes('npc-scene-portrait') && locationHtml.includes('npc-scene-body') && locationHtml.includes('npc-talk-icon'),'nearby NPCs should have separate portrait/body cells and a talk icon');
-assert.equal((locationHtml.match(/class="npc-interaction"/g)||[]).length,Math.min(2,getAvailableStalkers(uiState.game,uiState.game.locationId).length),'the world scene must not expand into a full roster panel');
+assert.ok(!locationHtml.includes('npc-interaction'),'the player should request nearby contacts instead of having an NPC strip permanently open over the scene');
 assert.ok(locationHtml.includes('Купонов') && !/\bRU\b/.test(locationHtml),'all balances should use the in-world Coupons currency label');
 addItem(game.inventory,'bread',1);
 addItem(game.inventory,'water',1);
@@ -741,18 +750,16 @@ const remoteRadioState={...uiState,game:{...uiState.game,locationId:'elevator'}}
 assert.ok(!renderGame(remoteRadioState).includes('Радио'),'no location should expose an internet radio station');
 uiState.ui.pdaOpen=true;
 uiState.ui.tab='player';
-uiState.ui.localMusicTracks=[{id:'local-test-1',title:'Тестовая композиция',fileName:'test.ogg',size:1024}];
-uiState.ui.music={mode:'local',trackId:'local-test-1',queue:['local-test-1'],index:0,playing:false};
+uiState.ui.localMusicTracks=BUNDLED_MUSIC_TRACKS;
+uiState.ui.music={mode:'catalog',trackId:BUNDLED_MUSIC_TRACKS[0].id,queue:BUNDLED_MUSIC_TRACKS.map(t=>t.id),index:0,playing:false};
 const playerHtml=renderGame(uiState);
 assert.ok(playerHtml.includes('Музыкальная библиотека'));
-assert.ok(playerHtml.includes('local-music-files'));
-assert.ok(playerHtml.includes('Выбрать папку Music') && playerHtml.includes('local-music-archive') && playerHtml.includes('Импортировать ZIP')); 
 assert.ok(playerHtml.includes('player-play-track'));
-assert.ok(playerHtml.includes('Импортированные треки доступны и радиостанциям на базах')); 
+assert.ok(playerHtml.includes('71 треков') && playerHtml.includes('Каталог названий встроен'));
+assert.ok(!playerHtml.includes('Импортировать ZIP') && !playerHtml.includes('local-music-archive') && !playerHtml.includes('Выбрать папку Music'),'the player must use its built-in title catalog without asking for import'); 
 const musicRuntimeSource=['src/systems/music.js','src/systems/music-archive.js','src/main.js','src/ui/views.js'].map(file=>fs.readFileSync(new URL(`../${file}`,import.meta.url),'utf8')).join('\n');
 assert.ok(!/iframe|videoId|youtube\.com|youtu\.be|spotify\.com|radio\./i.test(musicRuntimeSource),'music runtime must not embed remote players or network radio streams');
-assert.ok(musicRuntimeSource.includes('addBundledTracks') && musicRuntimeSource.includes("source==='bundled'"),'PDA and base radios should share the same bundled-track audio engine');
-assert.ok(musicRuntimeSource.includes('extractAudioFilesFromZip') && musicRuntimeSource.includes("track.source==='local'"),'locally imported ZIP tracks should be usable by base radio stations');
+assert.ok(musicRuntimeSource.includes('addBundledTracks') && musicRuntimeSource.includes("source==='catalog'"),'PDA and base radios should share the built-in title catalog');
 uiState.ui.tab='trade';
 uiState.ui.tradeNpcId='sidorovich';
 uiState.game.locationId='sidorovich-bunker';
@@ -776,20 +783,22 @@ uiState.ui.modal='map-location';
 uiState.ui.mapLocationId='anomaly-dump';
 const mapModal=renderModal(uiState);
 assert.ok(mapModal.includes('Тайный лагерь') && mapModal.includes('Воронка') && mapModal.includes('ВИЗУАЛЬНЫЙ ОРИЕНТИР'));
-assert.ok(mapModal.includes('МЕСТА В ЭТОЙ ЛОКАЦИИ') && mapModal.includes('ЦЕЛИ ЗАДАНИЙ В ЭТОЙ ЛОКАЦИИ'),'the selected map point should own its local places and quest targets');
+assert.ok(!mapModal.includes('Проложить путь') && !mapModal.includes('Время пешком') && !mapModal.includes('Соседних переходов'),'the map point popup should show only a marker description, not route or path data');
 uiState.ui.modal='avatars';
 const avatarModal=renderModal(uiState);
-assert.ok(avatarModal.includes('Волк') && !avatarModal.includes('Сидорович'),'loner avatar picker should offer only complete matching portrait/body sets');
+assert.ok(avatarModal.includes('Волк') && avatarModal.includes('Кефир') && avatarModal.includes('Дмитрий Дзержинский'),'portrait and appearance options should be available across all factions');
 assert.ok(avatarModal.includes('avatar-option-single portrait-only') && avatarModal.includes('data-action="choose-avatar"'),'portrait picker should show only the portrait and keep appearance selection independent');
-assert.ok(!avatarModal.includes('Кефир') && !avatarModal.includes('Дмитрий Дзержинский'),'loner avatar picker must not mix in bandit or military appearances');
+assert.ok(avatarModal.includes('ОБЩИЙ КАТАЛОГ') && avatarModal.includes('не зависит от группировки'),'the picker must explicitly allow cross-faction portrait and appearance selection');
 const banditAvatarModal=renderModal({...uiState,draft:{...uiState.draft,faction:'bandit'},ui:{...uiState.ui,modal:'avatars'}});
-assert.ok(banditAvatarModal.includes('avatar-option-single portrait-only') && banditAvatarModal.includes('Кефир'));
+assert.ok(banditAvatarModal.includes('avatar-option-single portrait-only') && banditAvatarModal.includes('Волк') && banditAvatarModal.includes('Дмитрий Дзержинский'));
 const banditAppearanceModal=renderModal({...uiState,draft:{...uiState.draft,faction:'bandit'},ui:{...uiState.ui,modal:'avatars',avatarPickMode:'appearance'}});
 assert.ok(banditAppearanceModal.includes('avatar-option-body') && banditAppearanceModal.includes('data-action="choose-appearance"') && !banditAppearanceModal.includes('portrait-only'),'appearance picker should show body art without coupling it to portraits');
-assert.equal((banditAvatarModal.match(/class="avatar-option-single portrait-only"/g)||[]).length,8,'bandit portrait picker should show seven separate portrait choices');
-assert.equal((banditAppearanceModal.match(/class="avatar-option-body"/g)||[]).length,8,'bandit appearance picker should show seven separate body choices');
+assert.equal((banditAvatarModal.match(/class="avatar-option-single portrait-only"/g)||[]).length,20,'portrait picker should show the complete cross-faction catalog');
+assert.equal((banditAppearanceModal.match(/class="avatar-option-body"/g)||[]).length,20,'appearance picker should show the complete cross-faction catalog');
+assert.ok(AVATAR_OPTIONS.every(option=>option.src&&option.appearance&&option.insignia),'every appearance option should contain a portrait, full-body art and faction insignia');
+assert.ok(ASSETS.rankInsignias['Капитан']&&ASSETS.rankInsignias['Старший сержант'],'military ranks should have their own rank insignia assets');
 const militaryAvatarModal=renderModal({...uiState,draft:{...uiState.draft,faction:'military'},ui:{...uiState.ui,modal:'avatars'}});
-assert.ok(militaryAvatarModal.includes('Дмитрий Дзержинский') && !militaryAvatarModal.includes('Кефир'),'military avatar picker should only show military faction appearances');
+assert.ok(militaryAvatarModal.includes('Дмитрий Дзержинский') && militaryAvatarModal.includes('Кефир') && militaryAvatarModal.includes('Волк'),'military avatar picker should also allow cross-faction appearances');
 uiState.ui.tab='stats';
 const statsHtml=renderGame(uiState);
 assert.ok(statsHtml.includes('profile-edit-form') && statsHtml.includes('Выбрать портрет'),'PDA statistics must provide editable character dossier');
@@ -797,7 +806,7 @@ assert.ok(statsHtml.includes('profile-heading-art') && statsHtml.includes('facti
 // PDA tabs keep inventory/trade/radio out; these remain location or independent overlays.
 const tabState={...uiState,ui:{...uiState.ui,pdaOpen:true,tab:'location',modal:null,mapView:'map'}};
 const tabMarkup=renderGame(tabState);
-assert.ok(tabMarkup.includes('Карта Кордона') && tabMarkup.includes('map-route-lines'),'opening the PDA on an obsolete scene tab should default to the route map');
+assert.ok(tabMarkup.includes('Карта Кордона') && tabMarkup.includes('map-pins') && tabMarkup.includes('point-only') && !tabMarkup.includes('map-route-lines'),'opening the PDA on an obsolete scene tab should default to a pin-only map without routes');
 assert.ok(tabMarkup.includes('kpkfon.webp') && tabMarkup.includes('--pda-shell:url'),'the PDA should use the supplied device bezel as its background');
 assert.ok(!tabMarkup.includes('data-tab="location"') && !tabMarkup.includes('>Местность<'),'the PDA must not expose a separate Local Area tab');
 assert.ok(!tabMarkup.includes('data-tab="inventory"')&&!tabMarkup.includes('data-tab="trade"')&&!tabMarkup.includes('data-tab="radio"'));
@@ -838,14 +847,14 @@ const wolfMapGame=createGame(character,[],START_BUDGET);
 acceptWolfDogQuest(wolfMapGame);
 const wolfMapState={...questVisibilityState,game:wolfMapGame,ui:{...questVisibilityState.ui,modal:'map-location',mapLocationId:'trailer'}};
 const wolfTrailerModal=renderModal(wolfMapState);
-assert.ok(wolfTrailerModal.includes('Собаки у вагончика') && wolfTrailerModal.includes('0/5'));
+assert.ok(wolfTrailerModal.includes('Вагончик') && !wolfTrailerModal.includes('0/5'),'map pins must stay simple and not embed quest routes or progress');
 const conversationGame=createGame(character,[],START_BUDGET);
 conversationGame.locationId='rookie-village';
 talkToNpc(conversationGame,'wolf');
 const plainDialogueHtml=renderGame({screen:'game',characters:[character],activeCharacterId:'smoke',settings:{},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:'local',queue:[],index:0,playing:false}},game:conversationGame});
 const plainDialogueBlock=plainDialogueHtml.match(/<main class=\"dialogue-simple\"[\s\S]*?<\/main>/)?.[0]||'';
 assert.ok(plainDialogueBlock.includes('dialogue-line') && plainDialogueBlock.includes('Волк'),'dialogue should use a simple name-and-text transcript');
-assert.ok(!plainDialogueBlock.includes('<img') && !plainDialogueBlock.includes('npc-scene-body') && !plainDialogueBlock.includes('enemy-body-art'),'dialogue should not embed a character appearance image');
+assert.ok(plainDialogueBlock.includes('dialogue-profile-portrait') && plainDialogueBlock.includes('faction-insignia') && plainDialogueBlock.includes('rank-insignia') && !plainDialogueBlock.includes('npc-scene-body') && !plainDialogueBlock.includes('enemy-body-art'),'dialogue should show portrait, faction and rank marks without a full body image');
 assert.ok(!plainDialogueBlock.includes('<label for="npc-message">') && !plainDialogueBlock.includes('Сообщение будет учтено'),'dialogue should avoid redundant explanatory copy');
 const conversationReply=replyNpcFreeText(conversationGame,'wolf','Что случилось возле вагончика и почему собаки нападают на новичков?');
 assert.equal(conversationReply.ok,true);
@@ -950,6 +959,26 @@ assert.ok(getAvailableTraders(freeTradeGame).find(person=>person.id===ambientTra
 const generalTradeAction=processPlayerAction(freeTradeGame,`торговать с ${ambientTrader.name}`);
 assert.equal(generalTradeAction.action,'trade','the general action field should open trading when the player names a nearby NPC');
 assert.equal(generalTradeAction.npcId,ambientTrader.id);
+
+// Natural RP approach phrases open a nearby-person picker or a named NPC dialogue.
+const approachGame=createGame({name:'Подойти к сталкеру',faction:'loner'},[],START_BUDGET);
+approachGame.locationId='rookie-village';
+const genericApproach=processPlayerAction(approachGame,'Я подошёл к сталкеру.');
+assert.equal(genericApproach.action,'nearby-people','generic approach RP should show people nearby');
+const namedApproach=processPlayerAction(approachGame,'Я подошёл к Волку.');
+assert.equal(namedApproach.action,'dialogue','a named approach should open the matching NPC dialogue');
+assert.equal(namedApproach.npcId,'wolf');
+const conversationalGame=createGame({name:'Разговор',faction:'loner'},[],START_BUDGET);
+conversationalGame.locationId='rookie-village';
+for(const [phrase,intent] of [['Как ты сюда попал?','backstory'],['Чем сейчас занят?','activity'],['Откуда у тебя снаряга?','equipment'],['Кто ты такой?','identity'],['Дай совет.','advice']]){const answer=replyNpcFreeText(conversationalGame,'wolf',phrase);assert.ok(answer.ok&&answer.message.length>30,`Wolf should answer naturally: ${phrase}`);assert.equal(conversationalGame.dialogueContext.lastIntent,intent,`dialogue AI should resolve intent: ${phrase}`);}
+
+// Radio commands are only available at the three configured bases and on/off commands are distinct.
+const radioGame=createGame({name:'Радио',faction:'loner'},[],START_BUDGET);
+radioGame.locationId='rookie-village';
+assert.equal(processPlayerAction(radioGame,'включи радио').action,'radio-on');
+assert.equal(processPlayerAction(radioGame,'выключи радио').action,'radio-off');
+radioGame.locationId='farmstead';
+assert.match(processPlayerAction(radioGame,'включи радио').message,/Радиоприёмники доступны/);
 
 
 
@@ -1145,7 +1174,7 @@ assert.ok(carouselFailure.message.includes('выбрасывает') && carousel
 const bunkerSceneGame=createGame({name:'Проверка входа',faction:'loner'},[],START_BUDGET);
 bunkerSceneGame.locationId='rookie-village';
 const bunkerSceneHtml=renderGame({game:bunkerSceneGame,characters:[{id:'test',name:'Проверка',faction:'loner'}],activeCharacterId:'test',settings:{},ui:{tab:'location',pdaOpen:false}});
-assert.ok(bunkerSceneHtml.includes('В подвал к Сидоровичу'),'rookie village should expose a visible entrance to Sidorovich bunker');
+assert.ok(bunkerSceneHtml.includes('К Сидоровичу') && bunkerSceneHtml.includes('data-id="sidorovich-bunker"'),'rookie village should expose a clear entrance to Sidorovich bunker');
 bunkerSceneGame.locationId='sidorovich-bunker';
 const bunkerExitHtml=renderGame({game:bunkerSceneGame,characters:[{id:'test',name:'Проверка',faction:'loner'}],activeCharacterId:'test',settings:{},ui:{tab:'location',pdaOpen:false}});
 assert.ok(bunkerExitHtml.includes('Выйти в деревню'),'Sidorovich bunker should expose a visible return route');

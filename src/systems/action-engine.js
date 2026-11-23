@@ -3,6 +3,7 @@ import { addLog, describeLocation, searchLocation, talkToNpc, replyNpcFreeText, 
 import { playerAttack, beginEncounter, combatTextAction } from './combat.js';
 import { useItem, countItem, removeItem, addItem } from './inventory.js';
 import { containsReferencePronoun, getRememberedEntity, rememberEntity, grammaticalGender, genderedSubject, pronounInDative, tokenizeRussian, stemRussianWord } from './russian-language.js';
+import { getRadioStationForLocation } from '../data/radio-stations.js';
 
 const random = (items) => items[Math.floor(Math.random()*items.length)];
 const normalize = (value) => String(value || '').toLowerCase().replaceAll('ё','е').replace(/[«»„“”"'`]/g,' ').replace(/[^а-яa-z0-9-]+/g,' ').trim().replace(/\s+/g,' ');
@@ -122,6 +123,31 @@ export function processPlayerAction(game, rawText) {
   const named=rememberMention(game,text);
   const reference=resolveReference(game,text);
 
+  // Radio is a local base interaction, activated through natural-language commands.
+  const radioStation=getRadioStationForLocation(game.locationId);
+  if (/(выключи(ть)?|отключи(ть)?|останови(ть)?)\s+радио|радио\s+(выключи|отключи|останови)/.test(text)) {
+    if (!radioStation) return {message:'Радиоприёмники доступны на АТП, в Деревне новичков и на Южном блокпосте.'};
+    return {message:`Ты выключаешь радиоприёмник: ${radioStation.name}.`,action:'radio-off'};
+  }
+  if (/(включи(ть)?|запусти(ть)?|настрой(ть)?)\s+радио|радио\s+(включи|запусти)|слушать\s+радио/.test(text)) {
+    if (!radioStation) return {message:'Радиоприёмники доступны на АТП, в Деревне новичков и на Южном блокпосте.'};
+    return {message:`Ты подходишь к радиоприёмнику. ${radioStation.name}: включаю эфирный список.`,action:'radio-on'};
+  }
+
+  // Generic approach: show nearby people so the player can choose a specific contact.
+  const approachVerb=/(подош(е|ё)л|подхожу|подойти|приблизил(ся|ась)|подбежал|направил(ся|ась) к|окликнул|поздороват(ься|ся)|обратил(ся|ась)|заговорить|поговорить|хочу поговорить|ищу собеседник|хочу найти собеседник|к кому обратиться|подойду)/.test(text);
+  const approachPerson=/(сталкер|нпс|человек|люд|персонаж|мужик|парень|девуш|кто рядом|с кем|рядом|кого-нибудь|кого нибудь)/.test(text);
+  const approachIntent=approachVerb&&(approachPerson||named?.type==='npc');
+  if (approachIntent && named?.type!=='npc') {
+    const nearby=getAvailableStalkers(game,game.locationId);
+    if (!nearby.length) return {message:'Поблизости никого нет. Можно осмотреться или пройти к костру.'};
+    return {message:`Ты осматриваешься рядом. Поблизости ${nearby.length} ${nearby.length===1?'человек':nearby.length<5?'человека':'человек'}. Выбери, к кому обратиться.`,action:'nearby-people'};
+  }
+  if (approachIntent && named?.type==='npc' && named.entity?.location===game.locationId) {
+    const person=getAvailableStalkers(game,game.locationId).find(entry=>entry.id===named.entity.id);
+    if (person) return {message:`Ты подходишь к ${person.name}.`,action:'dialogue',npcId:person.id};
+  }
+
   // Торговлю можно открыть прямо из общего поля действий: укажи NPC по имени
   // или просто напиши «торговать», чтобы выбрать ближайшего собеседника.
   const tradeIntent=/(торг|обмен|сделк|купить|покуп|продать|продаж|покажи товар|открой торгов)/.test(text);
@@ -170,7 +196,7 @@ export function processPlayerAction(game, rawText) {
     const jokes=['Сталкер спрашивает у торговца: «А скидка будет?» — «Будет. Но сначала найди товар по полной цене».','На Кордоне даже компас иногда показывает на Сидоровича. Видимо, у него магнит для Купонов.','Новичок спрашивает: «Где тут безопасно?» Ему отвечают: «В меню сохранения».','Сталкер говорит: «Я только посмотрю». Через час он уже считает найденные болты и спорит с детектором.'];
     return {message:`Ты просишь рассказать анекдот. ${random(jokes)}`};
   }
-  if (/(слушать музыку|послушать музыку|включить музыку|поставить музыку|открыть плеер|музыку в кпк)/.test(text)) return {message:'Открываю локальный музыкальный плеер КПК. Выбери файлы со своего устройства.',action:'player-open'};
+  if (/(слушать музыку|послушать музыку|включить музыку|поставить музыку|открыть плеер|музыку в кпк)/.test(text)) return {message:'Открываю встроенный каталог музыкальных названий в КПК.',action:'player-open'};
   if (/(побухать|выпить водки|напиться)/.test(text)) return {message:'У костра можно спокойно посидеть с горячим чаем, перекусить и послушать истории местных.'};
   if (/(украсть|стащить|своровать|обчистить)/.test(text)) {
     const people=getAvailableStalkers(game,game.locationId).filter(person=>person.id!==game.dialogueNpcId);
