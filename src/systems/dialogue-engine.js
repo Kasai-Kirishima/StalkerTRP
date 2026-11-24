@@ -1,4 +1,5 @@
-import { LOCATIONS } from '../data/catalog.js';
+import { LOCATIONS, NPCS } from '../data/catalog.js';
+const UNIQUE_NPC_IDS = new Set(NPCS.map(entry=>entry.id));
 
 // Procedural dialogue lexicon for local, context-aware NPC conversations.
 // The engine intentionally uses phrase families rather than exact button topics.
@@ -6,6 +7,12 @@ const normalize = value => String(value || '').toLowerCase().replaceAll('ё','е
   .replace(/[«»„“”"']/g,' ').replace(/[^а-яa-z0-9 -]/g,' ')
   .replace(/\s+/g,' ').trim();
 const pick = list => list[Math.floor(Math.random()*list.length)];
+const stablePick = (list, seed='') => {
+  if (!Array.isArray(list) || !list.length) return '';
+  let hash=2166136261;
+  for (const char of String(seed)) hash=Math.imul(hash ^ char.charCodeAt(0),16777619);
+  return list[(hash>>>0)%list.length];
+};
 
 const INTENTS = [
   {id:'sidorovich_info', keys:['кто такой сидорович','кто такой сидорович?','кто это сидорович','что за сидорович','расскажи о сидоровиче','расскажи про сидоровича','где найти сидоровича','чем занимается сидорович']},
@@ -204,7 +211,7 @@ const BANDIT_REPLIES = {
   unrecognized:['Ты чё несёшь, фраер? Давай без ребусов, малява должна быть понятной.','Ты рамсы попутал или вопрос такой хитрый? Повтори нормально.','Меньше слов, больше смысла. Чё узнать-то хотел?','У тебя базар как после трёх бутылок. Давай ещё раз, по-человечески.','Не грузи меня, браток. Я не шарада из газет.','Ты мне загадки загадываешь? На АТП за такое только смеются.','Чё за мутная тема? Скажи прямо, чего надо.','Фраер, я не экстрасенс. Сформулируй маляву яснее.','Ха, хорош заливать. А теперь спроси что-нибудь путное.','С таким базаром далеко не уедешь. Давай конкретнее.','Ты сам понял, что сказал? Ладно, попробуй ещё раз.','Не догнал я твою мысль. Переведи на человеческий.','Фраер, заканчивай этот цирк. У меня терпение не резиновое.','Иди лесом с такими загадками. Вернёшься — поговорим нормально.','Ты сейчас несёшь какую-то дичь. Давай заново, без выкрутасов.']
 };
 
-function factionOpinionReply(text,npc) {
+function factionOpinionReply(text,npc,randomize=false) {
   const target=text.includes('бандит')?'bandit':text.includes('военн')?'military':text.includes('одиноч')?'loner':text.includes('долг')?'duty':text.includes('свобод')?'freedom':text.includes('монолит')?'monolith':null;
   const opinions={
     bandit:['С бандитами всё зависит от конкретного человека. Среди них есть те, кто держит слово, но чужому человеку я бы спину не подставлял.','Бандиты привыкли решать вопросы силой и выгодой. Иногда с ними можно договориться, но цену обещаний лучше проверять делом.'],
@@ -214,9 +221,9 @@ function factionOpinionReply(text,npc) {
     freedom:['Свободовцы ценят независимость и исследования. Среди них встречаются интересные люди, хотя порой они недооценивают риск.','Свобода — хорошая вещь, пока не забываешь об ответственности за товарищей.'],
     monolith:['С Монолитом разговор короткий: держись подальше. Их поведение нельзя объяснить обычными фракционными спорами.','Сталкеры рассказывают о Монолите разное, но связываться с ними я не советую. Не всякую угрозу можно уладить словами.']
   };
-  if (target && opinions[target]) return pick(opinions[target]);
+  if (target && opinions[target]) return randomize?pick(opinions[target]):stablePick(opinions[target],`${npc?.id}:${target}`);
   const own=REPLIES.thoughts_faction[npc?.faction]||REPLIES.thoughts_faction.default;
-  return pick(own);
+  return randomize?pick(own):stablePick(own,`${npc?.id}:thoughts_faction`);
 }
 
 export function isRouteQuestion(rawText) {
@@ -433,17 +440,22 @@ export function generateDialogueReply(npc, game, rawText) {
   const factionVariants=replyIntent==='general' && npc.faction==='bandit'?BANDIT_REPLIES.unrecognized:(npc.faction==='bandit'?BANDIT_REPLIES[replyIntent]:null);
   const variants=factionVariants||pool[npc.id]||pool[npc.faction]||pool.default||REPLIES.rumor.default;
   const freshVariants=variants.filter(line=>line!==context.lastNpcText);
-  let answer=pick(freshVariants.length?freshVariants:variants);
-  if(replyIntent==='activity') answer=`Сейчас ${npc.activity||npc.personalTask||'занимаюсь своими делами'}. Вообще, ${npc.personalTask||'стараюсь не сидеть без дела'}.`;
-  if(replyIntent==='thoughts_faction') answer=factionOpinionReply(text,npc);
-  if(replyIntent==='backstory' && npc.biography) answer=`${npc.biography} ${answer}`;
-  if(replyIntent==='identity') answer=`Я ${npc.name}. ${npc.role||'Местный'} на Кордоне. ${answer}`;
-  if(replyIntent==='sidorovich_info' && npc.id==='sidorovich') answer=pick(REPLIES.sidorovich_info.sidorovich);
+  const isGenericNpc=Boolean(npc?.ambient||npc?.random||!UNIQUE_NPC_IDS.has(npc?.id));
+  const authoredLine=npc?.lines?.[replyIntent] || (replyIntent==='rumor'?npc?.lines?.rumors:null) || (replyIntent==='backstory'?npc?.biography:null);
+  // Ordinary locals vary their small-talk; named story NPCs keep authored, stable lines.
+  let answer=authoredLine || (isGenericNpc
+    ? pick(freshVariants.length?freshVariants:variants)
+    : stablePick(freshVariants.length?freshVariants:variants,`${npc?.id}:${replyIntent}`));
+  if(replyIntent==='activity') answer=`Сейчас ${npc.activity||npc.personalTask||'занимаюсь своими делами'}. ${isGenericNpc?stablePick(['День сегодня обычный, пока без неожиданностей.','Дела идут своим чередом.','Надеюсь, до вечера без лишней суеты.'],`${npc?.id}:activity`):'Стараюсь не отвлекаться от дела.'}`;
+  if(replyIntent==='thoughts_faction' && !authoredLine) answer=factionOpinionReply(text,npc,isGenericNpc);
+  if(replyIntent==='backstory' && npc.biography && !authoredLine) answer=`${npc.biography}${isGenericNpc?` ${answer}`:''}`;
+  if(replyIntent==='identity' && !authoredLine) answer=`Я ${npc.name}. ${npc.role||'Местный'} на Кордоне. ${answer}`;
+  if(replyIntent==='sidorovich_info' && npc.id==='sidorovich') answer=stablePick(REPLIES.sidorovich_info.sidorovich,'sidorovich:sidorovich_info');
   if(replyIntent==='cordon_info' && npc.location) answer+=` Сейчас я нахожусь в районе «${LOCATIONS.find(entry=>entry.id===npc.location)?.name||'Кордон'}».`;
   if(replyIntent==='direction') answer=buildRouteAdvice(npc,game,rawText);
   if(isFollowup) answer=`По поводу того, о чём говорили: ${answer}`;
   // «Янтарь» remains only a rare conversational rumour, never an item or shop stock.
-  if (String(rawText||'').trim().length>2 && Math.random()<0.025 && !answer.includes('Янтарь')) answer += ' Кстати, недавно кто-то рассказывал про плавленый сырок «Янтарь». Редкая штука, в продаже я такого не держу.';
+  if (isGenericNpc && String(rawText||'').trim().length>2 && Math.random()<0.025 && !answer.includes('Янтарь')) answer += ' Кстати, недавно кто-то рассказывал про плавленый сырок «Янтарь». Редкая штука, в продаже я такого не держу.';
   context.lastIntent=replyIntent;
   context.lastPlayerText=String(rawText||'').slice(0,300);
   context.lastNpcText=answer;

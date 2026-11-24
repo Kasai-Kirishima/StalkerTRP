@@ -1995,3 +1995,49 @@ html { zoom: var(--ui-scale, 1); }
 .main-story-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:6px;flex:0 0 auto}
 .main-story-actions .button{min-height:29px;padding:5px 9px;font-size:10px}
 @media(max-width:760px){.main-story-panel{align-items:stretch;flex-direction:column;gap:7px;margin:6px 0;padding:7px}.main-story-panel>div:first-child>b{font-size:11px}.main-story-panel p{font-size:10px}.main-story-actions{justify-content:flex-start}.main-story-actions .button{min-height:32px;font-size:10px}}
+
+/* v3.0.0 polish: picture-only avatars, quest journal actions and a left-bottom loadout. */
+.avatar-wrap{overflow:hidden;min-width:0;min-height:0;background:rgba(4,8,5,.55);}
+.avatar-wrap img{display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:cover;object-position:center;}
+.avatar-fallback{display:none!important}
+.scene-loadout-hotbar{position:absolute;z-index:10;left:12px;bottom:calc(82px + env(safe-area-inset-bottom));width:min(252px,42vw);display:grid;gap:4px;padding:6px;background:rgba(7,12,8,.84);border:1px solid rgba(143,161,99,.65);backdrop-filter:blur(4px);}
+.scene-loadout-hotbar .equipment-hotbar{grid-template-columns:repeat(3,minmax(0,1fr));}
+.scene-loadout-hotbar .quick-hotbar{grid-template-columns:repeat(4,minmax(0,1fr));}
+.scene-loadout-hotbar .equipment-hotbar-slot,.scene-loadout-hotbar .quick-hotbar-slot{min-height:36px;}
+.scene-loadout-hotbar .equipment-hotbar-slot>span{width:25px;height:25px;}
+.scene-loadout-hotbar .quick-hotbar-slot>span{width:22px;height:22px;}
+.scene-footer-minimal{right:12px!important;left:auto!important;bottom:calc(82px + env(safe-area-inset-bottom))!important;width:min(176px,27vw)!important;}
+.scene-footer-minimal .weapon-hud{padding:6px;gap:5px;}
+.scene-footer-minimal .weapon-hud-top button{display:none!important}
+.first-person-weapon.right{right:-1.5%!important;left:auto!important;}
+.first-person-weapon img{filter:drop-shadow(0 4px 5px rgba(0,0,0,.55));}
+.quest-card{animation:quest-card-enter .22s ease both;}
+.quest-symbol img{display:block;width:100%;height:100%;max-width:100%;max-height:100%;object-fit:cover;}
+.quest-card-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+.quest-card-actions .button{min-height:30px;}
+.map-toolbar p,.map-toolbar-status b{display:none!important}
+.map-frame-large .map-pin-title{display:none!important}
+.player-track{transition:background .18s,border-color .18s,transform .18s;}
+.player-track:hover{transform:translateX(2px);border-color:rgba(188,207,126,.55);}
+.npc-chip,.nearby-person,.contact-action-button{transition:transform .16s ease,border-color .16s ease,filter .16s ease;}
+.npc-chip:active,.nearby-person:active,.contact-action-button:active,.scene-loadout-hotbar button:active{transform:scale(.97);filter:brightness(1.18);}
+@keyframes quest-card-enter{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:760px){
+  .scene-loadout-hotbar{left:6px;bottom:calc(82px + env(safe-area-inset-bottom));width:min(46vw,218px);padding:4px;gap:3px;}
+  .scene-loadout-hotbar .equipment-hotbar-slot{min-height:32px;}
+  .scene-loadout-hotbar .equipment-hotbar-slot>span{width:21px;height:21px;}
+  .scene-loadout-hotbar .quick-hotbar-slot{min-height:29px;}
+  .scene-loadout-hotbar .quick-hotbar-slot>span{width:18px;height:18px;}
+  .scene-footer-minimal{right:5px!important;bottom:calc(82px + env(safe-area-inset-bottom))!important;width:min(134px,32vw)!important;}
+  .first-person-weapon{display:flex!important;width:min(26vw,132px)!important;height:clamp(62px,12vh,108px)!important;bottom:calc(88px + env(safe-area-inset-bottom))!important;right:-4%!important;opacity:.82!important;}
+  .first-person-weapon img{transform:rotate(-14deg) scale(.92)!important;}
+}
+@media(max-width:430px){
+  .scene-loadout-hotbar{width:45vw;left:4px;}
+  .scene-footer-minimal{width:122px!important;right:4px!important;}
+  .first-person-weapon{width:24vw!important;height:70px!important;bottom:calc(90px + env(safe-area-inset-bottom))!important;}
+  .scene-loadout-hotbar .equipment-hotbar-slot{min-height:28px;padding:2px;}
+  .scene-loadout-hotbar .equipment-hotbar-slot>span{width:18px;height:18px;}
+  .scene-loadout-hotbar .quick-hotbar-slot{min-height:26px;padding:2px;}
+}
+@media(prefers-reduced-motion:reduce){.quest-card,.player-track,.npc-chip,.nearby-person,.contact-action-button{animation:none!important;transition:none!important}}

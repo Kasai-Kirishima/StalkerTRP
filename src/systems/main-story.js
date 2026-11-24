@@ -111,7 +111,7 @@ export function mainStoryTalk(game, npcId) {
     const supplies=addItem(game.inventory,'supply-bundle',1);
     if (!supplies.ok) { addItem(game.inventory,'flash',1); return 'Освободи место в рюкзаке — припасы тяжёлые, без них я тебя не отправлю. Флешка пока остаётся у тебя.'; }
     story.flags.firstFlash = false;
-    addStoryReputation(game, 2); game.money += 350;
+    addStoryReputation(game, 2); game.money += 140;
     story.suppliesDeadline = (game.clock?.worldMinutes || 0) + 360;
     move(game, 'deliver-supplies', 'Сидорович рассчитался за флешку и выдал припасы для лесного лагеря.');
     return 'Ну молодец, может, и будет с тебя сталкер. Теперь познакомишься с местным контингентом. Я дам тебе припасы — отнеси их сталкерам в лесной лагерь, я отметил его на карте. Только не продавай и не трать их. Я человек порядочный и не хочу пятна на репутации. На доставку у тебя шесть часов по игровому времени.';
@@ -121,7 +121,7 @@ export function mainStoryTalk(game, npcId) {
   }
   if (npcId === 'sidorovich' && story.stage === 'return-supplies') {
     story.suppliesDelivered = true; story.suppliesDeadline = null;
-    addStoryReputation(game, 4); game.money += 250;
+    addStoryReputation(game, 4); game.money += 120;
     move(game, 'fetch-meat', 'Припасы доставлены. Сидорович выдал новое поручение: найти артефакт «Ломоть мяса».');
     return 'Порядок. Доставил всё как договаривались — это ценится. Теперь изучи аномальные явления. В Тайном лагере должен лежать артефакт «Ломоть мяса». Маршрут я отметил. Возьми детектор и не суйся в поле без проверки.';
   }
@@ -129,34 +129,34 @@ export function mainStoryTalk(game, npcId) {
     if (!removeItem(game.inventory, 'meat_chunk', 1)) return 'Артефакт должен быть у тебя. Без «Ломтя мяса» разговор короткий.';
     const gift=addItem(game.inventory,'wrapped-present',1);
     if (!gift.ok) { addItem(game.inventory,'meat_chunk',1); return 'Освободи место в рюкзаке: подарок объёмный. Артефакт пока оставь при себе.'; }
-    addStoryReputation(game, 4); game.money += 500;
+    addStoryReputation(game, 4); game.money += 220;
     move(game, 'deliver-present', 'Сидорович подготовил подарок с красивой ленточкой для командира южного блокпоста.');
     return 'Вот это уже дело. Теперь отнеси подарок командиру южного блокпоста. Я его в красивую ленточку завернул, хе-хе. Не разворачивай. По дороге не сворачивай с тропы и не лезь в аномалии. Дзержинский ждёт.';
   }
   if (npcId === 'sidorovich' && story.stage === 'return-present') {
-    addStoryReputation(game, 5); game.money += 700;
+    addStoryReputation(game, 5); game.money += 260;
     move(game, 'clear-underpass', 'Дзержинский подтвердил доставку подарка. Сидорович поручил проверить подземный переход.');
     return 'Дзержинский мне уже сообщил. Сегодня я добрый, награду дам хорошую. А теперь помоги с подземным переходом: там расплодились мутанты, похожие на кабанов. Разгони их, чтобы не подходили к деревне.';
   }
   if (npcId === 'sidorovich' && story.stage === 'return-underpass') {
-    addStoryReputation(game, 3); game.money += 450;
+    addStoryReputation(game, 3); game.money += 180;
     move(game, 'find-courier', 'Подземный переход очищен. Сидорович ждёт курьера из лощины.');
     return 'Хорошая работа. Скоро должен прийти сталкер из лощины, у него для меня флешка. Найди его у тоннеля и забери данные. По пути есть АТП: там сидят братки. На обратном пути придётся пройти через их территорию. Постарайся решить вопрос без лишней ссоры.';
   }
   if (npcId === 'sidorovich' && story.stage === 'return-courier') {
     if (!story.flags.courierFlash) return 'Без флешки курьера мне пока нечего читать. Вернись к локомотиву и забери данные.';
     removeItem(game.inventory, 'flash', 1); story.flags.courierFlash = false;
-    addStoryReputation(game, 5); game.money += 900;
+    addStoryReputation(game, 5); game.money += 300;
     move(game, 'clear-elevator', 'Флешка курьера передана Сидоровичу. Следующая цель — элеватор.');
     return `Курьер из лощины, ${story.courierName}, передал важные данные. Хорошо сработано. Теперь сходи на элеватор: по моим сведениям, там объявились мутанты. Проверь территорию и возвращайся с докладом.`;
   }
   if (npcId === 'sidorovich' && story.stage === 'return-elevator') {
-    addStoryReputation(game, 5); game.money += 800;
+    addStoryReputation(game, 5); game.money += 280;
     move(game, 'scout-farm', 'Элеватор проверен. Сидорович отправил игрока к разведчику у хутора.');
     return 'Значит так. Разведчик засёк отряд бандитов на ферме за мостом. Сначала найди моего человека у развалин хутора и узнай обстановку. Он покажет, что происходит, а дальше решишь, как поступить.';
   }
   if (npcId === 'sidorovich' && story.stage === 'return-farm') {
-    addStoryReputation(game, 10); game.money += 1500;
+    addStoryReputation(game, 10); game.money += 450;
     move(game, 'beyond-cordon', 'Ферма очищена. Следующее поручение ведёт к северному переходу и продолжению истории за Кордоном.');
     return 'Ну ты молоток. На Кордоне о тебе уже говорят. Следующее дело будет на Свалке: там есть мой человечек, с которым нужно уладить один вопрос. Но это уже за северным переходом. Сначала подготовь снаряжение и проверь маршрут.';
   }

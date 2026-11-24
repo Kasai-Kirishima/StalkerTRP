@@ -1,4 +1,4 @@
-import { LOCATIONS, FACTIONS } from '../data/catalog.js';
+import { LOCATIONS, FACTIONS, EXPLORE_SPOTS, ITEMS, NPCS } from '../data/catalog.js';
 
 const MAX_REPLY_LENGTH = 900;
 const normalizeText = value => String(value || '').replace(/\s+/g, ' ').trim();
@@ -25,15 +25,39 @@ export function isValidNpcAiEndpoint(value) {
 }
 
 function getNpcTone(npc) {
-  if (npc?.faction === 'bandit') return 'Разговорный бандитский жаргон с феней, но без карикатурного перебора.';
-  if (npc?.faction === 'military') return 'Короткая, дисциплинированная, официальная манера военного.';
-  if (npc?.id === 'sidorovich') return 'Хитрый, практичный торговец; оценивает выгоду, любит торговаться.';
-  if (npc?.id === 'wolf') return 'Спокойный опытный сталкер, заботится о новичках.';
-  return 'Естественная разговорная речь бывалого или начинающего сталкера.';
+  if (npc?.id === 'sidorovich') return 'Хитрый, практичный торговец; оценивает выгоду, торгуется, отвечает с сухим юмором и не раздаёт лишних обещаний.';
+  if (npc?.id === 'wolf') return 'Спокойный опытный сталкер; говорит просто, по-деловому, заботится о новичках, но не сюсюкает.';
+  if (npc?.faction === 'bandit') return 'Разговорный бандитский жаргон с феней, самоуверенная манера, проверяет собеседника на уважение, но без карикатурного перебора.';
+  if (npc?.faction === 'military') return 'Короткая, дисциплинированная, официальная манера военного; учитывает звание, приказ и устав.';
+  if (/повар|сборщик припасов/.test(npc?.role||'')) return 'Бытовой, приземлённый тон человека у костра; чаще говорит о еде, запасах и людях лагеря.';
+  if (/ремонт|техник|мастер/.test(npc?.role||'')) return 'Практичная манера техника; говорит о состоянии вещей, деталях, запчастях и цене работы.';
+  if (/охот/.test(npc?.role||'')) return 'Наблюдательная манера охотника; замечает следы, повадки мутантов и состояние местности.';
+  if (/развед|картограф|проводник/.test(npc?.role||'')) return 'Сдержанная, точная манера разведчика; не путает известные факты со слухами и говорит об ориентирах.';
+  if (/дозор|часовой|патрул/.test(npc?.role||'')) return 'Короткие настороженные фразы человека на посту; не отвлекается от дежурства.';
+  return 'Естественная разговорная речь бывалого или начинающего сталкера; учитывает настроение, опыт и текущие дела.';
 }
 
 export function buildNpcAiPayload({ game, npc, playerMessage }) {
   const current = LOCATIONS.find(location => location.id === game?.locationId);
+  const currentArea = EXPLORE_SPOTS.find(spot => spot.id === game?.currentAreaId && spot.locationId === game?.locationId);
+  const territory=current?.territory||'neutral';
+  const squadMembers=(game?.squadMembers||[]).map(person=>{
+    const squad=(game?.squads||[]).find(entry=>entry.id===person.squadId);
+    return {...person,location:squad?.location||person.location};
+  });
+  const nearbyPeople = [...NPCS, ...(game?.ambientNpcs||[]), ...(game?.randomTraders||[]), ...squadMembers]
+    .filter(person=>{
+      if(person.location!==game?.locationId || (person.areaId && person.areaId!==game?.currentAreaId) || person.captured) return false;
+      if(person.id==='wounded-courier' && game?.mainStory?.stage!=='find-courier') return false;
+      if(person.id==='cordon-scout' && game?.mainStory?.stage!=='scout-farm') return false;
+      if(person.faction==='loner' && ['bandit','military'].includes(territory)) return false;
+      if(person.faction==='bandit' && (territory==='military' || ['rookie-village','sidorovich-bunker'].includes(game?.locationId))) return false;
+      if(person.faction==='military' && territory==='bandit') return false;
+      if(game?.atpRescue?.cleared && game?.locationId==='atp' && person.faction==='bandit') return false;
+      return true;
+    })
+    .slice(0,10)
+    .map(person=>({id:person.id,name:person.name,role:person.role||'сталкер',faction:person.group||person.faction||'Путники',activity:person.activity||person.personalTask||''}));
   const neighbours = (current?.neighbors || [])
     .map(id => LOCATIONS.find(location => location.id === id))
     .filter(Boolean)
@@ -50,13 +74,21 @@ export function buildNpcAiPayload({ game, npc, playerMessage }) {
     text: quest.text
   }));
 
+  const isUniqueNpc = NPCS.some(entry=>entry.id===npc?.id);
+  const npcMode = isUniqueNpc
+    ? 'Это уникальный сюжетный NPC. Строго сохраняй его известную биографию, характер, роль и факты из авторских реплик. Не меняй его прошлое и не придумывай новые сюжетные события. Реплики должны быть устойчивыми по смыслу, без случайных противоречий.'
+    : 'Это обычный, неуникальный сталкер. Можно естественно варьировать бытовые реплики, настроение и мелкие личные детали, но нельзя выдумывать новые факты карты, задания, предметы, переходы, события или результаты действий.';
+
   const system = [
     `Ты отыгрываешь NPC по имени ${npc?.name || 'сталкер'} в браузерной RP-игре STALKER «Путь по Кордону».`,
     `Роль: ${npc?.role || 'сталкер'}. Фракция: ${npc?.group || npc?.faction || 'одиночки'}.`,
     `Манера речи: ${getNpcTone(npc)}`,
+    npcMode,
     'Отвечай только по-русски, естественно, как живой персонаж. Не называй себя ИИ, ассистентом или языковой моделью.',
     'Обычно отвечай 1–4 короткими предложениями. Можно шутить, грубить, отказывать, переспрашивать и помнить контекст беседы.',
-    'Не повторяй дословно предыдущую реплику. Учитывай характер, занятие, текущую локацию и историю диалога.',
+    'Не повторяй дословно предыдущую реплику. Учитывай характер, занятие, текущую локацию, репутацию игрока и историю беседы. Не делай каждую реплику одинаково приветливой: допускаются краткость, недоверие, усталость, юмор или отказ по ситуации.',
+    'Отвечай на конкретный смысл вопроса, а не на одно ключевое слово. Если вопрос расплывчатый — задай один короткий уточняющий вопрос. Не добавляй длинные обучающие пояснения, если их не просили.',
+    'Для торговли называй только предметы из переданного личного запаса этого NPC; не обещай товар, которого нет в запасе. Для поручений учитывай только активное состояние задания и не выдумывай награды.',
     'Не выдумывай игровые факты, задания, товары, имена, маршруты или события. Используй только переданный контекст. Если не знаешь — скажи, что не знаешь или слышал только слух.',
     'Если игрок спрашивает дорогу, перечисляй только реальные соседние переходы и переданные сведения о карте. Не придумывай короткие пути.',
     'Если игрок просит купить, продать, торговать, принять задание, переместиться или выполнить действие, не утверждай, что действие уже совершено. Скажи, какую кнопку/команду использовать; игровые действия выполняет сама игра.',
@@ -68,6 +100,8 @@ export function buildNpcAiPayload({ game, npc, playerMessage }) {
     npc: {
       id: npc?.id,
       name: npc?.name,
+      unique: isUniqueNpc,
+      ambient: Boolean(npc?.ambient),
       role: npc?.role,
       faction: npc?.faction,
       group: npc?.group,
@@ -75,16 +109,22 @@ export function buildNpcAiPayload({ game, npc, playerMessage }) {
       personalTask: npc?.personalTask,
       greeting: npc?.greeting,
       topics: Array.isArray(npc?.topics) ? npc.topics.slice(0, 12) : [],
-      knownDialogue: Object.fromEntries(Object.entries(npc?.lines || {}).slice(0, 10).map(([topic, line]) => [topic, normalizeText(line).slice(0, 260)]))
+      biography: normalizeText(npc?.biography||'').slice(0,500),
+      knownDialogue: Object.fromEntries(Object.entries(npc?.lines || {}).slice(0, 10).map(([topic, line]) => [topic, normalizeText(line).slice(0, 260)])),
+      barter: (game?.npcTraders?.[npc?.id]?.stock || game?.traders?.find(entry=>entry.id===npc?.id)?.stock || game?.randomTraders?.find(entry=>entry.id===npc?.id)?.stock || []).filter(entry=>entry.qty>0).slice(0,12).map(entry=>({id:entry.id,name:ITEMS.find(item=>item.id===entry.id)?.name||entry.id,quantity:entry.qty,price:entry.price}))
     },
     player: {
       name: game?.player?.name || 'сталкер',
       faction: factionName,
       rank: game?.player?.rank,
       reputation: game?.player?.reputation,
-      currentLocation: current?.name || 'неизвестно'
+      currentLocation: current?.name || 'неизвестно',
+      health: game?.player?.hp,
+      hunger: game?.player?.hunger,
+      thirst: game?.player?.thirst
     },
-    currentLocation: current ? { id: current.id, name: current.name, description: current.desc, territory: current.territory || 'neutral', hazards: current.hazards || [] } : null,
+    currentLocation: current ? { id: current.id, name: current.name, description: current.desc, territory: current.territory || 'neutral', hazards: current.hazards || [], currentArea: currentArea ? {name:currentArea.name,description:currentArea.description} : null } : null,
+    nearbyPeople,
     availableExits: neighbours,
     activeQuests,
     worldState: {

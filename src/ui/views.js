@@ -10,11 +10,7 @@ import { getRadioStationForLocation } from '../data/radio-stations.js';
 export const esc = (value='') => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const money = (value) => `${Number(value || 0).toLocaleString('ru-RU')} Купонов`;
 const isImageSource = src => typeof src === 'string' && /^(?:data:image\/|blob:|https?:\/\/|file:\/\/|\/|\.\.?\/|[\w%.-]+\/)/i.test(src);
-const avatarMarkup = (src, name) => {
-  const initials=String(name||'').trim().split(/\s+/).slice(0,2).map(part=>part[0]||'').join('').toUpperCase()||'—';
-  const fallback=`<span class="avatar-fallback"${isImageSource(src)?' hidden':''}>${esc(initials)}</span>`;
-  return `<div class="avatar-wrap">${isImageSource(src)?`<img src="${esc(src)}" alt="${esc(name)}" loading="lazy" onerror="this.hidden=true;this.nextElementSibling.hidden=false">`:''}${fallback}</div>`;
-};
+const avatarMarkup = (src, name='') => `<div class="avatar-wrap">${isImageSource(src)?`<img src="${esc(src)}" alt="${esc(name)}" loading="lazy" decoding="async" onerror="this.remove()">`:''}</div>`;
 const factionInsignia = (faction, extraClass='') => ASSETS.factionInsignias?.[faction] ? `<img class="faction-insignia ${extraClass}" src="${esc(ASSETS.factionInsignias[faction])}" alt="${esc(faction)}" loading="lazy" onerror="this.hidden=true">` : '';
 const rankInsignia = (rank, extraClass='') => { const src=ASSETS.rankInsignias?.[rank] || ASSETS.rankInsignias?.['Новичок']; return src ? `<img class="rank-insignia ${extraClass}" src="${esc(src)}" alt="Знак: ${esc(rank)}" loading="lazy" onerror="this.hidden=true">` : ''; };
 const iconSvg = (name) => {
@@ -183,6 +179,36 @@ function gameNav(active) {
   return tabs.map(([id,ico,label])=>`<button class="nav-tab ${active===id?'active':''}" data-action="tab" data-tab="${id}"><span>${iconSvg(ico)}</span><b>${label}</b></button>`).join('');
 }
 
+function mainStoryActionMarkup(game, mainStory) {
+  if (!mainStory || game.activeEncounter) return '';
+  const actions={
+    'go-to-sidorovich':game.locationId==='rookie-village'?btn('Спуститься к Сидоровичу','travel','button small primary','data-id="sidorovich-bunker"'):'',
+    'find-first-flash':game.locationId==='trailer'?btn('Осмотреть кусты','story-action','button small primary','data-id="story-flash-search"'):'',
+    'deliver-supplies':game.locationId==='forest-camp'?`${btn('Передать припасы','story-action','button small primary','data-id="story-supplies-deliver"')}${btn('Отказаться','story-action','button small ghost','data-id="story-supplies-fail"')}`:'',
+    'fetch-meat':game.locationId==='anomaly-dump'?btn('Забрать артефакт','story-action','button small primary','data-id="story-meat-pickup"'):'',
+    'deliver-present':game.locationId==='south-checkpoint'?btn('Передать подарок','story-action','button small primary','data-id="story-present-deliver"'):'',
+    'clear-underpass':game.locationId==='underpass'?btn('Проверить переход','story-action','button small danger','data-id="story-underpass-start"'):'',
+    'fight-underpass':game.locationId==='underpass'?btn('Продолжить зачистку','story-action','button small danger','data-id="story-underpass-start"'):'',
+    'recover-courier-flash':game.locationId==='locomotive'?`${btn('Договориться','story-action','button small primary','data-id="story-bandit-negotiate"')}${btn('Вступить в стычку','story-action','button small danger','data-id="story-bandit-fight"')}`:'',
+    'fight-courier-bandits':game.locationId==='locomotive'?`${btn('Обыскать вещи','story-action','button small primary','data-id="story-courier-flash-search"')}${btn('Продолжить бой','story-action','button small danger','data-id="story-bandit-fight"')}`:'',
+    'clear-elevator':game.locationId==='elevator'?btn('Проверить элеватор','story-action','button small danger','data-id="story-elevator-start"'):'',
+    'fight-elevator':game.locationId==='elevator'?btn('Продолжить зачистку','story-action','button small danger','data-id="story-elevator-start"'):'',
+    'clear-farm':game.locationId==='pig-farm'?btn('Начать зачистку','story-action','button small danger','data-id="story-farm-start"'):'',
+    'fight-farm':game.locationId==='pig-farm'?btn('Продолжить зачистку','story-action','button small danger','data-id="story-farm-start"'):''
+  };
+  return actions[mainStory.stage]||'';
+}
+
+function mainStoryIcon(mainStory) {
+  const stage=mainStory?.stage||'';
+  if (/wolf|meet/.test(stage)) return ASSETS.questIcons?.['first-steps']||ASSETS.questIcons.default;
+  if (/flash|courier/.test(stage)) return ASSETS.questIcons?.flash||ASSETS.questIcons.search||ASSETS.questIcons.default;
+  if (/meat|artifact|fetch/.test(stage)) return ASSETS.questIcons?.artifact||ASSETS.questIcons.default;
+  if (/present|checkpoint|suppl/.test(stage)) return ASSETS.questIcons?.sidorovich||ASSETS.questIcons.default;
+  if (/underpass|elevator|farm|fight/.test(stage)) return ASSETS.questIcons?.combat||ASSETS.questIcons.mutant||ASSETS.questIcons.default;
+  return ASSETS.questIcons?.sidorovich||ASSETS.questIcons.default;
+}
+
 function renderLocation(game, character, state) {
   const location=getLocation(game.locationId);
   const npcs=getAvailableStalkers(game,game.locationId);
@@ -192,26 +218,7 @@ function renderLocation(game, character, state) {
   const hiddenLocationAction='';
   const selectedSpot=spots.find(spot=>spot.id===game.player?.shelterSpotId);
   const currentArea=spots.find(spot=>spot.id===game.currentAreaId) || selectedSpot || null;
-  const mainStory=getMainStoryQuest(game);
-  const storyButtons=(!game.activeEncounter && mainStory)?({
-    'go-to-sidorovich':game.locationId==='rookie-village'?btn('Спуститься к Сидоровичу','travel','button small primary','data-id="sidorovich-bunker"'): '',
-    'find-first-flash':game.locationId==='trailer'?btn('Осмотреть кусты и найти флешку','story-action','button small primary','data-id="story-flash-search"'): '',
-    'deliver-supplies':game.locationId==='forest-camp'?`${btn('Передать припасы','story-action','button small primary','data-id="story-supplies-deliver"')}${btn('Отказаться от поручения','story-action','button small ghost','data-id="story-supplies-fail"')}`:'',
-    'fetch-meat':game.locationId==='anomaly-dump'?btn('Забрать «Ломоть мяса»','story-action','button small primary','data-id="story-meat-pickup"'):'',
-    'deliver-present':game.locationId==='south-checkpoint'?btn('Передать подарок Дзержинскому','story-action','button small primary','data-id="story-present-deliver"'):'',
-    'clear-underpass':game.locationId==='underpass'?btn('Проверить переход','story-action','button small danger','data-id="story-underpass-start"'):'',
-    'fight-underpass':game.locationId==='underpass'?btn('Повторить столкновение','story-action','button small danger','data-id="story-underpass-start"'):'',
-    'find-courier':'',
-    'recover-courier-flash':game.locationId==='locomotive'?`${btn('Попробовать договориться','story-action','button small primary','data-id="story-bandit-negotiate"')}${btn('Вступить в стычку','story-action','button small danger','data-id="story-bandit-fight"')}`:'',
-    'fight-courier-bandits':game.locationId==='locomotive'?`${btn('Обыскать вещи у локомотива','story-action','button small primary','data-id="story-courier-flash-search"')}${btn('Повторить столкновение','story-action','button small danger','data-id="story-bandit-fight"')}`:'',
-    'clear-elevator':game.locationId==='elevator'?btn('Проверить элеватор','story-action','button small danger','data-id="story-elevator-start"'):'',
-    'fight-elevator':game.locationId==='elevator'?btn('Повторить проверку','story-action','button small danger','data-id="story-elevator-start"'):'',
-    'scout-farm':'',
-    'clear-farm':game.locationId==='pig-farm'?btn('Начать зачистку фермы','story-action','button small danger','data-id="story-farm-start"'):'',
-    'fight-farm':game.locationId==='pig-farm'?btn('Повторить зачистку','story-action','button small danger','data-id="story-farm-start"'):'',
-  })[mainStory.stage]||'' : '';
-  const storyPanel=mainStory?`<section class="main-story-panel"><div><small>ОСНОВНАЯ ЛИНИЯ · ${esc(mainStory.giver)}</small><b>${esc(mainStory.title)}</b><p>${esc(mainStory.objective)}</p></div>${storyButtons?`<div class="main-story-actions">${storyButtons}</div>`:''}</section>`:'';
-  const locationSceneActions=!game.activeEncounter?`${btn('Осмотреться','explore-open','button tiny ghost')}${game.locationId==='rookie-village'&&mainStory?.stage!=='go-to-sidorovich'?btn('К Сидоровичу','travel','button tiny ghost','data-id="sidorovich-bunker"'):game.locationId==='sidorovich-bunker'?btn('Выйти в деревню','travel','button tiny ghost','data-id="rookie-village"'):''}`:'';
+  const locationSceneActions=!game.activeEncounter?`${btn('Осмотреться','explore-open','button tiny ghost')}${game.locationId==='sidorovich-bunker'?btn('Выйти в деревню','travel','button tiny ghost','data-id="rookie-village"'):''}`:'';
   const scene=ASSETS.areaBackgrounds?.[currentArea?.id] || ASSETS.locationBackgrounds?.[game.locationId] || '';
   const emission=game.emission||{};
   const nextEmission=Number(emission.nextAt||0);
@@ -248,18 +255,17 @@ function renderLocation(game, character, state) {
   const weapon=getBestWeapon(game.inventory,game);
   const magazine=weapon?.ammo?(game.weaponMagazines?.[weapon.id]??'—'):null;
   const reserve=weapon?.ammo?(game.ammoRounds?.[weapon.ammo]??0):null;
-  const weaponSide=state.settings?.weaponHudSide==='left'?'left':'right';
+  const weaponSide='right';
   const consuming=game.consumptionAnimation && Number(game.consumptionAnimation.until||0)>Date.now()?getItem(game.consumptionAnimation.itemId):null;
   const heldWeaponImage=!consuming&&weapon?.weapon&&ASSETS.weaponImages?.[weapon.id]?`<div class="first-person-weapon ${weaponSide}" aria-hidden="true"><img src="${esc(ASSETS.weaponImages[weapon.id])}" alt=""></div>`:'';
-  const playerAppearance=character?.appearance?`<div class="player-appearance-stage" aria-hidden="true"><img src="${esc(character.appearance)}" alt="" loading="eager" decoding="async" onerror="this.parentElement.hidden=true"></div>`:'';
   const slotState=game.equipmentSlots||{};
   const weaponSlotDefs=[['primary1','1','Первое оружие'],['primary2','2','Второе оружие'],['pistol','P','Пистолет'],['knife','N','Нож'],['binoculars','B','Бинокль'],['bolt','V','Болт']];
   const equipmentHotbar=`<div class="equipment-hotbar" aria-label="Быстрая экипировка">${weaponSlotDefs.map(([slot,key,label])=>{const itemId=slotState[slot],item=itemId?getItem(itemId):null;return `<button class="equipment-hotbar-slot ${item?'filled':''} ${itemId===game.equippedWeaponId?'active':''}" data-action="slot-select" data-slot="${slot}" title="${label}: ${esc(item?.name||'пусто')}"><small>${key}</small><span>${item?itemImage(item):'—'}</span></button>`}).join('')}</div><div class="quick-hotbar" aria-label="Быстрые предметы">${Array.from({length:4},(_,index)=>{const itemId=slotState.quick?.[index],item=itemId?getItem(itemId):null;return `<button class="quick-hotbar-slot ${item?'filled':''}" data-action="slot-select" data-slot="quick${index}" title="Быстрый предмет ${index+1}: ${esc(item?.name||'пусто')}"><small>${index+1}</small><span>${item?itemImage(item):'＋'}</span></button>`}).join('')}</div>`;
   const weaponIcon=consuming?itemImage(consuming):weapon?itemImage(weapon):'<span class="weapon-empty-mark">—</span>';
   const weaponTitle=consuming?`Использует: ${consuming.name}`:(weapon?.name||'Без оружия');
   const weaponHud=enemy
-    ? `<aside class="weapon-hud ${weaponSide} combat"><div class="weapon-hud-top"><small>В РУКАХ</small>${btn('⇄','toggle-weapon-side','icon-button small',`title="Переместить панель оружия"`)}</div><div class="weapon-idle-body ${consuming?'consuming':''}"><span class="weapon-hud-icon">${weaponIcon}</span><div><small>${consuming?'ИСПОЛЬЗУЕТ':'В РУКАХ'}</small><b>${esc(weaponTitle)}</b></div></div>${weapon?.ammo&&!consuming?`<div class="ammo-readout"><strong>${magazine}</strong><span>в магазине</span><strong>${reserve}</strong><span>в запасе</span></div>`:''}<div class="weapon-quick-actions">${weapon?.ammo&&!consuming?btn('↻ Зарядить','combat-reload','button tiny ghost'):''}${btn('Атака','combat-attack','button tiny danger')}${btn('Рюкзак','inventory-open','button tiny ghost')}</div>${equipmentHotbar}</aside>`
-    : `<aside class="weapon-hud ${weaponSide} idle"><div class="weapon-hud-top"><small>ЭКИПИРОВКА</small>${btn('⇄','toggle-weapon-side','icon-button small',`title="Переместить панель снаряжения"`)}</div><div class="weapon-idle-body ${consuming?'consuming':''}"><span class="weapon-hud-icon">${weaponIcon}</span><div><small>${consuming?'ИСПОЛЬЗУЕТ':'В РУКАХ'}</small><b>${esc(weaponTitle)}</b>${btn('Рюкзак','inventory-open','button tiny ghost')}</div></div>${equipmentHotbar}</aside>`;
+    ? `<aside class="weapon-hud right combat"><div class="weapon-hud-top"><small>В РУКАХ</small></div><div class="weapon-idle-body ${consuming?'consuming':''}"><span class="weapon-hud-icon">${weaponIcon}</span><div><small>${consuming?'ИСПОЛЬЗУЕТ':'В РУКАХ'}</small><b>${esc(weaponTitle)}</b></div></div>${weapon?.ammo&&!consuming?`<div class="ammo-readout"><strong>${magazine}</strong><span>в магазине</span><strong>${reserve}</strong><span>в запасе</span></div>`:''}<div class="weapon-quick-actions">${weapon?.ammo&&!consuming?btn('↻ Зарядить','combat-reload','button tiny ghost'):''}${btn('Атака','combat-attack','button tiny danger')}${btn('Рюкзак','inventory-open','button tiny ghost')}</div></aside>`
+    : `<aside class="weapon-hud right idle"><div class="weapon-hud-top"><small>В РУКАХ</small></div><div class="weapon-idle-body ${consuming?'consuming':''}"><span class="weapon-hud-icon">${weaponIcon}</span><div><small>${consuming?'ИСПОЛЬЗУЕТ':'В РУКАХ'}</small><b>${esc(weaponTitle)}</b>${btn('Рюкзак','inventory-open','button tiny ghost')}</div></div></aside>`;
   const quickCombat=enemy?`<div class="combat-quickbar"><b>БОЕВЫЕ ДЕЙСТВИЯ</b>${btn('Прицелиться','combat-aim','button small')}${btn('Уклониться','combat-dodge','button small')}${btn('Защищаться','combat-defend','button small')}${btn('Граната','combat-grenade','button small danger',`${countItem(game.inventory,'rgd5')?'':'disabled'}`)}${btn('Отступить','combat-flee','button small ghost')}</div>`:'';
   const rescueButton=game.locationId==='atp'&&!game.atpRescue?.cleared?btn('Освободить пленников','atp-rescue-start','button tiny danger'):'';
   const areaPanel='';
@@ -271,17 +277,16 @@ function renderLocation(game, character, state) {
   const hazards=hazardLabels.length?`<div class="scene-hazards">${hazardLabels.map(label=>`<span>${esc(label)}</span>`).join('')}</div>`:'';
   const anomaly=location?.hazards?.includes('gravity')?`<div class="anomaly-scene" aria-hidden="true"><i></i><i></i><i></i></div>`:'';
   return `<section class="location-scene ${enemy?'in-combat':''} ${maskClass}" style="--scene-image:url('${scene}');--scene-brightness:${brightness}">
-    <div class="scene-background" style="background-image:linear-gradient(90deg,rgba(7,11,7,.75),rgba(7,11,7,.08) 55%,rgba(7,11,7,.55)),url('${scene}');filter:${brightness}"></div>${vignette}${anomaly}${playerAppearance}${heldWeaponImage}
+    <div class="scene-background" style="background-image:linear-gradient(90deg,rgba(7,11,7,.75),rgba(7,11,7,.08) 55%,rgba(7,11,7,.55)),url('${scene}');filter:${brightness}"></div>${vignette}${anomaly}${heldWeaponImage}
     <div class="scene-topline"><div class="scene-gm"><small>GAME MASTER · ${esc(location?.name||'КОРДОН')}</small><p>${esc(gmText)}</p>${locationSceneActions?`<div class="scene-gm-actions">${locationSceneActions}</div>`:''}</div><div class="scene-clock"><b>${time.time}</b><span>${esc(time.date)}</span><small>${esc(game.weather||'Пасмурно')}</small></div></div>
-    ${storyPanel}${emissionBanner}<div class="scene-vitals"><span>♥ ${game.player.hp}/${game.player.maxHp}</span><span>⚡ ${Math.round(game.player.stamina)}%</span><span class="${game.player.hunger>=75?'vital-warning':''}">🍞 Голод ${Math.round(game.player.hunger)}%</span><span class="${game.player.thirst>=75?'vital-warning':''}">💧 Жажда ${Math.round(game.player.thirst)}%</span><span>☢ ${countItem(game.inventory,'pripyat-dosimeter')?`Припять: ${Math.round(game.player.radiation)}%`:`${Math.round(game.player.radiation)}%`}</span>${countItem(game.inventory,'medved')?`<span>📡 Медведь: ${location?.anomalies?.length?'есть отклик':'тихо'}</span>`:''}${emissionCountdown}</div>
+    ${emissionBanner}<div class="scene-vitals"><span>♥ ${game.player.hp}/${game.player.maxHp}</span><span>⚡ ${Math.round(game.player.stamina)}%</span><span class="${game.player.hunger>=75?'vital-warning':''}">🍞 Голод ${Math.round(game.player.hunger)}%</span><span class="${game.player.thirst>=75?'vital-warning':''}">💧 Жажда ${Math.round(game.player.thirst)}%</span><span>☢ ${countItem(game.inventory,'pripyat-dosimeter')?`Припять: ${Math.round(game.player.radiation)}%`:`${Math.round(game.player.radiation)}%`}</span>${countItem(game.inventory,'medved')?`<span>📡 Медведь: ${location?.anomalies?.length?'есть отклик':'тихо'}</span>`:''}${emissionCountdown}</div>
     ${hazards}${enemyStage}${combatEffect}${quickCombat}
     ${consuming?`<div class="consumption-action-overlay"><div class="consumption-item-art">${itemImage(consuming)}</div><b>${esc(consuming.name)}</b><small>${consuming.cat==='Еда'?'Ты ешь':'Ты используешь предмет'}</small></div>`:''}
-    <div class="scene-footer scene-footer-minimal">${weaponHud}</div>
+    <div class="scene-loadout-hotbar">${equipmentHotbar}</div><div class="scene-footer scene-footer-minimal">${weaponHud}</div>
   </section>`;
 }
 
 function renderMap(game,state) {
-  const location=getLocation(game.locationId);
   const mapLocations=LOCATIONS.filter(loc=>loc.mapVisible!==false);
   const activeQuests=(game.quests||[]).filter(q=>['active','ready'].includes(q.status));
   const questTarget=quest=>quest.id==='wolf-dog-pack'?'trailer':quest.condition?.startsWith('visit:')?quest.condition.slice(6):quest.condition==='search:stop'?'stop':quest.condition==='artifact:anomaly-dump'?'anomaly-dump':null;
@@ -289,8 +294,8 @@ function renderMap(game,state) {
   const storyTarget=getMainStoryQuest(game);
   if(storyTarget?.location) targets.add(storyTarget.location);
   return `<div class="tab-page map-page map-page-points">
-    <div class="map-toolbar"><div><div class="eyebrow">КПК · НАВИГАЦИЯ</div><h2>Карта Кордона</h2><p>На карте отмечены только точки. Нажми на точку, чтобы посмотреть название места.</p></div><div class="map-toolbar-status"><span class="map-legend-dot current"></span><b>${esc(location?.name||'Неизвестно')}</b><small>${esc(getGameDateTime(game.clock).date)} · ${esc(getGameDateTime(game.clock).time)}</small></div></div>
-    <div class="map-points-only"><section class="map-map-column"><div class="map-frame map-frame-large"><img src="${ASSETS.map}" alt="Карта Кордона" loading="eager" decoding="async" fetchpriority="high" onerror="this.classList.add('map-image-error');this.nextElementSibling.hidden=false"><div class="map-fallback" hidden>КАРТА КОРДОНА<br><small>Изображение карты недоступно</small></div><div class="map-pins">${mapLocations.map(loc=>`<button class="map-pin point-only ${loc.id===game.locationId?'current':''} ${targets.has(loc.id)?'quest-target':''}" style="left:${loc.x}%;top:${loc.y}%" data-action="location-open" data-id="${loc.id}" aria-label="${esc(loc.name)}" title="${esc(loc.name)}"><span class="sr-only">${esc(loc.name)}</span></button>`).join('')}</div></div><div class="map-key"><span><i class="map-key-dot current"></i> Текущая точка</span><span><i class="map-key-dot quest"></i> Цель задания</span></div></section></div>
+    <div class="map-toolbar"><div><div class="eyebrow">КПК · НАВИГАЦИЯ</div><h2>Карта Кордона</h2></div><div class="map-toolbar-status"><small>${esc(getGameDateTime(game.clock).time)}</small></div></div>
+    <div class="map-points-only"><section class="map-map-column"><div class="map-frame map-frame-large"><img src="${ASSETS.map}" alt="Карта Кордона" loading="eager" decoding="async" fetchpriority="high" onerror="this.classList.add('map-image-error');this.nextElementSibling.hidden=false"><div class="map-fallback" hidden>КАРТА КОРДОНА<br><small>Изображение карты недоступно</small></div><div class="map-pins">${mapLocations.map(loc=>`<button class="map-pin point-only ${loc.id===game.locationId?'current':''} ${targets.has(loc.id)?'quest-target':''}" style="left:${loc.x}%;top:${loc.y}%" data-action="location-open" data-id="${loc.id}" aria-label="Метка локации"><span class="sr-only">Метка локации</span></button>`).join('')}</div></div><div class="map-key"><span><i class="map-key-dot current"></i> Текущая точка</span><span><i class="map-key-dot quest"></i> Цель задания</span></div></section></div>
   </div>`;
 }
 
@@ -357,8 +362,8 @@ function renderQuests(game) {
   const completed=quests.filter(q=>q.status==='completed').length;
   const questProgress=q=>q.id==='wolf-dog-pack'?`${game.wolfDogQuest?.killed||0}/5 собак`:q.id==='pudel-sausage'?`${countItem(game.inventory,'sausage')? 'Колбаса в рюкзаке':'Найти диетическую колбасу'}`:q.id==='signal-dump'?(game.secretAnomaly?.name?`Названа: ${game.secretAnomaly.name} · вернись к Сидоровичу`:game.secretAnomaly?.observed?'Аномалия обнаружена · придумай название':'Добраться до Тайного лагеря'):q.status==='ready'?'Цель выполнена':q.status==='completed'?'Задание сдано':'Выполни указанное поручение';
   return `<div class="tab-page"><div class="tab-heading"><div><div class="eyebrow">КПК · ЖУРНАЛ ЗАДАНИЙ</div><h2>Задания</h2><p>В журнал попадают только принятые поручения и завершённые дела.</p></div><span class="quest-count">${completed}/${quests.length} выполнено</span></div>
-    ${mainStory?`<article class="quest-card active main-story-quest"><div class="quest-symbol"><span>✦</span></div><div class="quest-main"><div class="quest-title-row"><h3>${esc(mainStory.title)}</h3><span>ОСНОВНАЯ ЛИНИЯ</span></div><p>${esc(mainStory.objective)}</p><small>Заказчик: ${esc(mainStory.giver)} · Цель: ${esc(getLocation(mainStory.location)?.name||'Кордона')}</small></div></article>`:''}
-    ${localJobs.length?`<section class="personal-quest-list"><div class="eyebrow">МЕЛКИЕ ПРОСЬБЫ СТАЛКЕРОВ</div>${localJobs.map(npc=>`<article class="quest-card active"><div class="quest-symbol">⌁</div><div class="quest-main"><div class="quest-title-row"><h3>Просьба: ${esc(getItem(npc.smallQuest.itemId)?.name||npc.smallQuest.itemId)}</h3><span>ЛИЧНОЕ</span></div><p>${esc(npc.name)} ждёт один предмет. Принеси его обратно и поговори со сталкером.</p><small>Награда: ${money(npc.smallQuest.reward)}</small></div></article>`).join('')}</section>`:''}
+    ${mainStory?`<article class="quest-card active main-story-quest"><div class="quest-symbol"><img src="${esc(mainStoryIcon(mainStory))}" alt="" loading="lazy"></div><div class="quest-main"><div class="quest-title-row"><h3>${esc(mainStory.title)}</h3><span>ОСНОВНАЯ ЛИНИЯ</span></div><p>${esc(mainStory.objective)}</p><small>Заказчик: ${esc(mainStory.giver)}</small>${mainStoryActionMarkup(game,mainStory)?`<div class="quest-card-actions">${mainStoryActionMarkup(game,mainStory)}</div>`:''}</div></article>`:''}
+    ${localJobs.length?`<section class="personal-quest-list"><div class="eyebrow">МЕЛКИЕ ПРОСЬБЫ СТАЛКЕРОВ</div>${localJobs.map(npc=>`<article class="quest-card active"><div class="quest-symbol"><img src="${esc(ASSETS.questIcons?.search||ASSETS.questIcons.default)}" alt="" loading="lazy"></div><div class="quest-main"><div class="quest-title-row"><h3>Просьба: ${esc(getItem(npc.smallQuest.itemId)?.name||npc.smallQuest.itemId)}</h3><span>ЛИЧНОЕ</span></div><p>${esc(npc.name)} ждёт один предмет. Принеси его обратно и поговори со сталкером.</p><small>Награда: ${money(npc.smallQuest.reward)}</small></div></article>`).join('')}</section>`:''}
     ${repeat?`<article class="quest-card active"><div class="quest-symbol"><img src="${esc(ASSETS.questIcons?.search||ASSETS.questIcons.default)}" alt="" loading="lazy"></div><div class="quest-main"><div class="quest-title-row"><h3>${esc(repeat.title)}</h3><span>ЦИКЛИЧЕСКОЕ</span></div><p>${esc(repeat.description)}</p><div class="quest-progress"><span>${repeat.type==='tails'?'Хвосты':repeat.type==='medusa'?'Артефакт':'Контакт с должником'}</span><b>${repeat.type==='tails'?`${countItem(game.inventory,'tail')}/5`:repeat.type==='medusa'?`${countItem(game.inventory,'medusa')}/1`:repeat.contacted?'1/1':'0/1'}</b></div><small>Заказчик: Сидорович · Награда: ${money(repeat.reward)}</small></div></article>`:''}
     <div class="quest-list">${quests.map(q=>{const npc=NPCS.find(n=>n.id===q.giver);const value=questProgress(q);return `<article class="quest-card ${q.status}"><div class="quest-symbol"><img src="${esc(ASSETS.questIcons?.[q.id]||ASSETS.questIcons.default)}" alt="" loading="lazy"><i>${q.status==='completed'?'✓':q.status==='ready'?'✓':'!'}</i></div><div class="quest-main"><div class="quest-title-row"><h3>${esc(q.title)}</h3><span>${q.status==='completed'?'ВЫПОЛНЕНО':q.status==='ready'?'ОЖИДАЕТ СДАЧИ':'В ПРОЦЕССЕ'}</span></div><p>${esc(q.text)}</p><div class="quest-progress"><span>Текущий этап</span><b>${esc(value)}</b></div><small>Заказчик: ${esc(npc?.name||'Неизвестно')} · Награда: ${money(q.reward)}</small></div>${npc?avatarMarkup(npc.icon,npc.name,'♟'):''}</article>`}).join('') || '<div class="empty-state large">Пока нет активных заданий. Поговори с местными и узнай, кому нужна помощь.</div>'}</div>
   </div>`;
@@ -366,16 +371,10 @@ function renderQuests(game) {
 
 
 function renderPlayer(state) {
-  const music=state.ui.music||{};
   const tracks=state.ui.localMusicTracks||[];
-  const current=tracks.find(track=>track.id===music.trackId);
-  const active=!!music.trackId;
-  const modeLabel=String(music.mode||'').startsWith('radio')?'Радио базы':'Плеер КПК';
-  const trackRows=tracks.map((track,index)=>`<article class="player-track ${track.id===music.trackId?'selected':''}"><span class="player-track-number">${String(index+1).padStart(2,'0')}</span><div class="player-track-meta"><b>${esc(track.title)}</b><small>Встроенное название · ${esc(track.artist||'Музыкальный каталог')}</small></div>${btn(track.id===music.trackId?'Выбрано':'Выбрать','player-play-track','button tiny '+(track.id===music.trackId?'primary':'ghost'),`data-id="${track.id}"`)}</article>`).join('');
-  return `<div class="tab-page player-page"><div class="tab-heading"><div><div class="eyebrow">КПК · МУЗЫКАЛЬНЫЙ КАТАЛОГ</div><h2>Музыка</h2><p>Встроенный список композиций из папки Music. Можно выбрать название или переключать эфир на базовых радиостанциях.</p></div><span class="player-status"><i></i>${active?'ВЫБРАНО':'КАТАЛОГ'}</span></div>
-    <section class="player-now panel"><div class="eyebrow">${modeLabel.toUpperCase()} · ВЫБРАННАЯ КОМПОЗИЦИЯ</div><h3>${esc(current?.title||'Ничего не выбрано')}</h3><p>${active?`Каталожная запись ${String(tracks.findIndex(track=>track.id===music.trackId)+1).padStart(2,'0')} из ${tracks.length}`:'Выбери название из списка ниже.'}</p><div class="player-controls">${btn('◂ Предыдущая','player-prev','button ghost',active?'':'disabled')}<span class="player-title-only">КАТАЛОГ НАЗВАНИЙ</span>${btn('Следующая ▸','player-next','button ghost',active?'':'disabled')}${btn('Сбросить выбор','player-stop','button ghost',active?'':'disabled')}</div><small>Каталог названий встроен в сайт. Выбор композиции запоминается, импортировать папки не нужно.</small></section>
-    <section class="player-library panel"><div class="panel-title"><h3>Музыкальная библиотека</h3><span>${tracks.length} треков</span></div><div class="player-track-list">${trackRows||'<div class="empty-state">Музыкальный каталог пуст.</div>'}</div></section>
-    <p class="player-disclaimer">Сайт хранит встроенный список названий и не запрашивает импорт. Для воспроизведения звука потребовались бы сами аудиофайлы, которых в эту версию не добавляли.</p>
+  const trackRows=tracks.map((track,index)=>`<article class="player-track"><span class="player-track-number">${String(index+1).padStart(2,'0')}</span><div class="player-track-meta"><b>${esc(track.title)}</b><small>${esc(track.artist&&track.artist!=='Музыкальный каталог'?track.artist:'')}</small></div></article>`).join('');
+  return `<div class="tab-page player-page"><div class="tab-heading"><div><div class="eyebrow">КПК · МУЗЫКАЛЬНЫЙ КАТАЛОГ</div><h2>Музыка</h2></div><span class="player-status"><i></i>${tracks.length} НАЗВАНИЙ</span></div>
+    <section class="player-library panel"><div class="panel-title"><h3>Список композиций</h3><span>${tracks.length}</span></div><div class="player-track-list">${trackRows||'<div class="empty-state">Каталог пуст.</div>'}</div></section>
   </div>`;
 }
 
@@ -440,7 +439,7 @@ function encyclopediaExtra(entry,category) {
   if (direct) return direct;
   const fallback={
     locations:['Участок отмечен на карте КПК. При перемещении учитывай соседние переходы, примерное время в пути, состояние погоды и известные угрозы.','Исследованные места постепенно открывают дополнительные точки осмотра, тайники и цели заданий. Перед переходом проверь снаряжение и оставь свободное место в рюкзаке.'],
-    people:['Сведения о человеке собираются из встреч, разговоров и наблюдений. Отношение к персонажу может зависеть от фракции, репутации и предыдущих поступков.','Проверяй, где находится собеседник, и учитывай его занятие: торговец, патрульный и обычный сталкер по-разному реагируют на просьбы.'],
+    people:[],
     anomalies:['Аномальные поля могут наносить урон, менять положение предметов или влиять на состояние сталкера. Неизвестный участок сначала изучают с безопасной дистанции.','Используй детектор и болты, следи за показаниями дозиметра и не пересекай поле, пока не понятен безопасный маршрут.'],
     mutants:['Мутанты чаще встречаются возле заброшенных построек и на окраинах локаций. После столкновения можно осмотреть место и иногда получить трофей.','Не расходуй весь боезапас на мелкие угрозы: оцени дистанцию, здоровье и возможность отступления.'],
     artifacts:['Артефакты ищут в аномальных зонах при помощи детектора. Ценность находки зависит от редкости и состояния рынка.','Перед извлечением убедись, что путь проверен, а в рюкзаке достаточно свободных клеток.'],

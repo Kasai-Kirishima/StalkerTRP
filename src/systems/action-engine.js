@@ -1,7 +1,8 @@
 import { LOCATIONS, ITEMS, EXPLORE_SPOTS } from '../data/catalog.js';
 import { addLog, describeLocation, searchLocation, talkToNpc, replyNpcFreeText, startArtifactHunt, deactivateAnomaly, getLocation, scoutLocation, getAvailableTraders, getAvailableStalkers, travelTo, startAreaSearch, sitAtCampfire, takeShelter, advanceGame, nameSecretAnomaly, beginAtpRescue, toggleCurrentLocationLight, useVortex, escapeVortex, useCarousel, escapeCarousel, useTrampoline } from './world.js';
-import { playerAttack, beginEncounter, combatTextAction } from './combat.js';
-import { useItem, countItem, removeItem, addItem } from './inventory.js';
+import { playerAttack, beginEncounter, combatTextAction, getBestWeapon } from './combat.js';
+import { useItem, countItem, removeItem, addItem, getWeight } from './inventory.js';
+import { getItemCondition } from './equipment-condition.js';
 import { containsReferencePronoun, getRememberedEntity, rememberEntity, grammaticalGender, genderedSubject, pronounInDative, tokenizeRussian, stemRussianWord } from './russian-language.js';
 import { getRadioStationForLocation } from '../data/radio-stations.js';
 
@@ -91,6 +92,64 @@ function getCreatureType(reference, text) {
   if (/(военн|солдат|дзержин)/.test(text)) return 'military';
   if (/(бандит|кефир)/.test(text)) return 'bandit';
   return 'blind-dog';
+}
+
+// Context-aware local Game Master. It never invents outcomes: it narrates only
+// observations backed by the current location, visible contacts and carried gear.
+function buildGameMasterFallback(game, rawText) {
+  const text=normalize(rawText);
+  const location=getLocation(game.locationId);
+  const people=getAvailableStalkers(game,game.locationId);
+  const squads=(game.squads||[]).filter(squad=>squad.location===game.locationId);
+  const placeName=location?.name||'текущем участке';
+  const currentArea=EXPLORE_SPOTS.find(spot=>spot.id===game.currentAreaId&&spot.locationId===game.locationId);
+  const hour=Math.floor((((Number(game.clock?.worldMinutes)||0)%1440)+1440)%1440/60);
+  const timeOfDay=hour<5?'ночью':hour<8?'на рассвете':hour<12?'утром':hour<17?'днём':hour<21?'вечером':'поздним вечером';
+
+  if (/(жду|ожидаю|выжидаю|подожду|немного подожду)/.test(text)) {
+    advanceGame(game,2);
+    const nextHour=Math.floor((((Number(game.clock?.worldMinutes)||0)%1440)+1440)%1440/60);
+    const phase=nextHour<5?'ночь':nextHour<8?'рассвет':nextHour<12?'утро':nextHour<17?'день':nextHour<21?'вечер':'поздний вечер';
+    return `Ты остаёшься на месте и выжидаешь пару минут. На «${placeName}» пока ничего не меняется; сейчас ${phase}.`;
+  }
+
+  if (/(прислуш|вслуш|слушаю|слушаешься|прислушиваюсь)/.test(text)) {
+    const sound=game.emission?.active?'Низкий гул выброса заглушает дальние звуки.':/дожд|гроза|ветер/i.test(game.weather||'')?'Шум погоды перебивает мелкие звуки; иногда слышно, как скрипит металл.':'Слышны ветер, шорох травы и отдельные звуки со стороны построек.';
+    const company=people.length?` Поблизости замечены: ${people.slice(0,3).map(person=>person.name).join(', ')}.`:squads.length?` В районе замечены отряды: ${squads.map(squad=>squad.name).join(', ')}.`:'Рядом не видно людей.';
+    return `Ты замираешь и прислушиваешься на «${placeName}». ${sound}${company}`;
+  }
+
+  if (/(проверяю|проверить|осматриваю|осмотреть).{0,32}(оруж|ствол|снаряж|экипиров)|(?:оруж|ствол|снаряж|экипиров).{0,24}(проверить|осмотреть|состояни)/.test(text)) {
+    const weapon=getBestWeapon(game.inventory,game);
+    const armorId=game.player?.armorId||game.equipmentSlots?.armor;
+    const maskId=game.player?.maskId||game.equipmentSlots?.mask;
+    const parts=[];
+    if (weapon) parts.push(`${weapon.name} — ${Math.round(getItemCondition(game,weapon.id))}%`);
+    else parts.push('исправного огнестрельного оружия не найдено');
+    if (armorId) parts.push(`${ITEMS.find(item=>item.id===armorId)?.name||armorId} — ${Math.round(getItemCondition(game,armorId))}%`);
+    if (maskId) parts.push(`${ITEMS.find(item=>item.id===maskId)?.name||maskId} — ${Math.round(getItemCondition(game,maskId))}%`);
+    return `Ты проверяешь снаряжение на «${placeName}»: ${parts.join('; ')}. Для ремонта обратись к технику, если состояние просело.`;
+  }
+
+  if (/(проверяю|пересчитываю|что у меня|покажи).{0,24}(рюкзак|вещи|припасы|запасы)|(?:рюкзак|припасы).{0,24}(проверить|пересчитать|что есть)/.test(text)) {
+    const entries=(game.inventory||[]).filter(stack=>stack.qty>0).slice(0,7).map(stack=>`${ITEMS.find(item=>item.id===stack.id)?.name||stack.id} ×${stack.qty}`);
+    const total=(game.inventory||[]).reduce((sum,stack)=>sum+(Number(stack.qty)||0),0);
+    return `Ты пересчитываешь припасы: ${total} предметов, вес ${getWeight(game.inventory).toFixed(1)} кг. ${entries.length?`Под рукой: ${entries.join(', ')}.`:'Рюкзак пуст.'}`;
+  }
+
+  if (/(кто|кого|люди|сталкер|народ).{0,24}(рядом|поблизости|здесь)|(?:рядом|поблизости).{0,20}(кто|люди|сталкер)/.test(text)) {
+    return people.length?`На «${placeName}» поблизости: ${people.slice(0,6).map(person=>`${person.name} (${person.role||'сталкер'})`).join(', ')}. Можешь назвать конкретного человека, чтобы заговорить с ним.`:'Ты осматриваешься, но поблизости никого не замечаешь.';
+  }
+
+  const detail=currentArea?.description||location?.desc||'Местность просматривается плохо.';
+  const contactLine=people.length?` Здесь неподалёку ${people.length} человек.`:' Поблизости никого не видно.';
+  const mood=game.emission?.active?'Сейчас лучше не задерживаться снаружи.':(location?.hazards?.length?'На участке отмечены опасные зоны.':'Явной опасности прямо перед тобой не видно.');
+  const replies=[
+    `Ты пробуешь выполнить действие на «${placeName}». ${detail}${contactLine} ${mood} Уточни, что именно хочешь сделать.`,
+    `На «${placeName}» ${timeOfDay}. ${detail}${contactLine} ${random(['Пока никаких новых событий не происходит.','Ты не замечаешь явных изменений.','Для конкретного результата назови предмет, человека или место.'])}`,
+    `Ты осматриваешь обстановку на «${placeName}». ${mood}${contactLine} ${random(['Можно осмотреться подробнее, поговорить с местными или выбрать переход на карте.','Не буду считать действие выполненным без понятной цели.','Уточни, с чем именно взаимодействовать.'])}`
+  ];
+  return random(replies);
 }
 
 function inspectReference(game, reference) {
@@ -395,18 +454,8 @@ export function processPlayerAction(game, rawText) {
     return {message:nearby.length?`Рядом замечены: ${nearby.map(s=>s.name).join(', ')}.`:'В непосредственной близости патрулей не замечено.'};
   }
 
-  const location=getLocation(game.locationId);
   const pronounReply=reference ? `${genderedSubject(reference)} — это ${reference.name}. ${random(['Ты можешь осмотреть объект внимательнее.','Теперь понятно, о ком или о чём речь.','Контекст сохранён, можешь продолжить действие.'])}` : null;
-  const replies=[
-    `Ты действуешь осторожно. ${random(['В ответ слышен только ветер.','Где-то скрипит металл.','На мгновение кажется, что за тобой наблюдают.'])}`,
-    `В текущей обстановке (${location?.name}) это не даёт явного результата. ${random(['Попробуй уточнить, что именно хочешь сделать.','Можешь осмотреться, поговорить, обыскать место или проверить аномалию.','Опиши цель действия чуть конкретнее.'])}`,
-    'Ты тратишь немного времени, но ничего необычного не происходит. Зона не спешит раскрывать свои секреты.',
-    'Поблизости нет очевидной реакции. Возможно, стоит осмотреть местность или поговорить с кем-нибудь из местных.',
-    `Ты прислушиваешься. ${random(['Слева доносится короткий металлический стук.','Ветер несёт запах сырой земли и гари.','Вдалеке раздаётся собачий лай.','Под ногами хрустит стекло.','За укрытием мелькает чья-то тень.'])}`,
-    `Обстановка не меняется. ${random(['Патруль пока не показывается.','Старые следы уходят к дороге.','В траве шевелится мусор от порыва ветра.','Где-то неподалёку хлопает незакреплённая дверь.'])}`,
-    `Ты не получаешь ясного результата. ${random(['Попробуй сформулировать короче.','Можешь указать человека, предмет или место.','В Зоне лучше действовать точнее.'])}`
-  ];
-  const message=pronounReply || random(replies);
+  const message=pronounReply || buildGameMasterFallback(game,rawText);
   addLog(game,message);
   return {message};
 }

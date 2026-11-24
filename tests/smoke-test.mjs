@@ -303,10 +303,10 @@ for (const faction of FACTIONS) {
 
 // Starter economy supports a practical multi-item kit and distinct leather jacket/cosukha art.
 assert.equal(START_BUDGET,5000,'starting budget should allow one practical faction kit without funding an advanced loadout');
-assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=298"),'service worker registration URL should refresh with the release');
+assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=300"),'service worker registration URL should refresh with the release');
 const serviceWorkerSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8');
 assert.ok(serviceWorkerSource.includes('./src/data/bundled-music.js')&&serviceWorkerSource.includes('./src/data/radio-stations.js'),'offline shell should cache the built-in music manifest and base radio station data');
-assert.ok(serviceWorkerSource.includes('cordon-pda-v2980-mobile-quest-equipment'),'service worker cache name should change for the current release');
+assert.ok(serviceWorkerSource.includes('cordon-pda-v3000-personal-barter-gm'),'service worker cache name should change for the current release');
 const swUrl=new URL('../sw.js',import.meta.url);
 const precachePaths=[...serviceWorkerSource.matchAll(/\"(\.\/[^\"]+)\"/g)].map(match=>match[1]);
 assert.ok(precachePaths.length>=150,'the offline shell should include the expanded artwork bundle');
@@ -353,7 +353,7 @@ for (const faction of FACTIONS) {
 }
 assert.ok(ITEMS.filter(item=>item.cat!=='Задания').every(item=>Number.isFinite(item.price)&&item.price>0),'every tradable item should have a positive base price');
 assert.ok(ITEMS.filter(item=>item.cat==='Задания').every(item=>item.price===0),'story quest items should not have a sale price');
-assert.ok(NPCS.filter(npc=>npc.trader).every(npc=>npc.priceMultiplier>=1.14&&npc.priceMultiplier<=1.18&&npc.buyMultiplier>=.39&&npc.buyMultiplier<=.42),'fixed traders should use controlled markups and buyback rates');
+assert.ok(NPCS.filter(npc=>npc.trader).every(npc=>npc.priceMultiplier>=1.02&&npc.priceMultiplier<=1.07&&npc.buyMultiplier>=.33&&npc.buyMultiplier<=.37),'fixed traders should use the balanced location-specific markups and buyback rates');
 
 // Each new game spawns ten randomized villagers, soldiers on the checkpoints and bandits at ATP.
 const populationOne=createGame({name:'Население 1',faction:'loner'},[],START_BUDGET);
@@ -487,7 +487,7 @@ assert.equal(travelTo(wolfQuestGame,'rookie-village').ok,true);
 assert.equal(talkToNpc(wolfQuestGame,'wolf').ok,true);
 const cashBeforeWolf=wolfQuestGame.money;
 assert.equal(turnInWolfDogQuest(wolfQuestGame).ok,true);
-assert.equal(wolfQuestGame.money,cashBeforeWolf+850);
+assert.equal(wolfQuestGame.money,cashBeforeWolf+320);
 assert.equal(wolfQuestGame.wolfDogQuest.status,'completed');
 Math.random=randomBeforeWolf;
 
@@ -515,9 +515,23 @@ legacyStockGame.economyVersion=0;
 legacyStockGame.traders.find(t=>t.id==='sidorovich').stock.find(entry=>entry.id==='bread').price=1;
 const migratedSidorovich=getAvailableTraders(legacyStockGame,'sidorovich-bunker').find(t=>t.id==='sidorovich');
 assert.ok(migratedSidorovich.stock.find(entry=>entry.id==='bread').price>1,'old saves should receive new trader prices without losing stock');
-assert.equal(legacyStockGame.economyVersion,4,'old saves should be marked with the current economy version');
+assert.equal(legacyStockGame.economyVersion,6,'old saves should be marked with the current economy version');
 assert.ok(['zarya','berill','stalnoishlem','pg4'].every(id=>migratedSidorovich.stock.some(entry=>entry.id===id)),'Sidorovich legacy stock should receive the newly catalogued protective gear');
 assert.ok(migratedSidorovich.stock.every(entry=>!['tail','flesh-eye','medusa','meat_chunk','gravi'].includes(entry.id)),'legacy saves must be migrated off mutant/artifact sale stock');
+const oldLocalEconomy=createGame({name:'Старая торговля местного',faction:'loner'},[],START_BUDGET);
+const localTraderProfile=oldLocalEconomy.ambientNpcs.find(npc=>npc.location==='rookie-village');
+oldLocalEconomy.npcTraders={[localTraderProfile.id]:{id:localTraderProfile.id,location:'rookie-village',stock:[{id:'bread',qty:2,price:1},{id:'berill',qty:1,price:1},{id:'zarya',qty:1,price:1},{id:'stalnoishlem',qty:1,price:1},{id:'pg4',qty:1,price:1}],buyMultiplier:.36}};
+oldLocalEconomy.economyVersion=0;
+const migratedLocal=getAvailableTraders(oldLocalEconomy,'rookie-village').find(t=>t.id===localTraderProfile.id);
+assert.ok(migratedLocal,'legacy ordinary stalker should keep their personal barter record');
+assert.ok(migratedLocal.stock.every(entry=>!['berill','zarya','stalnoishlem','pg4','pa8','pa10','psz5','medved'].includes(entry.id)),'ordinary Cordon NPCs must not retain late-game armor or rare detectors after migration');
+assert.ok(migratedLocal.stock.length>=2 && migratedLocal.stock.length<=7,'personal low-tier trader stock should remain compact after migration');
+const oldRoamingEconomy=createGame({name:'Старый бродячий торговец',faction:'loner'},[],START_BUDGET);
+const oldRoamer=oldRoamingEconomy.randomTraders[0];
+oldRoamer.stock.push({id:'berill',qty:1,price:1},{id:'zarya',qty:1,price:1},{id:'pg4',qty:1,price:1});
+oldRoamingEconomy.economyVersion=0;
+const migratedRoamer=getAvailableTraders(oldRoamingEconomy,oldRoamer.location).find(t=>t.id===oldRoamer.id);
+assert.ok(migratedRoamer.stock.every(entry=>!['berill','zarya','stalnoishlem','pg4','psz5'].includes(entry.id)),'old travelling traders must migrate away from late-game South stock');
 
 // Trader locations: Shnurok on ATP, military quartermaster at southern checkpoint.
 shopGame.locationId='atp';
@@ -525,9 +539,16 @@ assert.ok(getAvailableTraders(shopGame).some(trader=>trader.id==='shnurok'));
 shopGame.locationId='south-checkpoint';
 assert.ok(getAvailableTraders(shopGame).some(trader=>trader.id==='kapterka'));
 const kapterkaStock=getAvailableTraders(shopGame,'south-checkpoint').find(trader=>trader.id==='kapterka').stock;
-assert.ok(['zarya','berill','stalnoishlem','pg4'].every(id=>kapterkaStock.some(entry=>entry.id===id)),'military quartermaster should stock all newly added protective items');
+assert.ok(['debyt','pa8','pa10','pm','vm17'].every(id=>kapterkaStock.some(entry=>entry.id===id)),'southern checkpoint quartermaster should offer practical low/mid-tier supplies');
+const oldQuartermasterGame=createGame({name:'Старый склад',faction:'loner'},[],START_BUDGET);
+oldQuartermasterGame.economyVersion=0;
+oldQuartermasterGame.traders.find(entry=>entry.id==='kapterka').stock.push({id:'zarya',qty:1,price:1},{id:'berill',qty:1,price:1},{id:'pg4',qty:1,price:1});
+const migratedQuartermaster=getAvailableTraders(oldQuartermasterGame,'south-checkpoint').find(entry=>entry.id==='kapterka');
+assert.ok(migratedQuartermaster.stock.every(entry=>!['zarya','berill','stalnoishlem','pg4','psz5'].includes(entry.id)),'old saves must migrate Kapterka to her current regional supply list');
+assert.ok(kapterkaStock.every(entry=>!['zarya','berill','psz5','pg4','aksu','medved'].includes(entry.id)),'advanced suits and rare detectors should not flood the early Cordon market');
 const shnurokStock=getAvailableTraders(shopGame,'atp').find(trader=>trader.id==='shnurok').stock;
-assert.ok(['kosyha','stalnoishlem','pg4'].every(id=>shnurokStock.some(entry=>entry.id===id)),'ATP trader should stock faction-appropriate protective items');
+assert.ok(['biker','kozanka','pm','sawedoff'].every(id=>shnurokStock.some(entry=>entry.id===id)),'ATP trader should stock faction-appropriate low/mid-tier equipment');
+assert.ok(shnurokStock.every(entry=>!['stalnoishlem','pg4','zarya','berill'].includes(entry.id)),'ATP trader should not make late-game protective gear readily available on the South');
 
 // Every local stalker can be approached and offered a trade, including generated squad members.
 const contactGame=createGame({name:'Контакт',faction:'loner'},[],START_BUDGET);
@@ -539,8 +560,19 @@ assert.ok(squadContact,'members of the local squad should appear as individual c
 assert.equal(talkToNpc(contactGame,squadContact.id).ok,true,'a generated squad member should accept dialogue');
 const squadTrader=getAvailableTraders(contactGame).find(person=>person.id===squadContact.id);
 assert.ok(squadTrader && squadTrader.stock.length>0,'any stalker should have a small personal barter inventory');
-const squadOffer=squadTrader.stock[0];
-assert.equal(buyFromTrader(contactGame,squadContact.id,squadOffer.id).ok,true,'a player can buy from a regular stalker');
+const ambientOffers=getAvailableTraders(contactGame,'rookie-village').filter(person=>contactGame.ambientNpcs.some(npc=>npc.id===person.id));
+assert.ok(ambientOffers.length>=3,'ordinary stalkers should expose personal barter offers');
+assert.ok(Object.keys(contactGame.npcTraders).length>=ambientOffers.length,'each ordinary stalker must have a separate persisted barter record');
+assert.notStrictEqual(contactGame.npcTraders[ambientOffers[0].id].stock,contactGame.npcTraders[ambientOffers[1].id].stock,'each stalker must own an independent stock list');
+const cartographerOffer=ambientOffers.find(person=>person.role==='Сталкер-картограф');
+const cookOffer=ambientOffers.find(person=>person.role==='Повар у костра');
+assert.ok(cartographerOffer && cookOffer,'the village must populate distinct specialist roles');
+assert.notDeepEqual(cartographerOffer.stock.map(entry=>entry.id).sort(),cookOffer.stock.map(entry=>entry.id).sort(),'barter offers should follow each NPC occupation rather than one shared faction list');
+assert.notEqual(cartographerOffer.priceMultiplier,cookOffer.priceMultiplier,'ordinary stalkers should have individual prices');
+assert.ok(ambientOffers.every(person=>person.stock.every(entry=>!['zarya','berill','stalnoishlem','pg4','psz5','aksu','medved'].includes(entry.id))),'ordinary Cordon stock should stay within the early-game tier');
+const squadOffer=[...squadTrader.stock].filter(entry=>entry.qty>0).sort((a,b)=>a.price-b.price)[0];
+assert.ok(squadOffer,'a regular stalker should have at least one available barter item');
+assert.equal(buyFromTrader(contactGame,squadContact.id,squadOffer.id).ok,true,'a player can buy an affordable item from a regular stalker');
 const contactScene=renderGame({game:contactGame,characters:[{id:'contact',name:'Контакт',faction:'loner'}],activeCharacterId:'contact',ui:{tab:'location',modal:null,pdaOpen:false,music:{}},settings:{}});
 assert.ok(contactScene.includes(`data-action="trade-open" data-id="${squadContact.id}"`),'local squad member should expose a direct trade action in the scene');
 
@@ -706,6 +738,9 @@ assert.ok(closedPdaHtml.includes('equipment-hotbar') && closedPdaHtml.includes('
 assert.ok(/weapon-hud (?:left|right) idle/.test(closedPdaHtml) && !closedPdaHtml.includes('data-action="combat-attack"'),'exploration should use a compact equipment HUD without disabled combat controls');
 uiState.ui.pdaOpen=true;
 assert.ok(renderGame(uiState).includes('aria-label="Разделы КПК"'),'opening the PDA should reveal tabs across the top');
+const pointMapHtml=renderGame({...uiState,ui:{...uiState.ui,pdaOpen:true,tab:'map'}});
+assert.ok(pointMapHtml.includes('map-pin point-only'),'the PDA map should use simple location dots');
+assert.ok(!pointMapHtml.includes('map-pin-title')&&!pointMapHtml.includes('data-location-name'),'the PDA map should not render location names or title labels');
 uiState.game.locationId='rookie-village';
 uiState.ui.pdaOpen=false;
 uiState.ui.tab='location';
@@ -753,9 +788,9 @@ uiState.ui.tab='player';
 uiState.ui.localMusicTracks=BUNDLED_MUSIC_TRACKS;
 uiState.ui.music={mode:'catalog',trackId:BUNDLED_MUSIC_TRACKS[0].id,queue:BUNDLED_MUSIC_TRACKS.map(t=>t.id),index:0,playing:false};
 const playerHtml=renderGame(uiState);
-assert.ok(playerHtml.includes('Музыкальная библиотека'));
-assert.ok(playerHtml.includes('player-play-track'));
-assert.ok(playerHtml.includes('71 треков') && playerHtml.includes('Каталог названий встроен'));
+assert.ok(playerHtml.includes('Список композиций'));
+assert.ok(!playerHtml.includes('player-play-track') && !playerHtml.includes('player-prev') && !playerHtml.includes('player-next'));
+assert.ok(playerHtml.includes('71') && playerHtml.includes(BUNDLED_MUSIC_TRACKS[0].title),'the player should display built-in track names only, without fake playback controls');
 assert.ok(!playerHtml.includes('Импортировать ZIP') && !playerHtml.includes('local-music-archive') && !playerHtml.includes('Выбрать папку Music'),'the player must use its built-in title catalog without asking for import'); 
 const musicRuntimeSource=['src/systems/music.js','src/systems/music-archive.js','src/main.js','src/ui/views.js'].map(file=>fs.readFileSync(new URL(`../${file}`,import.meta.url),'utf8')).join('\n');
 assert.ok(!/iframe|videoId|youtube\.com|youtu\.be|spotify\.com|radio\./i.test(musicRuntimeSource),'music runtime must not embed remote players or network radio streams');
@@ -1174,7 +1209,10 @@ assert.ok(carouselFailure.message.includes('выбрасывает') && carousel
 const bunkerSceneGame=createGame({name:'Проверка входа',faction:'loner'},[],START_BUDGET);
 bunkerSceneGame.locationId='rookie-village';
 const bunkerSceneHtml=renderGame({game:bunkerSceneGame,characters:[{id:'test',name:'Проверка',faction:'loner'}],activeCharacterId:'test',settings:{},ui:{tab:'location',pdaOpen:false}});
-assert.ok(bunkerSceneHtml.includes('К Сидоровичу') && bunkerSceneHtml.includes('data-id="sidorovich-bunker"'),'rookie village should expose a clear entrance to Sidorovich bunker');
+assert.ok(!bunkerSceneHtml.includes('main-story-quest'),'the main storyline should not clutter the live location screen');
+talkToNpc(bunkerSceneGame,'wolf');
+const bunkerQuestHtml=renderGame({game:bunkerSceneGame,characters:[{id:'test',name:'Проверка',faction:'loner'}],activeCharacterId:'test',settings:{},ui:{tab:'quests',pdaOpen:true}});
+assert.ok(bunkerQuestHtml.includes('Спуститься к Сидоровичу') && bunkerQuestHtml.includes('data-id="sidorovich-bunker"'),'quest journal should expose a clear entrance to Sidorovich bunker after Wolf gives the hint');
 bunkerSceneGame.locationId='sidorovich-bunker';
 const bunkerExitHtml=renderGame({game:bunkerSceneGame,characters:[{id:'test',name:'Проверка',faction:'loner'}],activeCharacterId:'test',settings:{},ui:{tab:'location',pdaOpen:false}});
 assert.ok(bunkerExitHtml.includes('Выйти в деревню'),'Sidorovich bunker should expose a visible return route');
@@ -1191,6 +1229,14 @@ assert.equal(aiPayload.context.player.currentLocation,'Деревня нович
 assert.ok(aiPayload.context.availableExits.some(exit=>exit.name==='Остановка'));
 assert.ok(aiPayload.context.npc.knownDialogue && aiPayload.context.npc.knownDialogue.rumors==='На остановке сегодня тихо.','AI context should include grounded NPC dialogue knowledge');
 assert.ok('worldState' in aiPayload.context,'AI context should include the current game world state');
+assert.ok(aiPayload.context.nearbyPeople.length>0,'NPC AI should know who is actually nearby');
+aiGame.ambientNpcs.push({id:'hidden-village-bandit',name:'Лишний бандит',role:'Бандит',faction:'bandit',location:'rookie-village'});
+const filteredNearbyPayload=buildNpcAiPayload({game:aiGame,npc:aiNpc,playerMessage:'Кто тут рядом?'});
+assert.ok(!filteredNearbyPayload.context.nearbyPeople.some(person=>person.id==='hidden-village-bandit'),'NPC AI must not claim hostile-faction characters are visibly present in a protected village');
+const wolfAiPayload=buildNpcAiPayload({game:aiGame,npc:NPCS.find(npc=>npc.id==='wolf'),playerMessage:'Расскажи о себе'});
+assert.equal(wolfAiPayload.context.npc.unique,true,'named story NPCs should be identified as unique');
+assert.ok(wolfAiPayload.system.includes('уникальный сюжетный NPC'),'unique NPC prompts should preserve authored biography and voice');
+assert.ok(aiPayload.system.includes('обычный, неуникальный сталкер'),'ordinary NPCs may vary their small talk while obeying world facts');
 const scopedAiGame={...aiGame,dialogueHistory:[{role:'player',npcId:'other-npc',text:'Чужой разговор'},{role:'player',npcId:'ai-guide',text:'Наш разговор'}]};
 const scopedPayload=buildNpcAiPayload({game:scopedAiGame,npc:aiNpc,playerMessage:'Продолжим'});
 assert.ok(!JSON.stringify(scopedPayload.messages).includes("Чужой разговор"),"generative NPC context must not leak another NPC's conversation");
@@ -1239,9 +1285,9 @@ assert.match(storyTalk('wolf','rookie-village'),/Сидорович/);
 assert.equal(storyGame.mainStory.stage,'go-to-sidorovich');
 assert.equal(getMainStoryQuest(storyGame).title,'Совет Волка','speaking with Wolf should create the explicit next quest to visit Sidorovich');
 assert.match(getMainStoryQuest(storyGame).objective,/Сидоровича/,'the journal objective should clearly direct the player to Sidorovich');
-const storyViewState={screen:'game',characters:[{id:'story-test',name:'Проверка сюжета',faction:'loner'}],activeCharacterId:'story-test',settings:{},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game:storyGame};
+const storyViewState={screen:'game',characters:[{id:'story-test',name:'Проверка сюжета',faction:'loner'}],activeCharacterId:'story-test',settings:{},ui:{tab:'quests',pdaOpen:true,modal:null,music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game:storyGame};
 const wolfAfterTalkHtml=renderGame(storyViewState);
-assert.ok(wolfAfterTalkHtml.includes('Совет Волка')&&wolfAfterTalkHtml.includes('Спуститься к Сидоровичу'),'after Wolf dialogue the active quest and a direct Sidorovich action must be visible');
+assert.ok(wolfAfterTalkHtml.includes('Совет Волка')&&wolfAfterTalkHtml.includes('Спуститься к Сидоровичу'),'after Wolf dialogue the active quest and its direct action must be visible in the quest journal');
 assert.equal(travelTo(storyGame,'sidorovich-bunker').ok,true,'the player should be able to follow the new quest from the village to Sidorovich');
 assert.match(storyTalk('sidorovich','sidorovich-bunker'),/флешк/);
 assert.equal(storyGame.mainStory.stage,'find-first-flash');
@@ -1384,7 +1430,7 @@ const repairState={game:equipmentMechanicsGame,ui:{modal:'repair-panel'}};
 const repairHtml=renderModal(repairState);
 assert.ok(repairHtml.includes('Мастерская Маслова')&&repairHtml.includes('Починить'),'the basement technician should offer item repair actions');
 
-console.log('Smoke tests passed: PDA/map modes, imported NPC/faction/quest artwork, local audio player, bandit dialogue, proportional costume inventory layout, quest visibility/progress, trade overlays, RP exploration, profile and combat.');
+console.log('Smoke tests passed: PDA/map modes, imported NPC/faction/quest artwork, title-only music catalogue, personal barter migration, contextual NPC/Game Master dialogue, bandit dialogue, proportional inventory layout, quest visibility/progress, trade overlays, RP exploration, profile and combat.');
 
 // The in-browser ZIP importer reads audio locally and handles regular ZIP central directories.
 function makeStoredZip(fileName, content) {

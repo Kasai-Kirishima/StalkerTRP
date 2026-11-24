@@ -128,13 +128,22 @@ function createNpcNameFactory() {
   };
 }
 
+const SMALL_QUEST_ITEM_VALUES = { bread:60, water:75, bandage:210, canned:160, sausage:110, boltpack:220, ammo9x18:175 };
+function getSmallQuestReward(itemId, locationId) {
+  // Cordon is the low-tier starting region. The same request may pay more
+  // at a later hub such as the Agroprom Bar, without inflating the South.
+  const lateHub = /agroprom|bar/i.test(String(locationId||''));
+  const multiplier = lateHub ? 1.55 : 1.05;
+  return Math.max(45, Math.round((SMALL_QUEST_ITEM_VALUES[itemId]||80) * multiplier));
+}
+
 function createAmbientNpc(id, location, faction, template, index, makeName) {
   const look=npcLook(faction);
   const smallItems=['bread','water','bandage','canned','sausage','boltpack','ammo9x18'];
   const smallItem=smallItems[index%smallItems.length];
   const militaryRanks=['Рядовой','Ефрейтор','Младший сержант','Сержант','Старший сержант'];
   const militaryCalls=['Клык','Гранит','Сокол','Беркут','Шрам','Туман','Рубеж','Кедр','Факел','Барс'];
-  const smallQuest={itemId:smallItem,quantity:1,reward:Math.max(100,Math.ceil(({bread:60,water:75,bandage:210,canned:160,sausage:110,boltpack:220,ammo9x18:175}[smallItem])*1.55)),status:'available'};
+  const smallQuest={itemId:smallItem,quantity:1,reward:getSmallQuestReward(smallItem,location),status:'available'};
   return {
     id, name:makeName(), role:template.role,
     group:FACTION_GROUPS[faction]||'Путники', faction, location, ...look,
@@ -180,15 +189,68 @@ function refreshAmbientNpcActivities(game) {
   for (const npc of game.ambientNpcs) npc.activity=npc.routines?.[period]||npc.personalTask||npc.role;
 }
 
-const NPC_TRADE_STOCK = {
-  loner:['bread','water','sausage','canned','energy','bandage','ai2','antirad','ammo9x18','ammo9x19','shells','boltpack','knife','pm','sawedoff','binoculars','otklik','leather','kozanplash','zarya','berill','stalnoishlem','pg4','mask-loner-basic'],
-  bandit:['vodka','bread','sausage','canned','energy','bandage','ammo9x18','ammo9x19','shells','knife','pm','sawedoff','gaduka','biker','kozanka','kosyha','stalnoishlem','pg4','binoculars','mask-bandit-basic'],
-  military:['water','canned','energy','bandage','ai2','ammo9x18','ammo545','shells','antirad','boltpack','binoculars','pm','aksu','vm17','debyt','pa8','pa10','zarya','berill','stalnoishlem','pg4','mask-military-basic']
-};
 const getItemName = (id) => ({medusa:'Медуза',meat_chunk:'Ломоть мяса',gravi:'Грави','stone-flower':'Каменный цветок'}[id] || id);
-const RANDOM_TRADER_STOCK = ['bread','water','canned','sausage','energy','bandage','ammo9x18','ammo9x19','ammo545','shells','knife','vodka','boltpack','ai2','antirad','binoculars','pm','sawedoff','otklik','leather','kozanka','pa8','kosyha','stalnoishlem','pg4','zarya'];
+const RANDOM_TRADER_STOCK = ['bread','water','canned','sausage','energy','bandage','ammo9x18','ammo9x19','ammo545','shells','knife','vodka','boltpack','ai2','antirad','binoculars','pm','sawedoff','otklik','leather','kozanka','mask-loner-basic','mask-bandit-basic','mask-military-basic'];
 
-const ECONOMY_VERSION = 4;
+const ECONOMY_VERSION = 6;
+
+const PERSONAL_BARTER_POOLS = {
+  // Cordon locals trade in practical low-tier supplies. Advanced suits and rare detectors
+  // remain restricted to authored specialists and later-region merchants.
+  rookie:['bread','water','sausage','canned','energy','bandage'],
+  food:['bread','water','sausage','canned','energy','vodka','bandage'],
+  cook:['bread','water','sausage','canned','energy','vodka'],
+  field:['water','bandage','ai2','antirad','boltpack','binoculars','otklik','bread'],
+  hunter:['shells','ammo9x18','knife','sawedoff','boltpack','bandage','water','bread'],
+  mechanic:['boltpack','knife','pm','ammo9x18','bandage','water','leather','bread'],
+  sentry:['ammo9x18','shells','bandage','water','bread','pm'],
+  quartermaster:['ammo9x18','ammo545','shells','bandage','ai2','antirad','boltpack','pm','debyt','pa8'],
+  scavenger:['bread','water','canned','bandage','boltpack','knife','ammo9x18','energy'],
+  trader:['bread','water','sausage','canned','energy','bandage','ammo9x18','shells','boltpack','ai2','antirad']
+};
+const PERSONAL_FACTION_BARTER = {
+  loner:['knife'],
+  bandit:['vodka'],
+  military:['ammo545']
+};
+
+function hashId(value) {
+  let hash=2166136261;
+  for (const char of String(value||'')) hash=Math.imul(hash ^ char.charCodeAt(0),16777619);
+  return hash>>>0;
+}
+
+function getPersonalBarterTerms(profile, faction='loner') {
+  const id=profile?.id||'stalker';
+  if (profile?.priceMultiplier!=null || profile?.buyMultiplier!=null) {
+    return {
+      priceMultiplier:Number(profile.priceMultiplier)||1,
+      buyMultiplier:Number(profile.buyMultiplier)||.36
+    };
+  }
+  const hash=hashId(id);
+  const base=faction==='military'?1.035:faction==='bandit'?.99:.985;
+  const buyBase=faction==='military'?.37:faction==='bandit'?.32:.35;
+  return {
+    priceMultiplier:Math.round((base+(hash%6)*.012)*1000)/1000,
+    buyMultiplier:Math.round((buyBase+((hash>>>3)%7)*.012)*1000)/1000
+  };
+}
+
+function getPersonalBarterPool(profile, faction='loner') {
+  const text=`${profile?.role||''} ${profile?.personalTask||''} ${profile?.activity||''}`.toLowerCase();
+  let specialty='trader';
+  if (/нович|зелень/.test(text)) specialty='rookie';
+  if (/металл|собират|сборщик металла|добыт|разбирает|детал/.test(text)) specialty='scavenger';
+  if (/повар|еда|готов|припас/.test(text)) specialty='food';
+  if (/охот|собак|мутант|след/.test(text)) specialty='hunter';
+  if (/ремонт|техник|чинит|фонар/.test(text)) specialty='mechanic';
+  if (/часовой|дозор|патрул|караул|дежур|пост/.test(text)) specialty='sentry';
+  if (/снабжен|квартир|склад/.test(text)) specialty='quartermaster';
+  if (/картограф|развед|ориентир|карта|связист|радиостанц/.test(text)) specialty='field';
+  const factionPool=PERSONAL_FACTION_BARTER[faction]||PERSONAL_FACTION_BARTER.loner;
+  return [...new Set([...(PERSONAL_BARTER_POOLS[specialty]||[]),...factionPool])];
+}
 
 function makeStock(ids, multiplier=1) {
   return [...new Set(ids)].map(id=>{
@@ -200,17 +262,19 @@ function makeStock(ids, multiplier=1) {
 function createTraderRecords() {
   const fixed = NPCS.filter(npc=>npc.trader).map(npc=>({
     id:npc.id, location:npc.location, stock:makeStock(npc.stockIds||[],npc.priceMultiplier||1),
-    buyMultiplier:npc.buyMultiplier||.45
+    buyMultiplier:npc.buyMultiplier||.36, priceMultiplier:npc.priceMultiplier||1
   }));
   const random = Array.from({length:4},(_,index)=>{
     const first=pick(RANDOM_TRADER_NAMES);
     const faction=pick(FACTIONS);
     const possible=LOCATIONS.filter(location=>!location.territory && location.id!=='sidorovich-bunker' && !(faction.id==='bandit'&&location.id==='rookie-village'));
+    const terms=getPersonalBarterTerms({id:`wanderer-${index+1}`},faction.id);
+    const stockIds=getPersonalBarterPool({id:`wanderer-${index+1}`,role:'Бродячий торговец'},faction.id);
     return {
       id:`wanderer-${index+1}`, name:first, role:'Бродячий торговец', group:'Путники', faction:faction.id,
       location:pick(possible).id, ...npcLook(faction.id), greeting:'Поторопись, сталкер. Я не задерживаюсь на одном месте.',
-      stock:makeStock(RANDOM_TRADER_STOCK.filter(()=>Math.random()>.42),1.22), buyMultiplier:.40,
-      priceMultiplier:1.22, trader:true, random:true
+      stock:makeStock(shuffled(stockIds).slice(0,7),terms.priceMultiplier), buyMultiplier:terms.buyMultiplier,
+      priceMultiplier:terms.priceMultiplier, trader:true, random:true
     };
   });
   return { fixed, random };
@@ -228,38 +292,87 @@ function ensureTraderRecords(game) {
   for (const trader of traders) {
     if (Array.isArray(trader.stock)) trader.stock=trader.stock.filter(entry=>!forbiddenResale.has(entry.id));
   }
-  // One-time migration keeps existing saves on the new economy without resetting stock.
+  // Migrate old saves to the Cordon economy: keep authored shops intact,
+  // but remove late-game gear from ordinary locals' personal barter stalls.
   if ((game.economyVersion||0)<ECONOMY_VERSION) {
     for (const trader of traders) {
-      const profile=NPCS.find(npc=>npc.id===trader.id) || game.ambientNpcs?.find(npc=>npc.id===trader.id);
+      const profile=NPCS.find(npc=>npc.id===trader.id)
+        || game.ambientNpcs?.find(npc=>npc.id===trader.id)
+        || game.randomTraders?.find(npc=>npc.id===trader.id)
+        || game.squadMembers?.find(npc=>npc.id===trader.id)
+        || trader;
       const faction=profile?.faction || trader.faction || 'loner';
-      const markup=profile?.priceMultiplier || trader.priceMultiplier || (faction==='military'?1.14:faction==='bandit'?1.08:1.10);
+      const terms=getPersonalBarterTerms(profile||trader,faction);
+      const markup=terms.priceMultiplier;
       trader.priceMultiplier=markup;
       trader.stock ||= [];
+
+      const fixedTrader=NPCS.some(npc=>npc.id===trader.id && npc.trader);
+      const roamingTrader=Boolean(trader.random) || (game.randomTraders||[]).some(npc=>npc.id===trader.id);
+      if (!fixedTrader && !roamingTrader) {
+        const permitted=getPersonalBarterPool(profile,faction);
+        const allowed=new Set(permitted);
+        const retained=new Map();
+        for (const entry of trader.stock) {
+          if (!allowed.has(entry.id) || forbiddenResale.has(entry.id)) continue;
+          const previous=retained.get(entry.id);
+          if (previous) previous.qty=(Number(previous.qty)||1)+(Number(entry.qty)||1);
+          else retained.set(entry.id,{...entry,qty:Math.max(1,Number(entry.qty)||1)});
+        }
+        const essentials=['bread','water','bandage'].filter(id=>allowed.has(id));
+        for (const id of essentials.slice(0,2)) {
+          if (!retained.has(id)) retained.set(id,{id,qty:1,price:Math.ceil((getItem(id)?.price||1)*markup)});
+        }
+        const remaining=permitted
+          .filter(id=>!retained.has(id))
+          .sort((a,b)=>hashId(`${trader.id}:${a}`)-hashId(`${trader.id}:${b}`));
+        for (const id of remaining) {
+          if (retained.size>=6) break;
+          const item=getItem(id);
+          if (item) retained.set(id,{id,qty:1,price:Math.max(1,Math.ceil(item.price*markup))});
+        }
+        trader.stock=[...retained.values()].slice(0,7);
+      } else if (roamingTrader && !fixedTrader) {
+        // Old saves may have given travelling traders the entire late-game list.
+        // Keep a modest travelling stock; regional specialists sell advanced kit.
+        const allowed=new Set(RANDOM_TRADER_STOCK);
+        const retained=new Map();
+        for (const entry of trader.stock) {
+          if (!allowed.has(entry.id) || forbiddenResale.has(entry.id)) continue;
+          if (!retained.has(entry.id)) retained.set(entry.id,{...entry,qty:Math.max(1,Number(entry.qty)||1)});
+        }
+        for (const id of ['bread','water','bandage']) {
+          if (!retained.has(id) && allowed.has(id)) retained.set(id,{id,qty:1,price:Math.max(1,Math.ceil((getItem(id)?.price||1)*markup))});
+        }
+        trader.stock=[...retained.values()].slice(0,9);
+      } else {
+        // Authored traders keep only the items currently assigned to their role.
+        // This also removes retired late-game goods from old Kapterka/Shnurok saves,
+        // while Sidorovich keeps his authored advanced catalogue.
+        const permitted=profile?.stockIds?.length ? profile.stockIds : [];
+        const permittedSet=new Set(permitted);
+        trader.stock=trader.stock.filter(entry=>permittedSet.has(entry.id) && !forbiddenResale.has(entry.id));
+        const factionGear={
+          loner:['zarya','berill','stalnoishlem','pg4'],
+          bandit:['kosyha','stalnoishlem','pg4'],
+          military:['zarya','berill','stalnoishlem','pg4']
+        };
+        const gearToAdd=(factionGear[faction]||[]).filter(id=>permitted.includes(id));
+        for (const id of gearToAdd) {
+          if (trader.stock.some(entry=>entry.id===id)) continue;
+          const item=getItem(id);
+          if (item) trader.stock.push({id,qty:1,price:Math.max(1,Math.ceil(item.price*markup))});
+        }
+      }
       for (const entry of trader.stock) {
         const item=getItem(entry.id);
         if (item) entry.price=Math.max(1,Math.ceil(item.price*markup));
       }
-      // Add the newly catalogued protective gear to existing saves without resetting stock.
-      const factionGear={
-        loner:['zarya','berill','stalnoishlem','pg4'],
-        bandit:['kosyha','stalnoishlem','pg4'],
-        military:['zarya','berill','stalnoishlem','pg4']
-      };
-      const permitted=profile?.stockIds?.length ? profile.stockIds : (trader.random ? RANDOM_TRADER_STOCK : NPC_TRADE_STOCK[faction]||[]);
-      const gearToAdd=(factionGear[faction]||[]).filter(id=>permitted.includes(id));
-      // Regular fixed vendors receive their configured gear; wandering traders receive at most two extra pieces.
-      const additions=trader.random ? gearToAdd.slice(0,2) : gearToAdd;
-      for (const id of additions) {
-        if (trader.stock.some(entry=>entry.id===id)) continue;
-        const item=getItem(id);
-        if (item) trader.stock.push({id,qty:1,price:Math.max(1,Math.ceil(item.price*markup))});
-      }
-      if (profile?.buyMultiplier!=null) trader.buyMultiplier=profile.buyMultiplier;
-      else trader.buyMultiplier=faction==='military'?.46:faction==='bandit'?.39:.42;
+      trader.buyMultiplier=terms.buyMultiplier;
     }
     game.economyVersion=ECONOMY_VERSION;
   }
+
 }
 
 function findTrader(game, traderId) {
@@ -272,14 +385,15 @@ function findTrader(game, traderId) {
     record=game.npcTraders[traderId];
     if (!record) {
       const faction=profile.faction||'loner';
-      const stockIds=profile.stockIds?.length ? profile.stockIds : NPC_TRADE_STOCK[faction]||NPC_TRADE_STOCK.loner;
-      const multiplier=faction==='military'?1.14:faction==='bandit'?1.08:1.10;
-      const personalSelection=shuffled(stockIds).slice(0,Math.max(4,Math.min(7,stockIds.length)));
+      const stockIds=profile.stockIds?.length ? profile.stockIds : getPersonalBarterPool(profile,faction);
+      const terms=getPersonalBarterTerms(profile,faction);
+      const guaranteed=['bread','water','bandage'].filter(id=>stockIds.includes(id)).slice(0,2);
+      const personalSelection=[...new Set([...guaranteed,...shuffled(stockIds.filter(id=>!guaranteed.includes(id))).slice(0,Math.max(4,Math.min(6,stockIds.length- guaranteed.length)))])];
       record=game.npcTraders[traderId]={
         id:traderId, location:profile.location,
-        stock:makeStock(personalSelection,multiplier),
-        buyMultiplier:faction==='military'?.46:faction==='bandit'?.39:.42,
-        priceMultiplier:multiplier, barter:true
+        stock:makeStock(personalSelection,terms.priceMultiplier),
+        buyMultiplier:terms.buyMultiplier,
+        priceMultiplier:terms.priceMultiplier, barter:true
       };
     }
   }
@@ -915,15 +1029,15 @@ export function acceptSidorovichJob(game) {
   if (game.clock.worldMinutes<jobs.cooldownUntil) return {ok:false,message:'Сидорович пока не подготовил новую работу. Загляни позже.'};
   const types=['tails','collector','medusa'];
   const type=types[Math.floor(Math.random()*types.length)];
-  if (type==='tails') jobs.active={type,title:'Крутить хвосты собакам',description:'Принеси Сидоровичу 5 хвостов обычных слепых псов. Псевдособаки не подходят.',target:5,progress:countItem(game.inventory,'tail'),reward:720};
+  if (type==='tails') jobs.active={type,title:'Крутить хвосты собакам',description:'Принеси Сидоровичу 5 хвостов обычных слепых псов. Псевдособаки не подходят.',target:5,progress:countItem(game.inventory,'tail'),reward:300};
   if (type==='collector') {
     const candidates=(game.randomTraders||[]).filter(t=>t.faction==='loner');
     const debtor=candidates[Math.floor(Math.random()*candidates.length)] || (game.randomTraders||[])[0];
     if (!debtor) return {ok:false,message:'На Кордоне пока не нашлось подходящего должника.'};
     debtor.faction='loner'; debtor.group='Одиночки'; debtor.role='Сталкер-должник';
-    jobs.active={type,title:'Коллектор',description:`Найди сталкера ${debtor.name} (${getLocation(debtor.location)?.name||'местоположение неизвестно'}) и поговори с ним о долге Сидоровичу. Затем вернись с докладом.`,targetNpcId:debtor.id,targetName:debtor.name,contacted:false,reward:650};
+    jobs.active={type,title:'Коллектор',description:`Найди сталкера ${debtor.name} (${getLocation(debtor.location)?.name||'местоположение неизвестно'}) и поговори с ним о долге Сидоровичу. Затем вернись с докладом.`,targetNpcId:debtor.id,targetName:debtor.name,contacted:false,reward:260};
   }
-  if (type==='medusa') jobs.active={type,title:'Ловля медузы',description:'Найди артефакт «Медуза» и принеси его Сидоровичу. Учёный с большой земли ждёт образец.',target:1,progress:countItem(game.inventory,'medusa'),reward:1000};
+  if (type==='medusa') jobs.active={type,title:'Ловля медузы',description:'Найди артефакт «Медуза» и принеси его Сидоровичу. Учёный с большой земли ждёт образец.',target:1,progress:countItem(game.inventory,'medusa'),reward:450};
   addLog(game,`Получено цикличное поручение Сидоровича: «${jobs.active.title}».`,'player');
   return {ok:true,job:jobs.active,message:`Сидорович: «${jobs.active.description} За работу заплачу ${jobs.active.reward} Купонов».`};
 }
@@ -968,7 +1082,7 @@ export function turnInWolfDogQuest(game) {
   const quest=game.quests?.find(entry=>entry.id==='wolf-dog-pack');
   if (!quest || game.wolfDogQuest?.status!=='ready' || quest.status!=='ready') return {ok:false,message:'Волк: «Сначала разберись с собаками у вагончика, потом поговорим». '};
   if (game.locationId!=='rookie-village') return {ok:false,message:'Волк ждёт тебя в деревне новичков.'};
-  const reward=850;
+  const reward=320;
   game.money+=reward;
   game.wolfDogQuest.status='completed';
   quest.status='completed';
