@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cordon-pda-v3300-first-person-controls-no-music';
+const CACHE_NAME = 'cordon-pda-v3410-menu-npc-appearance';
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -6,6 +6,7 @@ const APP_SHELL = [
   "./manifest.webmanifest",
   "./assets/icons/radioactive.svg",
   "./assets/textures/cordon-materials.png",
+  "./assets/textures/npc-appearance-atlas.png",
   "./assets/images/armor/berilicon.webp",
   "./assets/images/armor/debyticon.webp",
   "./assets/images/armor/kosyhaicon.webp",

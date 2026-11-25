@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { LOCATIONS } from '../src/data/catalog.js';
-import { createSceneLayout, classifyItemModel, buildPreviewGeometry, buildItemPreviewGeometry, selectAimedTarget, sampleTerrainHeight } from '../src/3d/renderer.js';
+import { createSceneLayout, classifyItemModel, buildPreviewGeometry, buildItemPreviewGeometry, selectAimedTarget, sampleTerrainHeight, npcFacingYaw } from '../src/3d/renderer.js';
 import { ITEMS } from '../src/data/catalog.js';
 
 const profiles=new Set();
@@ -12,11 +12,19 @@ const aimEntries=[{npc:{id:'front'},pos:{x:0,z:-8}},{npc:{id:'behind'},pos:{x:0,
 assert.equal(selectAimedTarget(aimEntries,aimPosition,0)?.npc.id,'front','aiming must select the NPC in front of the player');
 assert.equal(selectAimedTarget(aimEntries,aimPosition,Math.PI)?.npc.id,'behind','aiming must select a target behind the player after turning around');
 assert.equal(selectAimedTarget([{npc:{id:'off-axis'},pos:{x:0,z:-8}}],aimPosition,Math.PI/2),null,'aiming must not select targets outside the narrow firing cone');
+assert.ok(Math.abs(npcFacingYaw({x:0,z:-5},{x:0,z:0})-Math.PI)<1e-9,'NPC should face south toward a player directly north of it');
+assert.ok(Math.abs(npcFacingYaw({x:5,z:0},{x:0,z:0})-Math.PI/2)<1e-9,'NPC should face west toward a player directly west of it');
 const atlasPath=fileURLToPath(new URL('../assets/textures/cordon-materials.png',import.meta.url));
 const atlas=fs.readFileSync(atlasPath);
 assert.equal(atlas.toString('ascii',1,4),'PNG','Material atlas must be a valid PNG');
 assert.equal(atlas.readUInt32BE(16),2048,'Material atlas width must remain 4 columns');
 assert.equal(atlas.readUInt32BE(20),1024,'Material atlas height must remain 2 rows');
+const npcAtlasPath=fileURLToPath(new URL('../assets/textures/npc-appearance-atlas.png',import.meta.url));
+const npcAtlas=fs.readFileSync(npcAtlasPath);
+assert.equal(npcAtlas.toString('ascii',1,4),'PNG','NPC appearance atlas must be a valid PNG');
+assert.equal(npcAtlas.readUInt32BE(16),1024,'NPC appearance atlas must remain 4 columns');
+assert.equal(npcAtlas.readUInt32BE(20),2048,'NPC appearance atlas must remain 4 rows');
+
 for(const location of LOCATIONS){
   const layout=createSceneLayout(location.id,location.neighbors||[]);
   assert.equal(layout.id,location.id,`3D layout missing for ${location.id}`);
@@ -33,6 +41,9 @@ assert.equal(factionPreview.playerPosition.x,-8,'rookie village spawn should kee
 assert.notDeepEqual(factionPreview.npcs[0].mesh.colors,factionPreview.npcs[1].mesh.colors,'loner and bandit outfits should have visibly different faction palettes');
 assert.notDeepEqual(factionPreview.npcs[1].mesh.colors,factionPreview.npcs[2].mesh.colors,'bandit and military outfits should have visibly different faction palettes');
 const rendererSource=fs.readFileSync(new URL('../src/3d/renderer.js',import.meta.url),'utf8');
+assert.ok(rendererSource.includes('npc-appearance-atlas.png')&&rendererSource.includes('buildNpcBillboard'),'runtime NPCs should use the high-resolution transparent appearance atlas');
+assert.ok(rendererSource.includes('npcFacingYaw(entry.pos,pos)')&&rendererSource.includes('npcFacingYaw({x:ex,z:ez},pos)'),'NPCs and encounter characters should face the player correctly');
+assert.ok(rendererSource.includes('[-.46,0,0,u0,v0]')&&rendererSource.includes('1.96,0,u1,v1'),'NPC appearance billboards should use human-scale proportions');
 assert.ok(rendererSource.includes('data-3d=\"sprint\"')&&rendererSource.includes('touchSprint'),'mobile 3D controls should support a hold-to-sprint button');
 assert.ok(rendererSource.includes('is-${resolvedControls}')&&rendererSource.includes("['pc','mobile']"),'renderer should expose separate PC and mobile control modes');
 const characterDetail=factionPreview.player.vertices.length;

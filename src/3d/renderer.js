@@ -49,12 +49,20 @@ uniform float uFogNear;
 uniform float uFogFar;
 uniform float uTime;
 uniform sampler2D uAlbedo;
+uniform sampler2D uCharacterAtlas;
 uniform float uTextureReady;
+uniform float uSpritePass;
 float hash31(vec3 p){p=fract(p*.1031);p+=dot(p,p.yzx+33.33);return fract((p.x+p.y)*p.z);}
 float hash21(vec2 p){return hash31(vec3(p.x,p.y,17.17));}
 float noise2(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);float a=hash21(i),b=hash21(i+vec2(1.,0.)),c=hash21(i+vec2(0.,1.)),d=hash21(i+vec2(1.,1.));return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}
 float fbm(vec2 p){float v=0.0,a=.5;for(int i=0;i<4;i++){v+=noise2(p)*a;p*=2.03;a*=.5;}return v;}
 void main(){
+  if(uSpritePass>.5){
+    vec4 character=texture2D(uCharacterAtlas,vUv);
+    if(character.a<.12)discard;
+    gl_FragColor=vec4(character.rgb,character.a);
+    return;
+  }
   vec3 n=normalize(vNormal);
   float diffuse=max(0.0,dot(n,normalize(-uSunDirection)));
   float fill=.40+.18*max(0.0,n.y);
@@ -62,7 +70,13 @@ void main(){
   float broad=(sin(vWorld.x*.73+sin(vWorld.z*.41))*cos(vWorld.z*.57+vWorld.y*.18))*.025;
   float damp=sin(vWorld.x*.14+vWorld.z*.11)*.018;
   vec3 albedo=vColor;
-  if(uTextureReady>.5){albedo*=texture2D(uAlbedo,vUv).rgb*1.50;}
+  if(uTextureReady>.5){
+    vec3 texel=texture2D(uAlbedo,vUv).rgb;
+    float texLuma=dot(texel,vec3(.30,.59,.11));
+    float textureDetail=clamp(texLuma*2.15,.72,1.28);
+    float warmOrganic=step(.075,vColor.r-vColor.g)*step(.035,vColor.g-vColor.b)*step(.29,vColor.r);
+    albedo*=mix(1.0,textureDetail,.30*(1.0-warmOrganic));
+  }
   float groundMask=smoothstep(.66,.92,n.y)*(1.0-smoothstep(.20,.38,vWorld.y));
   float soil=fbm(vWorld.xz*.38),soilFine=fbm(vWorld.xz*2.8);
   float groundVariation=mix(.74,1.20,soil*.68+soilFine*.32);
@@ -566,143 +580,193 @@ function buildItemModel(itemId,seed=1){
 }
 
 function buildHumanoid(faction='loner',kind='person',seed=1,weapon=true,gait=0){
-  const b=new MeshBuilder(),r=seeded(seed);const palette={loner:{j:[.35,.30,.23],p:[.25,.22,.18],v:[.39,.33,.24],g:[.20,.18,.14]},bandit:{j:[.045,.050,.046],p:[.060,.064,.058],v:[.078,.073,.061],g:[.035,.039,.035]},military:{j:[.19,.25,.15],p:[.17,.22,.13],v:[.25,.31,.18],g:[.12,.16,.10]}};const base=palette[faction]||palette.loner,variation=(r()-.5)*.055;const shade=arr=>arr.map(v=>clamp(v+variation,.045,.75));const c={j:shade(base.j),p:shade(base.p),v:shade(base.v),g:shade(base.g)};const outfitVariant=Math.floor(r()*4);
-  const skinPalette=[[.43,.32,.24],[.55,.40,.30],[.34,.26,.21],[.60,.46,.34],[.38,.31,.27]];
-  const skin=skinPalette[Math.floor(r()*skinPalette.length)];
-  const faceType=faction==='military'?(r()<.48?'respirator':r()<.76?'balaclava':'exposed'):faction==='bandit'?(r()<.32?'respirator':r()<.62?'balaclava':'exposed'):(r()<.16?'respirator':r()<.36?'balaclava':'exposed');
-  // boots and lower body
-  b.box(-.23,.13,gait*.32,.38,.25,.56,[.075,.082,.071]);b.box(.23,.13,-gait*.32,.38,.25,.56,[.075,.082,.071]);b.box(-.23,.045,gait*.32,.40,.045,.58,[.035,.04,.035]);b.box(.23,.045,-gait*.32,.40,.045,.58,[.035,.04,.035]);
-  // tapered cargo trousers, articulated knees and stitched utility pockets
-  b.cylinder(-.22,.22,gait*.18,.19,.70,c.p,10,.145);b.cylinder(.22,.22,-gait*.18,.19,.70,c.p,10,.145);
-  for(let s of [-1,1]){const step=gait*s;b.sphere(s*.22,.55,step*.18,.19,.16,.19,c.p,8,10);b.box(s*.22,.49,-.205+step*.18,.28,.24,.07,[.23,.22,.17]);b.box(s*.22,.72,-.23+step*.18,.25,.30,.06,[.28,.28,.23]);b.box(s*.22,.75,-.266+step*.18,.18,.04,.018,[.43,.37,.25]);b.box(s*.33,.60,.11,.16,.22,.10,[.22,.23,.19]);}
-  b.box(0,.94,0,.80,.28,.46,c.p);
-  // shaped torso with tapered jacket, chest carrier and padded shoulder panels
-  b.cylinder(0,.99,0,.43,.78,c.j,12,.34);b.sphere(0,1.49,.015,.43,.31,.27,c.j,10,14);
-  b.box(0,1.37,-.265,.72,.60,.13,c.v);b.box(0,1.73,0,.92,.18,.47,c.j);
-  b.box(0,1.42,-.344,.42,.43,.055,[.20,.22,.18]);
-  for(let side of [-1,1]){b.box(side*.35,1.57,-.16,.25,.25,.27,c.v);b.box(side*.36,1.43,-.355,.22,.20,.045,[.28,.28,.22]);}
-  for(let s of [-1,1]){
-    const swing=gait*s,elbowX=s*.60,elbowY=1.29+swing*.10,elbowZ=-.22+swing*.22;
-    const wristX=s*.61,wristY=1.02+swing*.16,wristZ=-.43+swing*.30;
-    b.sphere(s*.55,1.67,0,.23,.24,.25,c.j,8,11);
-    b.box(s*.55,1.69,-.03,.34,.18,.35,c.v);
-    // Layered sleeves with a clearly readable elbow joint instead of one thin stick-like arm.
-    b.beam([s*.52,1.58,0],[elbowX,elbowY,elbowZ],.17,c.j,9,.135);
-    b.sphere(elbowX,elbowY,elbowZ,.145,.15,.145,c.v,9,11);
-    b.box(elbowX,elbowY,elbowZ-.105,.19,.17,.075,[.20,.22,.18]);
-    b.beam([elbowX,elbowY,elbowZ],[wristX,wristY,wristZ],.125,c.j,9,.09);
-    // Cuff, palm, thumb and four separated fingers give the glove a hand-like silhouette.
-    b.cylinder(wristX,wristY+.005,wristZ-.015,.105,.12,[.12,.13,.11],10,.10);
-    b.sphere(wristX,wristY-.045,wristZ-.105,.125,.105,.115,[.13,.14,.12],9,11);
+  // Soft, layered human silhouettes. Large rectangular torso/limb blocks are
+  // deliberately avoided; rounded fabric forms do most of the silhouette work.
+  const b=new MeshBuilder(),r=seeded(seed);
+  const palettes={
+    loner:{jacket:[[.34,.29,.21],[.29,.30,.23],[.39,.33,.25],[.31,.28,.22]],pants:[.16,.19,.19],vest:[.25,.25,.20],trim:[.43,.36,.25],boot:[.085,.079,.066],hood:[.19,.19,.16]},
+    bandit:{jacket:[[.075,.080,.075],[.105,.095,.078],[.13,.12,.10],[.085,.095,.09]],pants:[.18,.20,.22],vest:[.075,.08,.075],trim:[.29,.23,.17],boot:[.045,.049,.046],hood:[.055,.060,.055]},
+    military:{jacket:[[.18,.23,.14],[.20,.25,.15],[.15,.20,.13],[.22,.25,.16]],pants:[.16,.20,.13],vest:[.13,.17,.12],trim:[.35,.34,.24],boot:[.065,.075,.061],hood:[.14,.18,.13]}
+  };
+  const base=palettes[faction]||palettes.loner;
+  const outfit=base.jacket[Math.floor(r()*base.jacket.length)];
+  const jitter=(r()-.5)*.025;
+  const tone=c=>c.map(v=>clamp(v+jitter,.025,.8));
+  const jacket=tone(outfit),pants=tone(base.pants),vest=tone(base.vest),trim=tone(base.trim),boot=tone(base.boot),hood=tone(base.hood);
+  const skinOptions=[[.44,.31,.23],[.55,.40,.30],[.34,.25,.20],[.61,.46,.34],[.38,.30,.25],[.49,.37,.29]];
+  const skin=skinOptions[Math.floor(r()*skinOptions.length)];
+  const dark=[.065,.068,.061],glove=[.105,.112,.098],seam=[.48,.42,.32];
+  const headCover=faction==='military'?(r()<.46?'mask':r()<.74?'balaclava':'face'):
+    faction==='bandit'?(r()<.28?'mask':r()<.58?'balaclava':'face'):(r()<.14?'mask':r()<.30?'balaclava':'face');
+  const variant=Math.floor(r()*4);
+
+  // Boots, shaped trousers, knee pads and articulated calves.
+  for(const side of [-1,1]){
+    const step=gait*side*.18,hipX=side*.205,kneeX=side*.22+step*.22,ankleX=side*.22+step*.34;
+    b.sphere(hipX,.79,0,.19,.26,.19,pants,11,14);
+    b.beam([hipX,.78,0],[kneeX,.49,step*.12],.155,pants,11,.135);
+    b.sphere(kneeX,.48,-.015+step*.12,.15,.15,.15,pants,10,12);
+    b.sphere(kneeX,.48,-.12+step*.12,.135,.13,.075,faction==='military'?[.20,.24,.16]:[.19,.18,.15],9,12);
+    b.beam([kneeX,.43,step*.12],[ankleX,.17,step*.28],.125,pants,10,.095);
+    b.sphere(ankleX,.16,step*.28,.13,.13,.13,pants,9,11);
+    b.sphere(ankleX,.13,-.105+step*.28,.205,.125,.31,boot,11,14);
+    b.sphere(ankleX,.075,-.14+step*.28,.19,.045,.29,[.035,.038,.034],8,12);
+    // A couple of low-profile folds and stitched pocket flaps.
+    b.beam([side*.36,.35,.01+step*.28],[side*.34,.74,0],.010,trim,5,.009);
+    b.sphere(side*.31,.68,-.155,.095,.13,.06,tone([.20,.21,.18]),8,10);
+    b.beam([side*.25,.58,-.202],[side*.37,.58,-.202],.012,seam,5,.01);
+  }
+
+  // Pelvis and jacket: two overlapping ellipsoids give a natural waist-to-chest transition.
+  b.sphere(0,1.00,.005,.34,.22,.235,pants,12,16);
+  b.sphere(0,1.20,0,.345,.34,.23,jacket,13,18);
+  b.sphere(0,1.48,.005,.39,.29,.255,jacket,13,18);
+  b.sphere(0,1.64,.015,.33,.16,.22,jacket,12,16);
+  b.sphere(0,1.04,-.015,.37,.095,.24,dark,10,14); // belt under the jacket hem
+  b.box(0,1.035,-.251,.105,.075,.025,trim);
+
+  // Neck, shoulders and arms. The elbows are visible, rounded joints rather than square blocks.
+  b.cylinder(0,1.69,.005,.115,.20,skin,12,.13);
+  for(const side of [-1,1]){
+    const shoulder=[side*.37,1.57,.015],elbow=[side*.49,1.22,-.005+gait*side*.035],wrist=[side*.43,.94,-.115+gait*side*.055];
+    b.sphere(shoulder[0],shoulder[1],shoulder[2],.205,.205,.205,jacket,11,14);
+    b.beam([side*.36,1.57,.01],elbow,.145,jacket,11,.125);
+    b.sphere(elbow[0],elbow[1],elbow[2],.128,.135,.13,jacket,10,13);
+    b.sphere(elbow[0],elbow[1],elbow[2]-.105,.112,.115,.055,vest,9,11);
+    b.beam(elbow,wrist,.112,jacket,10,.085);
+    b.sphere(wrist[0],wrist[1],wrist[2],.095,.10,.095,glove,9,12);
+    b.sphere(wrist[0],wrist[1]-.075,wrist[2]-.075,.095,.08,.105,glove,9,12);
     for(let finger=0;finger<4;finger++){
-      const fx=wristX+(finger-1.5)*.052;
-      const reach=.105-(Math.abs(finger-1.5)*.012);
-      b.beam([fx,wristY-.075,wristZ-.17],[fx+swing*.012,wristY-.13,wristZ-.17-reach],.025,[.105,.115,.10],6,.019);
+      const fx=wrist[0]+(finger-1.5)*.043;
+      b.beam([fx,wrist[1]-.105,wrist[2]-.105],[fx+side*.006,wrist[1]-.16,wrist[2]-.18],.018,glove,6,.014);
     }
-    b.beam([wristX+s*.095,wristY-.035,wristZ-.08],[wristX+s*.17,wristY-.10,wristZ-.16],.035,[.12,.13,.11],7,.025);
-    b.box(s*.34,1.46,-.34,.28,.30,.09,[.20,.22,.18]);
-    b.box(s*.34,1.31,-.395,.25,.045,.025,[.40,.34,.22]);
-    b.box(s*.34,1.12,-.39,.25,.10,.045,[.25,.25,.20]);
+    b.beam([wrist[0]+side*.07,wrist[1]-.035,wrist[2]-.055],[wrist[0]+side*.13,wrist[1]-.10,wrist[2]-.13],.027,glove,7,.019);
+    // Small shoulder and upper-arm details; no oversized slab-like armor.
+    b.sphere(side*.49,1.56,-.13,.115,.13,.045,vest,8,11);
+    b.box(side*.50,1.57,-.176,.09,.075,.018,faction==='bandit'?[.30,.12,.075]:faction==='military'?[.32,.36,.23]:[.28,.27,.21]);
   }
-  // Field-worn details: boot welts/laces, stitched seams, knee pads, utility pouches and fabric folds.
-  for(const side of [-1,1]){
-    const sx=side*.23,step=gait*side;
-    b.box(sx,.065,-.035+step*.32,.43,.075,.62,[.09,.095,.083]);
-    for(let lace=0;lace<3;lace++){
-      const yy=.19+lace*.055;b.beam([sx-.11,yy,-.23+step*.32],[sx+.11,yy+.018,-.24+step*.32],.012,[.43,.39,.29],5,.010);
-    }
-    b.beam([sx-.15,.35+step*.18,-.205],[sx+.15,.35+step*.18,-.205],.018,[.34,.32,.25],5,.014);
-    b.box(side*.23,.55+step*.18,-.29,.27,.28,.085,[.16,.18,.15]);
-    b.box(side*.23,.57+step*.18,-.34,.20,.19,.035,[.25,.25,.20]);
-    b.box(side*.36,.82,.11,.17,.27,.12,[.20,.21,.17]);
-    b.box(side*.36,.82,.045,.19,.045,.035,[.37,.33,.23]);
-    // trouser outer seam and a pair of cargo-pocket folds
-    b.beam([side*.39,.23,.02],[side*.39,.85,.02],.012,[.39,.35,.26],5,.010);
-    b.box(side*.34,.66,-.255,.21,.25,.045,[.24,.24,.19]);
-    b.box(side*.34,.79,-.286,.23,.055,.035,[.42,.37,.27]);
-  }
-  // Jacket hem, central zipper, collar stitching and reinforced elbows.
-  b.beam([-.35,.70,-.31],[.35,.70,-.31],.018,[.39,.34,.25],6,.018);
-  b.beam([0,1.15,-.355],[0,1.70,-.34],.014,[.47,.43,.32],5,.014);
-  b.box(0,1.77,-.13,.46,.11,.36,[.18,.19,.16]);
-  for(const side of [-1,1]){
-    b.sphere(side*.60,1.18,-.16,.15,.17,.15,c.v,8,10);
-    b.box(side*.60,1.18,-.27,.20,.18,.06,[.23,.24,.20]);
-    // glove cuff and knuckle plate
-    b.cylinder(side*.61,.93,-.37,.115,.11,[.11,.12,.10],10,.11);
-    b.box(side*.61,.91,-.43,.17,.09,.11,[.22,.22,.18]);
-    for(let finger=0;finger<3;finger++)b.beam([side*.61+(finger-1)*.045,.89,-.45],[side*.61+(finger-1)*.045,.82,-.49],.018,[.12,.13,.11],5,.015);
-    // small stitched radio/patch tabs on the outer upper arm
-    b.box(side*.63,1.60,-.205,.14,.22,.06,faction==='bandit'?[.37,.15,.10]:faction==='military'?[.30,.36,.23]:[.26,.28,.23]);
-    b.box(side*.63,1.60,-.241,.07,.10,.018,[.53,.48,.34]);
-  }
-  // harness, straps, pouches, radio, belt
-  b.beam([-.31,1.73,-.33],[.22,1.05,-.35],.045,[.42,.36,.25],6,.045);b.beam([.31,1.73,-.33],[-.22,1.05,-.35],.045,[.42,.36,.25],6,.045);
-  b.box(0,1.02,-.05,1.0,.12,.55,[.10,.12,.10]);b.box(0,1.03,-.345,.19,.15,.035,[.48,.42,.29]);b.box(.31,1.08,-.34,.22,.20,.12,[.24,.24,.19]);b.box(-.32,1.08,-.34,.22,.20,.12,[.24,.24,.19]);b.box(-.47,1.63,-.37,.16,.25,.10,[.13,.16,.14]);b.box(-.47,1.70,-.43,.10,.08,.03,[.35,.33,.27]);for(let side of [-1,1]){for(let k=0;k<3;k++){b.box(side*(.19+k*.11),1.43,-.405,.075,.16,.045,[.39,.34,.24]);b.box(side*(.19+k*.11),1.35,-.43,.08,.025,.028,[.11,.12,.10]);}b.box(side*.46,1.28,.42,.22,.34,.16,[.31,.29,.22]);}
-  // collar, neck and head
-  b.cylinder(0,1.78,0,.19,.18,[.31,.27,.22],10,.18);b.sphere(0,2.02,-.015,.27,.34,.25,faceType==='balaclava'?[.16,.17,.15]:skin,12,16);
-  // Faces are not all hidden: exposed faces, scarves and respirators are mixed by NPC seed.
-  for(const side of [-1,1]){
-    b.sphere(side*.265,2.02,-.015,.075,.12,.09,faceType==='balaclava'?[.14,.15,.13]:skin,8,10);
-    if(faceType!=='balaclava'){
-      b.sphere(side*.105,2.12,-.236,.052,.034,.025,[.075,.085,.075],8,10);
-      b.sphere(side*.105,2.12,-.257,.020,.022,.012,[.38,.31,.22],7,8);
-      b.beam([side*.06,2.18,-.244],[side*.16,2.18,-.225],.018,[.18,.16,.13],5,.015);
-    }
-  }
-  if(faceType==='exposed'){
-    b.beam([0,2.08,-.25],[0,1.99,-.295],.035,[skin[0]*.82,skin[1]*.78,skin[2]*.74],7,.022);
-    b.beam([-.075,1.91,-.244],[.075,1.91,-.244],.014,[.20,.13,.11],6,.014);
-    b.box(0,1.85,-.215,.13,.045,.06,[skin[0]*.88,skin[1]*.80,skin[2]*.76]);
-  }else if(faceType==='balaclava'){
-    b.sphere(0,1.91,-.235,.19,.16,.11,[.12,.13,.12],10,12);
-    b.box(0,2.11,-.255,.23,.055,.025,[.045,.052,.047]);
-    b.beam([-.26,2.04,-.10],[.26,2.04,-.10],.026,[.30,.28,.22],7,.022);
-  }else{
-    b.sphere(0,1.91,-.235,.19,.16,.11,[.17,.19,.17],10,12);
-    b.cylinder(0,1.83,-.31,.092,.15,[.24,.27,.23],12,.08);
-    b.cylinder(0,1.75,-.31,.075,.035,[.09,.11,.10],12,.075);
-    for(const side of [-1,1]){b.sphere(side*.17,2.08,-.236,.078,.065,.045,[.11,.16,.16],9,12);b.beam([side*.17,2.12,-.25],[side*.22,2.20,-.12],.022,[.36,.34,.27],6,.018);}
-  }
-  // Ear cups, side straps and rear hairline.
-  if(faceType==='exposed')b.sphere(0,2.27,.08,.23,.12,.19,[.16,.15,.13],8,10);
-  if(faction==='military'){b.sphere(0,2.27,-.005,.31,.19,.29,[.20,.26,.18],9,12);b.box(0,2.32,.02,.62,.055,.48,[.12,.15,.12]);b.box(0,2.17,-.27,.34,.055,.08,[.32,.35,.24]);}
-  else if(faction==='bandit'){b.sphere(0,2.24,.01,.29,.19,.28,[.12,.13,.12],8,11);b.box(0,2.31,.04,.55,.06,.43,[.09,.10,.09]);}
-  else if(r()>.45){b.sphere(0,2.27,-.005,.29,.16,.27,[.18,.20,.17],8,12);b.box(0,2.32,.02,.55,.045,.42,[.12,.15,.12]);}
-  // Distinct worn headgear: rim, side clips and rear fabric flap.
+
+  // Stitched collar, front opening and restrained fabric seams.
+  b.sphere(0,1.72,-.12,.20,.12,.14,trim,10,13);
+  b.beam([-.25,1.63,-.205],[0,1.11,-.245],.022,seam,6,.018);
+  b.beam([.25,1.63,-.205],[0,1.11,-.245],.022,seam,6,.018);
+  b.beam([0,1.12,-.248],[0,1.53,-.264],.010,dark,5,.009);
+
+  // Chest rig varies by faction but uses compact, rounded pouches and straps.
   if(faction==='military'){
-    b.beam([-.30,2.27,-.03],[.30,2.27,-.03],.035,[.37,.39,.29],8,.035);
-    b.box(0,2.18,.24,.46,.22,.12,[.18,.22,.16]);
-    for(const side of [-1,1])b.box(side*.31,2.12,.015,.055,.20,.22,[.13,.15,.13]);
+    b.sphere(0,1.40,-.205,.30,.28,.095,vest,12,16);
+    b.beam([-.27,1.64,-.25],[.26,1.13,-.27],.035,trim,7,.032);
+    b.beam([.27,1.64,-.25],[-.26,1.13,-.27],.035,trim,7,.032);
+    for(let i=0;i<4;i++){
+      const x=-.24+i*.16;b.sphere(x,1.20,-.284,.065,.095,.052,tone([.21,.25,.17]),8,10);
+      b.beam([x-.04,1.26,-.32],[x+.04,1.26,-.32],.008,seam,5,.008);
+    }
+    b.sphere(0,1.47,-.288,.17,.19,.055,tone([.19,.23,.16]),9,12);
   }else if(faction==='bandit'){
-    b.sphere(0,2.16,.12,.33,.27,.33,[.10,.11,.10],9,12);
-    b.beam([-.29,2.08,-.02],[.29,2.08,-.02],.028,[.24,.22,.19],7,.028);
+    b.beam([-.25,1.65,-.23],[.24,1.12,-.26],.026,trim,7,.024);
+    b.beam([.25,1.65,-.23],[-.24,1.12,-.26],.026,dark,7,.024);
+    for(const side of [-1,1]){
+      b.sphere(side*.25,1.22,-.255,.09,.13,.07,dark,8,11);
+      b.sphere(side*.25,1.22,-.30,.064,.09,.035,trim,8,10);
+    }
   }else{
-    b.beam([-.28,2.20,.02],[.28,2.20,.02],.024,[.37,.35,.28],7,.024);
-    b.box(0,2.05,.24,.34,.27,.10,[.18,.19,.16]);
+    b.beam([-.25,1.64,-.23],[.24,1.12,-.24],.028,trim,7,.026);
+    b.beam([.25,1.64,-.23],[-.24,1.12,-.24],.028,trim,7,.026);
+    b.sphere(-.25,1.23,-.25,.075,.105,.06,tone([.29,.26,.20]),8,10);
+    b.sphere(.25,1.23,-.25,.075,.105,.06,tone([.29,.26,.20]),8,10);
   }
-  // backpack and side straps
-  b.box(0,1.28,.34,.58,.76,.34,[.22,.23,.19]);b.box(0,1.62,.40,.54,.20,.28,[.29,.27,.21]);b.box(0,1.27,.53,.42,.31,.10,[.27,.26,.20]);b.box(-.34,1.34,.17,.12,.58,.18,[.40,.35,.24]);b.box(.34,1.34,.17,.12,.58,.18,[.40,.35,.24]);b.beam([-.27,1.68,.24],[.27,1.68,.24],.035,[.42,.36,.25],6,.035);
-  // Faction-specific outer layers change the silhouette, not just the colour palette.
+
+  // Distinct outer layers alter silhouette: long dark bandit coat, field jacket, or military rig.
   if(faction==='bandit'){
-    const coat=outfitVariant%2?[.115,.12,.105]:[.16,.145,.12];
-    b.box(-.19,.72,.018,.36,.72,.39,coat);b.box(.19,.72,.018,.36,.72,.39,coat);
-    b.box(-.40,1.12,.02,.16,.68,.35,coat);b.box(.40,1.12,.02,.16,.68,.35,coat);
-    b.box(0,1.77,.12,.48,.24,.20,[.09,.10,.09]);
-    if(outfitVariant===1){b.box(0,1.15,-.34,.66,.27,.10,[.12,.13,.12]);b.beam([-.24,1.75,-.18],[.24,1.75,-.18],.05,[.20,.18,.15],7,.04);}
+    const coat=tone(variant%2?[.09,.09,.08]:[.14,.12,.10]);
+    b.sphere(-.16,.82,.025,.17,.34,.20,coat,10,13);
+    b.sphere(.16,.82,.025,.17,.34,.20,coat,10,13);
+    b.sphere(0,1.02,.10,.30,.22,.20,coat,10,13);
+    // Hood sits behind the head and frames the face instead of covering it with a block.
+    b.sphere(0,2.04,.105,.32,.37,.25,hood,11,14);
+    b.beam([-.25,2.18,-.10],[-.23,1.83,-.13],.065,hood,8,.045);
+    b.beam([.25,2.18,-.10],[.23,1.83,-.13],.065,hood,8,.045);
+    b.sphere(0,1.80,-.16,.22,.085,.085,trim,9,12);
   }else if(faction==='military'){
-    b.box(0,1.43,-.405,.56,.48,.10,[.17,.22,.16]);
-    for(const side of [-1,1]){b.box(side*.20,1.42,-.47,.16,.31,.055,[.12,.17,.12]);b.box(side*.36,1.66,-.12,.28,.23,.29,[.18,.23,.17]);b.box(side*.37,1.66,-.275,.20,.13,.035,[.32,.36,.25]);}
-    for(let pouch=0;pouch<4;pouch++)b.box(-.24+pouch*.16,1.19,-.405,.12,.17,.08,[.20,.24,.18]);
-    b.box(0,.89,.48,.64,.48,.27,[.17,.21,.16]);
+    b.sphere(0,1.39,-.30,.32,.30,.075,vest,11,15);
+    for(const side of [-1,1]){
+      b.sphere(side*.30,1.35,-.30,.09,.15,.06,tone([.12,.16,.11]),8,10);
+      b.sphere(side*.39,1.57,-.09,.10,.14,.10,tone([.22,.27,.17]),8,10);
+    }
+    b.sphere(0,.88,.26,.28,.28,.18,tone([.15,.19,.13]),10,13);
   }else{
-    const scarf=outfitVariant%2?[.29,.27,.20]:[.23,.25,.22];
-    b.beam([-.24,1.79,-.16],[.22,1.79,-.16],.07,scarf,8,.06);
-    b.box(0,.88,.49,.62,.31,.23,[.25,.27,.22]);
-    if(outfitVariant===2){b.box(0,1.77,.08,.48,.16,.20,[.16,.18,.16]);b.box(0,1.84,.06,.56,.08,.24,[.24,.25,.20]);}
+    b.sphere(0,1.77,-.12,.21,.08,.12,trim,9,12); // worn scarf
+    b.sphere(0,.88,.25,.26,.26,.18,tone([.25,.24,.19]),10,13);
   }
-  // gas mask / respirator filter, if covered face
-  if(faceType==='respirator'){b.sphere(0,1.91,-.31,.16,.14,.10,[.18,.21,.19],9,12);b.cylinder(0,1.89,-.405,.075,.13,[.27,.29,.25],12,.065);b.cylinder(0,1.81,-.415,.095,.035,[.075,.09,.08],12,.095);for(let k=-1;k<=1;k++)b.beam([k*.12,1.88,-.405],[k*.12,1.94,-.408],.012,[.48,.46,.38],6,.012);b.beam([-.17,2.06,-.26],[.17,2.06,-.26],.026,[.42,.39,.31],7);}
+
+  // Pack is rounded and strapped to the back, keeping the human silhouette readable.
+  b.sphere(0,1.31,.285,.265,.38,.17,tone(faction==='military'?[.15,.19,.13]:faction==='bandit'?[.075,.08,.07]:[.22,.22,.17]),11,14);
+  b.beam([-.26,1.60,.18],[.26,1.60,.18],.022,trim,6,.02);
+  b.beam([-.24,1.11,.20],[.24,1.11,.20],.022,trim,6,.02);
+  for(const side of [-1,1])b.beam([side*.25,1.61,-.15],[side*.20,1.04,.27],.024,trim,6,.02);
+
+  // Head and face: ears, brow, eyes, nose and mouth remain visible when headgear permits.
+  b.sphere(0,2.02,-.005,.245,.31,.22,skin,14,18);
+  b.sphere(0,1.91,-.055,.185,.17,.18,skin,11,14);
+  for(const side of [-1,1]){
+    b.sphere(side*.245,2.02,-.015,.065,.105,.07,skin,9,11);
+    if(headCover==='face'){
+      b.sphere(side*.092,2.075,-.195,.034,.026,.023,[.075,.080,.073],8,10);
+      b.sphere(side*.092,2.077,-.214,.013,.014,.008,[.58,.50,.35],7,8);
+      b.beam([side*.055,2.12,-.19],[side*.14,2.13,-.18],.018,[.20,.16,.13],6,.014);
+    }
+  }
+  if(headCover==='face'){
+    b.sphere(0,2.015,-.218,.038,.055,.035,skin,8,10);
+    b.beam([-.065,1.93,-.215],[.065,1.93,-.215],.012,[.18,.12,.10],6,.01);
+    b.sphere(0,1.875,-.185,.09,.036,.035,[.26,.18,.15],8,10);
+  }else if(headCover==='balaclava'){
+    b.sphere(0,1.97,-.17,.19,.20,.10,dark,11,14);
+    b.sphere(0,2.08,-.19,.18,.045,.035,[.16,.17,.15],8,12);
+    for(const side of [-1,1])b.sphere(side*.09,2.08,-.23,.03,.022,.015,[.13,.15,.13],7,8);
+  }else{
+    b.sphere(0,1.94,-.205,.16,.13,.065,[.16,.18,.16],10,12);
+    b.sphere(0,1.94,-.265,.075,.085,.045,[.23,.26,.22],9,11);
+    b.cylinder(0,1.85,-.29,.075,.09,[.26,.29,.25],10,.07);
+  }
+
+  // Headwear uses rounded caps/helmets with a small brim, not a cuboid lid.
+  if(faction==='military'){
+    b.sphere(0,2.27,.005,.285,.18,.255,tone([.16,.21,.14]),12,16);
+    b.sphere(0,2.19,-.17,.24,.055,.10,tone([.12,.16,.11]),9,12);
+    b.beam([-.27,2.22,-.02],[.27,2.22,-.02],.024,trim,7,.022);
+    b.sphere(0,2.26,.18,.16,.09,.12,tone([.13,.17,.12]),8,10);
+  }else if(faction==='bandit'){
+    b.sphere(0,2.29,.035,.255,.105,.235,tone([.045,.05,.045]),11,14);
+    b.beam([-.25,2.22,-.08],[.25,2.22,-.08],.025,tone([.17,.15,.12]),7,.023);
+  }else{
+    if(variant===0||r()>.42){
+      b.sphere(0,2.28,.01,.255,.11,.235,tone([.18,.18,.15]),11,14);
+      b.beam([-.25,2.23,-.08],[.25,2.23,-.08],.022,trim,7,.02);
+    }else{
+      b.sphere(0,2.16,.12,.28,.25,.23,hood,10,13);
+      b.beam([-.25,2.18,-.08],[.25,2.18,-.08],.03,trim,7,.027);
+    }
+  }
+
+  // Faction-specific camouflage patches: subtle, rounded fabric patches rather than flat plates.
+  if(faction==='military'){
+    const camo=[[.24,.28,.17],[.12,.17,.11],[.31,.32,.20],[.27,.24,.14]];
+    for(let i=0;i<12;i++){
+      const x=(r()-.5)*.46,y=1.20+r()*.50,z=-.245-r()*.018;
+      b.sphere(x,y,z,.035+r()*.025,.045+r()*.035,.016,camo[i%4],7,9);
+    }
+    for(const side of [-1,1]){
+      b.sphere(side*.48,1.44,-.12,.07,.10,.035,camo[Math.floor(r()*camo.length)],7,9);
+      b.sphere(side*.22,.75,-.16,.055,.09,.025,camo[Math.floor(r()*camo.length)],7,9);
+    }
+  }
+
+  // Small readable fabric details: cuffs, seam piping, pouch flaps and stitching.
+  for(const side of [-1,1]){
+    b.beam([side*.40,1.00,-.15],[side*.46,.98,-.16],.025,trim,6,.022);
+    b.beam([side*.15,.92,-.20],[side*.27,.90,-.20],.010,seam,5,.008);
+  }
   if(weapon)addHeldWeapon(b,typeof weapon==='string'?weapon:'aksu',faction);
   return b;
 }
@@ -777,8 +841,8 @@ export function createSceneLayout(locationId='rookie-village',neighbors=[]){
 export function buildPreviewGeometry(locationId='rookie-village'){
   const loc=LOCATIONS.find(entry=>entry.id===locationId)||LOCATIONS[0],rng=seeded(hash(loc.id));
   const world=new MeshBuilder();addGround(world,rng);addLocationSet(world,loc.id,rng);addExitLayout(world,loc.neighbors||[]);
-  const sampleNpcs=[{id:'preview-loner',faction:'loner'},{id:'preview-bandit',faction:'bandit'},{id:'preview-military',faction:'military'}].map((npc,index)=>({id:npc.id,faction:npc.faction,pos:{x:-7+index*7,z:-6-(index%2)*3},mesh:buildHumanoid(npc.faction,'npc',hash(npc.id),npc.faction==='military'?'aksu':npc.faction==='bandit'?'sawedoff':'pm').toRaw()}));
-  const player=buildHumanoid('loner','player',hash('preview-player'),'aksu').toRaw();
+  const sampleNpcs=[{id:'preview-loner',faction:'loner'},{id:'preview-bandit',faction:'bandit'},{id:'preview-military',faction:'military'}].map((npc,index)=>({id:npc.id,faction:npc.faction,pos:{x:-7+index*7,z:-6-(index%2)*3},mesh:buildHumanoid(npc.faction,'npc',hash(npc.id),false).toRaw()}));
+  const player=buildHumanoid('loner','player',hash('preview-player'),false).toRaw();
   const firstPerson=buildFirstPersonView('loner','aksu').toRaw();
   const groundSamples=[[-28,-20],[-10,-10],[0,0],[18,12],[25,-18],[9,25]].map(([x,z])=>({x,z,height:sampleTerrainHeight(x,z)}));
   const loot=(loc.loot||[]).slice(0,4).map((id,index)=>({id,pos:{x:-6+index*4,z:5+index%2*1.6},mesh:buildItemModel(id,hash(id)).toRaw()}));
@@ -802,6 +866,34 @@ export function buildItemPreviewGeometry(itemId){
 function compile(gl,type,source){const shader=gl.createShader(type);gl.shaderSource(shader,source);gl.compileShader(shader);if(!gl.getShaderParameter(shader,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(shader)||'Shader compile error');return shader;}
 function program(gl){const p=gl.createProgram();gl.attachShader(p,compile(gl,gl.VERTEX_SHADER,VERTEX_SHADER));gl.attachShader(p,compile(gl,gl.FRAGMENT_SHADER,FRAGMENT_SHADER));gl.linkProgram(p);if(!gl.getProgramParameter(p,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(p)||'Shader link error');return p;}
 function createAlbedoTexture(gl){const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([220,220,220,255]));gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);gl.generateMipmap(gl.TEXTURE_2D);const image=new Image();const state={texture,ready:false};image.onload=()=>{gl.bindTexture(gl.TEXTURE_2D,texture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);gl.generateMipmap(gl.TEXTURE_2D);state.ready=true;};image.onerror=()=>{state.ready=false;};image.src=new URL('../../assets/textures/cordon-materials.png',import.meta.url).href;return state;}
+const NPC_APPEARANCE_TILES={loner:[0,1,2,3,4,14,15],bandit:[5,6,7,8,9],military:[10,11,12,13]};
+function npcAppearanceTile(npc){const faction=NPC_APPEARANCE_TILES[npc?.faction]?npc.faction:'loner';const variants=NPC_APPEARANCE_TILES[faction];return variants[hash(npc?.id||npc?.name||faction)%variants.length];}
+export function npcFacingYaw(npcPos,playerPos){return Math.atan2(npcPos.x-playerPos.x,npcPos.z-playerPos.z);}
+function createNpcAtlasTexture(gl){
+  const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);
+  gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([0,0,0,0]));
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_S,gl.CLAMP_TO_EDGE);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_WRAP_T,gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR);gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR_MIPMAP_LINEAR);
+  const state={texture,ready:false};const image=new Image();
+  image.onload=()=>{gl.bindTexture(gl.TEXTURE_2D,texture);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,true);gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,image);gl.generateMipmap(gl.TEXTURE_2D);gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL,false);state.ready=true;};
+  image.onerror=()=>{state.ready=false;};image.src=new URL('../../assets/textures/npc-appearance-atlas.png',import.meta.url).href;return state;
+}
+function buildNpcGroundShadow(){
+  const shadow=new MeshBuilder();shadow.sphere(0,.015,0,.31,.014,.38,[.055,.061,.052],9,14);return shadow;
+}
+function buildNpcBillboard(gl,tileIndex){
+  const col=tileIndex%4,row=Math.floor(tileIndex/4),pad=.006;
+  const u0=col*.25+pad,u1=(col+1)*.25-pad;
+  const v0=1-(row+1)*.25+pad,v1=1-row*.25-pad;
+  const points=[
+    [-.46,0,0,u0,v0],[.46,0,0,u1,v0],[.46,1.96,0,u1,v1],
+    [-.46,0,0,u0,v0],[.46,1.96,0,u1,v1],[-.46,1.96,0,u0,v1]
+  ];
+  const data=new Float32Array(points.length*11);
+  points.forEach((point,index)=>{const at=index*11;data[at]=point[0];data[at+1]=point[1];data[at+2]=point[2];data[at+3]=0;data[at+4]=0;data[at+5]=-1;data[at+6]=1;data[at+7]=1;data[at+8]=1;data[at+9]=point[3];data[at+10]=point[4];});
+  const buffer=gl.createBuffer();gl.bindBuffer(gl.ARRAY_BUFFER,buffer);gl.bufferData(gl.ARRAY_BUFFER,data,gl.STATIC_DRAW);return {buffer,count:points.length};
+}
+
 function perspective(fov,aspect,near,far){const f=1/Math.tan(fov/2),nf=1/(near-far);return new Float32Array([f/aspect,0,0,0,0,f,0,0,0,0,(far+near)*nf,-1,0,0,2*far*near*nf,0]);}
 function lookAt(eye,center,up=[0,1,0]){let zx=eye[0]-center[0],zy=eye[1]-center[1],zz=eye[2]-center[2],l=Math.hypot(zx,zy,zz)||1;zx/=l;zy/=l;zz/=l;let xx=up[1]*zz-up[2]*zy,xy=up[2]*zx-up[0]*zz,xz=up[0]*zy-up[1]*zx;l=Math.hypot(xx,xy,xz)||1;xx/=l;xy/=l;xz/=l;const yx=zy*xz-zz*xy,yy=zz*xx-zx*xz,yz=zx*xy-zy*xx;return new Float32Array([xx,yx,zx,0,xy,yy,zy,0,xz,yz,zz,0,-(xx*eye[0]+xy*eye[1]+xz*eye[2]),-(yx*eye[0]+yy*eye[1]+yz*eye[2]),-(zx*eye[0]+zy*eye[1]+zz*eye[2]),1]);}
 function modelMatrix(x,y,z,yaw=0,scale=1){const c=Math.cos(yaw)*scale,s=Math.sin(yaw)*scale;return new Float32Array([c,0,-s,0,0,scale,0,0,s,0,c,0,x,y,z,1]);}
@@ -819,8 +911,8 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
   let p;
   try{p=program(gl);}catch(error){canvas.parentElement?.classList.remove('has-3d-world');onNotify(`Не удалось запустить 3D: ${error.message}`);return null;}
   const attrib={pos:gl.getAttribLocation(p,'aPosition'),normal:gl.getAttribLocation(p,'aNormal'),color:gl.getAttribLocation(p,'aColor'),uv:gl.getAttribLocation(p,'aUv')};
-  const uniforms={projection:gl.getUniformLocation(p,'uProjection'),view:gl.getUniformLocation(p,'uView'),model:gl.getUniformLocation(p,'uModel'),normal:gl.getUniformLocation(p,'uNormal'),sun:gl.getUniformLocation(p,'uSunDirection'),sunColor:gl.getUniformLocation(p,'uSunColor'),fog:gl.getUniformLocation(p,'uFogColor'),fogNear:gl.getUniformLocation(p,'uFogNear'),fogFar:gl.getUniformLocation(p,'uFogFar'),time:gl.getUniformLocation(p,'uTime'),albedo:gl.getUniformLocation(p,'uAlbedo'),textureReady:gl.getUniformLocation(p,'uTextureReady')};
-  const albedoTexture=createAlbedoTexture(gl);gl.useProgram(p);gl.uniform1i(uniforms.albedo,0);
+  const uniforms={projection:gl.getUniformLocation(p,'uProjection'),view:gl.getUniformLocation(p,'uView'),model:gl.getUniformLocation(p,'uModel'),normal:gl.getUniformLocation(p,'uNormal'),sun:gl.getUniformLocation(p,'uSunDirection'),sunColor:gl.getUniformLocation(p,'uSunColor'),fog:gl.getUniformLocation(p,'uFogColor'),fogNear:gl.getUniformLocation(p,'uFogNear'),fogFar:gl.getUniformLocation(p,'uFogFar'),time:gl.getUniformLocation(p,'uTime'),albedo:gl.getUniformLocation(p,'uAlbedo'),characterAtlas:gl.getUniformLocation(p,'uCharacterAtlas'),textureReady:gl.getUniformLocation(p,'uTextureReady'),spritePass:gl.getUniformLocation(p,'uSpritePass')};
+  const albedoTexture=createAlbedoTexture(gl),npcAtlas=createNpcAtlasTexture(gl);const npcShadowMesh=buildNpcGroundShadow().toMesh(gl);gl.useProgram(p);gl.uniform1i(uniforms.albedo,0);gl.uniform1i(uniforms.characterAtlas,1);
   const loc=LOCATIONS.find(entry=>entry.id===game.locationId)||LOCATIONS[0];const layout=createSceneLayout(loc.id,loc.neighbors||[]);const rng=seeded(hash(loc.id));
   const staticBuilder=new MeshBuilder();addGround(staticBuilder,rng);addLocationSet(staticBuilder,loc.id,rng);const exits=addExitLayout(staticBuilder,loc.neighbors||[]);const worldMesh=staticBuilder.toMesh(gl);
   const playerFaction=game.player?.faction||'loner';
@@ -828,14 +920,14 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
   const firstPersonMesh=buildFirstPersonView(playerFaction,equippedId).toMesh(gl);
   const npcMeshes=npcs.filter(n=>!n.captured||game.currentAreaId==='atp-first-floor-prisoners').map((npc,index)=>{
     const rr=seeded(hash(npc.id));const angle=(index*2.399+rr()*.5),radius=7+(index%4)*3.6;const pos={x:Math.cos(angle)*radius,z:Math.sin(angle)*radius-5};
-    const faction=npc.faction||'loner';const fallbackWeapon=faction==='military'?'aksu':faction==='bandit'?'sawedoff':'pm';
-    return {npc,pos,mesh:buildHumanoid(faction,'npc',hash(npc.id),npc.weaponId||fallbackWeapon,0).toMesh(gl),yaw:Math.atan2(-pos.x, -pos.z),phase:rr()*6.28};
+    const faction=npc.faction||'loner';
+    return {npc,pos,mesh:buildHumanoid(faction,'npc',hash(npc.id),false,0).toMesh(gl),spriteMesh:buildNpcBillboard(gl,npcAppearanceTile(npc)),yaw:npcFacingYaw(pos,{x:0,z:0}),phase:rr()*6.28};
   });
   const collected=game.player.worldLootCollected ||= {};
   const collectedHere=new Set(collected[loc.id]||[]);
   const lootMeshes=(loc.loot||[]).slice(0,7).map((id,index)=>({id,key:`${id}:${index}`,pos:{x:-7+(index%4)*4.6,z:5+Math.floor(index/4)*3.2},mesh:buildItemModel(id,hash(id)+index).toMesh(gl)})).filter(entry=>!collectedHere.has(entry.key));
   let enemyModel=null;
-  if(game.activeEncounter){const e=game.activeEncounter;enemyModel={mesh:['blind-dog','flesh','boar'].includes(e.type)?buildMutant(e.type,hash(e.name)).toMesh(gl):buildHumanoid(e.faction||'bandit','enemy',hash(e.name),e.weaponId||(e.faction==='military'?'aksu':'sawedoff'),0).toMesh(gl),type:e.type};}
+  if(game.activeEncounter){const e=game.activeEncounter;const isMutant=['blind-dog','flesh','boar'].includes(e.type);enemyModel={mesh:isMutant?buildMutant(e.type,hash(e.name)).toMesh(gl):buildHumanoid(e.faction||'bandit','enemy',hash(e.name),false,0).toMesh(gl),spriteMesh:isMutant?null:buildNpcBillboard(gl,npcAppearanceTile({id:e.npcId||e.name,faction:e.faction||'bandit'})),faction:e.faction||'bandit',type:e.type};}
   game.player.worldPositions ||= {};
   let pos=game.player.worldPositions[loc.id]||{x:loc.id==='rookie-village'?-8:0,z:26,yaw:0};
   if(!Number.isFinite(pos.x)||!Number.isFinite(pos.z))pos={x:loc.id==='rookie-village'?-8:0,z:26,yaw:0};
@@ -904,7 +996,7 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
   function joystickDown(e){e.preventDefault();joyPointer=e.pointerId;joyRect=joy.getBoundingClientRect();joy.setPointerCapture?.(e.pointerId);updateJoy(e);}
   joy.addEventListener('pointerdown',joystickDown);canvas.addEventListener('pointerdown',pointerdown);window.addEventListener('pointermove',pointermove);window.addEventListener('pointerup',pointerup);window.addEventListener('pointercancel',pointerup);window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);document.addEventListener('pointerlockchange',pointerlock);window.addEventListener('mousemove',mousemove);canvas.addEventListener('click',click);touch.addEventListener('pointerdown',onTouchAction);
 
-  function draw(mesh,model){gl.bindBuffer(gl.ARRAY_BUFFER,mesh.buffer);const stride=11*4;gl.enableVertexAttribArray(attrib.pos);gl.vertexAttribPointer(attrib.pos,3,gl.FLOAT,false,stride,0);gl.enableVertexAttribArray(attrib.normal);gl.vertexAttribPointer(attrib.normal,3,gl.FLOAT,false,stride,12);gl.enableVertexAttribArray(attrib.color);gl.vertexAttribPointer(attrib.color,3,gl.FLOAT,false,stride,24);gl.enableVertexAttribArray(attrib.uv);gl.vertexAttribPointer(attrib.uv,2,gl.FLOAT,false,stride,36);gl.uniformMatrix4fv(uniforms.model,false,model);gl.uniformMatrix3fv(uniforms.normal,false,normalMatrix(model));gl.drawArrays(gl.TRIANGLES,0,mesh.count);}
+  function draw(mesh,model,sprite=false){gl.bindBuffer(gl.ARRAY_BUFFER,mesh.buffer);const stride=11*4;gl.enableVertexAttribArray(attrib.pos);gl.vertexAttribPointer(attrib.pos,3,gl.FLOAT,false,stride,0);gl.enableVertexAttribArray(attrib.normal);gl.vertexAttribPointer(attrib.normal,3,gl.FLOAT,false,stride,12);gl.enableVertexAttribArray(attrib.color);gl.vertexAttribPointer(attrib.color,3,gl.FLOAT,false,stride,24);gl.enableVertexAttribArray(attrib.uv);gl.vertexAttribPointer(attrib.uv,2,gl.FLOAT,false,stride,36);gl.uniformMatrix4fv(uniforms.model,false,model);gl.uniformMatrix3fv(uniforms.normal,false,normalMatrix(model));gl.uniform1f(uniforms.spritePass,sprite?1:0);if(sprite){gl.activeTexture(gl.TEXTURE1);gl.bindTexture(gl.TEXTURE_2D,npcAtlas.texture);gl.enable(gl.BLEND);gl.blendFunc(gl.SRC_ALPHA,gl.ONE_MINUS_SRC_ALPHA);}else{gl.disable(gl.BLEND);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,albedoTexture.texture);}gl.drawArrays(gl.TRIANGLES,0,mesh.count);if(sprite)gl.disable(gl.BLEND);gl.activeTexture(gl.TEXTURE0);}
   function frame(now){if(destroyed)return;raf=requestAnimationFrame(frame);const dt=Math.min(.04,(now-last)/1000||.016);last=now;
     const forward=(keyState.w||keyState.arrowup?1:0)-(keyState.s||keyState.arrowdown?1:0)-touchMove.y;
     const strafe=(keyState.d||keyState.arrowright?1:0)-(keyState.a||keyState.arrowleft?1:0)+touchMove.x;
@@ -915,14 +1007,14 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
     draw(worldMesh,modelMatrix(0,0,0,0));
     for(const entry of lootMeshes){const bob=Math.sin(now*.002+entry.pos.x)*.045;draw(entry.mesh,modelMatrix(entry.pos.x,sampleTerrainHeight(entry.pos.x,entry.pos.z)+.04+bob,entry.pos.z,now*.00018));}
     // NPCs idle with subtle breathing and look toward the player.
-    for(const entry of npcMeshes){if(enemyModel&&enemyEntry&&entry.npc.id===enemyEntry.npc.id)continue;const angle=Math.atan2(pos.x-entry.pos.x,pos.z-entry.pos.z)+Math.sin(now*.00055+entry.phase)*.035;const breath=Math.sin(now*.0014+entry.phase)*.018;draw(entry.mesh,modelMatrix(entry.pos.x,sampleTerrainHeight(entry.pos.x,entry.pos.z)+breath,entry.pos.z,angle));}
-    if(enemyModel){const ex=enemyEntry?.pos.x??(pos.x+Math.sin(yaw)*4.5),ez=enemyEntry?.pos.z??(pos.z-Math.cos(yaw)*4.5);draw(enemyModel.mesh,modelMatrix(ex,sampleTerrainHeight(ex,ez)+Math.sin(now*.003)*.025,ez,enemyEntry?.yaw??(Math.PI+yaw)));}
+    for(const entry of npcMeshes){if(enemyModel&&enemyEntry&&entry.npc.id===enemyEntry.npc.id)continue;const angle=npcFacingYaw(entry.pos,pos)+Math.sin(now*.00055+entry.phase)*.012;const idle=Math.sin(now*.0014+entry.phase)*.012;const npcY=sampleTerrainHeight(entry.pos.x,entry.pos.z)+idle;draw(npcShadowMesh,modelMatrix(entry.pos.x,sampleTerrainHeight(entry.pos.x,entry.pos.z),entry.pos.z,0));if(npcAtlas.ready)draw(entry.spriteMesh,modelMatrix(entry.pos.x,npcY,entry.pos.z,angle),true);else draw(entry.mesh,modelMatrix(entry.pos.x,npcY,entry.pos.z,angle));}
+    if(enemyModel){const ex=enemyEntry?.pos.x??(pos.x+Math.sin(yaw)*4.5),ez=enemyEntry?.pos.z??(pos.z-Math.cos(yaw)*4.5);const enemyYaw=npcFacingYaw({x:ex,z:ez},pos);draw(npcShadowMesh,modelMatrix(ex,sampleTerrainHeight(ex,ez),ez,0));if(enemyModel.spriteMesh&&npcAtlas.ready)draw(enemyModel.spriteMesh,modelMatrix(ex,sampleTerrainHeight(ex,ez),ez,enemyYaw),true);else draw(enemyModel.mesh,modelMatrix(ex,sampleTerrainHeight(ex,ez)+Math.sin(now*.003)*.012,ez,enemyYaw));}
     const shotElapsed=now-shotAt;if(shotMesh&&shotElapsed>=0&&shotElapsed<165)draw(shotMesh,modelMatrix(0,0,0,0));
     const moving=Math.abs(forward)+Math.abs(strafe)>.02;const walkPhase=(now*((keyState.shift||touchSprint)?.014:.010))%(Math.PI*2);const bob=moving?Math.abs(Math.sin(walkPhase*2))*.052:Math.sin(now*.0018)*.012;const sway=moving?Math.sin(walkPhase)*.045:Math.sin(now*.0012)*.009;const recoil=Math.max(0,1-(now-recoilAt)/190);
     const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(cameraPitch),sp=Math.sin(cameraPitch);const right=[cy,0,sy],up=[-sy*sp,cp,cy*sp],back=[-sy*cp,-sp,cy*cp];const handOrigin=[camera[0]+right[0]*(.045+sway)+up[0]*(-.12+bob)+back[0]*(-.35+recoil*.12),camera[1]+right[1]*(.045+sway)+up[1]*(-.12+bob)+back[1]*(-.35+recoil*.12),camera[2]+right[2]*(.045+sway)+up[2]*(-.12+bob)+back[2]*(-.35+recoil*.12)];const viewScale=.50;const handsMatrix=new Float32Array([right[0]*viewScale,right[1]*viewScale,right[2]*viewScale,0,up[0]*viewScale,up[1]*viewScale,up[2]*viewScale,0,back[0]*viewScale,back[1]*viewScale,back[2]*viewScale,0,handOrigin[0],handOrigin[1],handOrigin[2],1]);draw(firstPersonMesh,handsMatrix);
     saveElapsed+=dt;if(saveElapsed>8){saveElapsed=0;game.player.worldPositions[loc.id]={x:pos.x,z:pos.z,yaw};onCheckpoint();}
   }
   raf=requestAnimationFrame(frame);
-  function destroy(){if(destroyed)return;destroyed=true;cancelAnimationFrame(raf);resizeObserver.disconnect();canvas.removeEventListener('pointerdown',pointerdown);window.removeEventListener('pointermove',pointermove);window.removeEventListener('pointerup',pointerup);window.removeEventListener('pointercancel',pointerup);window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);document.removeEventListener('pointerlockchange',pointerlock);window.removeEventListener('mousemove',mousemove);canvas.removeEventListener('click',click);touch.removeEventListener('pointerdown',onTouchAction);joy.removeEventListener('pointerdown',joystickDown);touch.remove();canvas.parentElement?.classList.remove('has-3d-world');aimReticle.remove();for(const mesh of [worldMesh,firstPersonMesh,...npcMeshes.map(e=>e.mesh),...lootMeshes.map(e=>e.mesh),enemyModel?.mesh,shotMesh].filter(Boolean))gl.deleteBuffer(mesh.buffer);gl.deleteTexture(albedoTexture.texture);gl.deleteProgram(p);if(document.pointerLockElement===canvas)document.exitPointerLock();}
+  function destroy(){if(destroyed)return;destroyed=true;cancelAnimationFrame(raf);resizeObserver.disconnect();canvas.removeEventListener('pointerdown',pointerdown);window.removeEventListener('pointermove',pointermove);window.removeEventListener('pointerup',pointerup);window.removeEventListener('pointercancel',pointerup);window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);document.removeEventListener('pointerlockchange',pointerlock);window.removeEventListener('mousemove',mousemove);canvas.removeEventListener('click',click);touch.removeEventListener('pointerdown',onTouchAction);joy.removeEventListener('pointerdown',joystickDown);touch.remove();canvas.parentElement?.classList.remove('has-3d-world');aimReticle.remove();for(const mesh of [worldMesh,firstPersonMesh,npcShadowMesh,...npcMeshes.flatMap(e=>[e.mesh,e.spriteMesh]),...lootMeshes.map(e=>e.mesh),enemyModel?.mesh,enemyModel?.spriteMesh,shotMesh].filter(Boolean))gl.deleteBuffer(mesh.buffer);gl.deleteTexture(albedoTexture.texture);gl.deleteTexture(npcAtlas.texture);gl.deleteProgram(p);if(document.pointerLockElement===canvas)document.exitPointerLock();}
   activeRenderer={destroy,layout};return activeRenderer;
 }

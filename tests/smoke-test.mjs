@@ -299,11 +299,14 @@ for (const faction of FACTIONS) {
 
 // Starter economy supports a practical multi-item kit and distinct leather jacket/cosukha art.
 assert.equal(START_BUDGET,5000,'starting budget should allow one practical faction kit without funding an advanced loadout');
-assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=3300"),'service worker registration URL should refresh with the release');
+assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=3410"),'service worker registration URL should refresh with the release');
+const mainModuleSource=fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+assert.ok(mainModuleSource.includes("import { mountStalker3D, disposeStalker3D } from './3d/renderer.js';"),'main module must import the 3D renderer functions it calls during the first render');
 const serviceWorkerSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8');
 assert.ok(serviceWorkerSource.includes('./assets/textures/cordon-materials.png'),'offline shell should cache the procedural material atlas');
+assert.ok(serviceWorkerSource.includes('./assets/textures/npc-appearance-atlas.png'),'offline shell should cache the full-body NPC appearance atlas');
 assert.ok(!serviceWorkerSource.includes('bundled-music')&&!serviceWorkerSource.includes('radio-stations')&&!serviceWorkerSource.includes('music-archive'),'music and radio modules must be completely removed from the offline shell');
-assert.ok(serviceWorkerSource.includes('cordon-pda-v3300-first-person-controls-no-music'),'service worker cache name should identify the first-person no-music release');
+assert.ok(serviceWorkerSource.includes('cordon-pda-v3410-menu-npc-appearance'),'service worker cache name should identify the first-person no-music release');
 const swUrl=new URL('../sw.js',import.meta.url);
 const precachePaths=[...serviceWorkerSource.matchAll(/\"(\.\/[^\"]+)\"/g)].map(match=>match[1]);
 assert.ok(precachePaths.length>=150,'the offline shell should include the expanded artwork bundle');

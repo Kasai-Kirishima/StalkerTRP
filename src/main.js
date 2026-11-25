@@ -12,6 +12,7 @@ import { requestNpcAiReply, isValidNpcAiEndpoint } from './systems/npc-ai.js';
 import { isRouteQuestion } from './systems/dialogue-engine.js';
 import { mainStoryAction } from './systems/main-story.js';
 import { toggleArtifactBelt, removeArtifactFromBelt, repairItemCondition, ensureConditionState } from './systems/equipment-condition.js';
+import { mountStalker3D, disposeStalker3D } from './3d/renderer.js';
 
 const root = document.getElementById('app');
 let state = loadState();
@@ -902,6 +903,6 @@ setInterval(()=>{
   updateClockDisplays();
 },15000);
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=3300').catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=3410').catch(()=>{}));
 }
 render();
