@@ -2188,3 +2188,34 @@ html { zoom: var(--ui-scale, 1); }
  .dialogue-simple-form .dialogue-send-row .button{min-width:0;min-height:42px;padding:6px;font-size:9px}
  .dialogue-input-hint{display:none}
 }
+
+/* v4.2.2 — touch controls are compact by default; optional actions stay one tap away. */
+.three-touch-controls.is-mobile .three-action-buttons{
+  position:absolute;right:max(10px,env(safe-area-inset-right));bottom:calc(126px + env(safe-area-inset-bottom));
+  display:flex;flex-direction:column;align-items:flex-end;gap:6px;max-width:min(184px,48vw);pointer-events:none;
+}
+.three-touch-controls.is-mobile .three-action-primary,
+.three-touch-controls.is-mobile .three-action-extra{display:grid;grid-template-columns:repeat(3,minmax(42px,1fr));gap:5px;pointer-events:auto}
+.three-touch-controls.is-mobile .three-action-extra[hidden]{display:none}
+.three-touch-controls.is-mobile .three-action-buttons button{
+  width:44px;height:44px;min-width:44px;min-height:44px;border-radius:12px;padding:2px;
+  font-size:8px;line-height:1.05;touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none;
+}
+.three-touch-controls.is-mobile .three-action-buttons button[data-3d="more"]{border-color:#c3c98c;background:#303a25;color:#f0f4d7}
+.three-touch-controls.is-mobile .three-action-buttons button[data-3d="more"].active{background:#59663b;color:#fff}
+.three-touch-controls.is-mobile .three-action-extra button[data-3d="fire"]{width:44px;height:44px;border-radius:12px}
+.three-touch-controls.is-mobile .three-joystick{touch-action:none;-webkit-tap-highlight-color:transparent;user-select:none}
+.three-touch-controls.is-mobile .three-action-primary button:active,
+.three-touch-controls.is-mobile .three-action-extra button:active{filter:brightness(1.24);transform:scale(.97)}
+@media(max-width:540px){
+  .three-touch-controls.is-mobile .three-action-buttons{right:max(8px,env(safe-area-inset-right));bottom:calc(126px + env(safe-area-inset-bottom));max-width:148px}
+  .three-touch-controls.is-mobile .three-action-primary,.three-touch-controls.is-mobile .three-action-extra{grid-template-columns:repeat(3,42px);gap:4px}
+  .three-touch-controls.is-mobile .three-action-buttons button{width:42px;height:42px;min-width:42px;min-height:42px;font-size:7px}
+}
+@media(max-width:760px) and (orientation:landscape){
+  .three-touch-controls.is-mobile .three-joystick{width:88px;height:88px;bottom:calc(16px + env(safe-area-inset-bottom));left:max(10px,env(safe-area-inset-left))}
+  .three-touch-controls.is-mobile .three-action-buttons{bottom:calc(76px + env(safe-area-inset-bottom))}
+  .three-hud{width:86px;right:max(8px,env(safe-area-inset-right));bottom:calc(6px + env(safe-area-inset-bottom))}
+  .three-hud-minimap{width:82px;height:82px}
+  .three-hud-health{padding:2px 3px}
+}

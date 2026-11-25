@@ -1,6 +1,22 @@
-# STALKER Cordon 4.2.0
+# STALKER Cordon 4.2.2
 
-Dialogue expansion release based on 4.1.1.
+Mobile control and layout update.
+
+## Included in 4.2.2
+- The mobile 3D interface now keeps only the four most-used movement/interaction controls plus an «ЕЩЁ» button visible. Secondary actions can be opened in a compact tray instead of permanently covering the lower-right of the screen.
+- Touch targets are 42–44 px, respect phone safe-area insets, and use a dedicated compact layout for landscape phones.
+- Mobile 3D rendering uses a lighter terrain mesh and a lower WebGL pixel-ratio cap to reduce GPU work and improve startup/per-frame performance on phones.
+- iOS Safari and Android browser home-screen metadata is present; the app remains orientation-flexible.
+- Touch joystick/look/sprint inputs are explicitly cleared when the browser loses focus or the app is backgrounded, preventing stuck movement after switching apps or opening system overlays.
+- The PWA remains orientation-flexible; portrait and landscape layouts are both supported.
+- Added regression checks for the mobile control tray, touch target sizes, viewport and focus-loss cleanup.
+
+## Included in 4.2.1
+- The first-person view now shows relaxed, open empty hands when no weapon is present in the active equipment slots; the renderer no longer invents a default AKS-74U.
+- Unarmored players have bare forearms and hands; wearing armor restores the appropriate sleeves, cuffs and gloves.
+- The weapon HUD now says «Пустые руки» when the active loadout has no weapon instead of showing an automatically selected backpack item.
+- Added geometry regression checks for bare and armored empty-hands meshes.
+- The idle weapon HUD has an «Убрать из рук» action; it clears only the active held-item selection and leaves the assigned equipment slots intact. This action is hidden during an encounter.
 
 ## Included in 4.2.0
 - Expanded player-written NPC conversations with dedicated topics for repairs, live quest status, artifact descriptions, rest locations, radio/communications, inventory summaries, local services and encyclopedia records.
@@ -33,6 +49,7 @@ Dialogue expansion release based on 4.1.1.
 - Visual quality still varies by location; regression tests check code, geometry and state behavior, but cannot replace a complete human playthrough of every quest and route.
 
 ## QA notes
+- `screenshots/qa-v421/empty-hands-bare.png` and `empty-hands-armored.png` are offline VTK mesh renders used to inspect the new hand poses; they are not browser gameplay captures.
 - `screenshots/qa-v401-global-map.png` is an off-screen, top-down render of the global terrain and roads. It is a geometry screenshot, not a live browser gameplay capture.
 - `npm test` passes: startup, smoke/regression, and 3D renderer tests.
 - Syntax checks pass for the modified main UI, main controller, and dialogue engine.

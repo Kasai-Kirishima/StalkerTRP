@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cordon-pda-v4120-expanded-npc-dialogue';
+const CACHE_NAME = 'cordon-pda-v4220-mobile-controls';
 const APP_SHELL = [
   "./",
   "./index.html",

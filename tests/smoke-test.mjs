@@ -321,7 +321,7 @@ const serviceWorkerSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'u
 assert.ok(serviceWorkerSource.includes('./assets/textures/cordon-materials.png'),'offline shell should cache the procedural material atlas');
 assert.ok(serviceWorkerSource.includes('./assets/textures/npc-appearance-atlas.png'),'offline shell should cache the full-body NPC appearance atlas');
 assert.ok(!serviceWorkerSource.includes('bundled-music')&&!serviceWorkerSource.includes('radio-stations')&&!serviceWorkerSource.includes('music-archive'),'music and radio modules must be completely removed from the offline shell');
-assert.ok(serviceWorkerSource.includes('cordon-pda-v4120-expanded-npc-dialogue'),'service worker cache name should identify the first-person no-music release');
+assert.ok(serviceWorkerSource.includes('cordon-pda-v4220-mobile-controls'),'service worker cache name should identify the first-person no-music release');
 const swUrl=new URL('../sw.js',import.meta.url);
 const precachePaths=[...serviceWorkerSource.matchAll(/\"(\.\/[^\"]+)\"/g)].map(match=>match[1]);
 assert.ok(precachePaths.length>=150,'the offline shell should include the expanded artwork bundle');
@@ -735,8 +735,14 @@ beginEncounter(combatVisualGame,'bandit');
 const combatHtml=renderGame({screen:'game',characters:[character],activeCharacterId:'smoke',settings:{},ui:{tab:'location',pdaOpen:false,modal:null},game:combatVisualGame});
 assert.ok(!combatHtml.includes('enemy-stage')&&!combatHtml.includes('combat-quickbar'),'legacy turn-based encounter panels should be absent from the first-person scene');
 assert.ok(!combatHtml.includes('data-action="combat-attack"')&&!combatHtml.includes('data-action="combat-reload"'),'legacy turn-based combat buttons should be absent from the first-person scene');
-assert.ok(fs.readFileSync(new URL('../src/3d/renderer.js',import.meta.url),'utf8').includes("buildFirstPersonView(playerFaction,equippedId,playerArmorId)"),'equipped weapons should use dedicated 3D first-person hand and weapon meshes');
+assert.ok(fs.readFileSync(new URL('../src/3d/renderer.js',import.meta.url),'utf8').includes("buildFirstPersonView(playerFaction,equippedId||'empty',playerArmorId)"),'equipped weapons should use dedicated 3D first-person hand and weapon meshes');
 assert.ok(!combatHtml.includes('first-person-weapon right'),'the scene must not overlay PNG weapon cutouts on top of 3D weapon models');
+const unarmedVisualGame=createGame(character,[],START_BUDGET);
+addItem(unarmedVisualGame.inventory,'aksu',1);
+unarmedVisualGame.equipmentSlots={primary1:'aksu',primary2:null,pistol:null,knife:null,binoculars:null,bolt:null,armor:null,mask:null,quick:[null,null,null,null]};
+const unarmedHtml=renderGame({screen:'game',characters:[character],activeCharacterId:'smoke',settings:{},ui:{tab:'location',pdaOpen:false,modal:null},game:unarmedVisualGame});
+assert.ok(unarmedHtml.includes('Пустые руки'),'weapon HUD should show empty hands when no weapon is actively equipped, even if a weapon is assigned to a slot');
+assert.ok(unarmedHtml.includes('data-action="unequip-weapon"')===false,'an already unarmed character should not see an unequip action');
 assert.equal(getBestWeapon(combatVisualGame.inventory,combatVisualGame)?.id,'pm','ammo stacks in the backpack must initialize a firearm magazine');
 assert.ok((combatVisualGame.weaponMagazines?.pm||0)>0,'a purchased/found ammo stack must put rounds in the selected weapon magazine');
 combatVisualGame.equippedWeaponId='knife';
@@ -1301,12 +1307,20 @@ assert.match(mobileCss,/orientation:\s*landscape/,'mobile landscape mode must re
 const mobileViewport=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
 assert.match(mobileViewport,/viewport-fit=cover/,'mobile viewport must account for phone notches and rounded edges');
 assert.match(mobileViewport,/interactive-widget=resizes-content/,'the mobile layout viewport should resize when the on-screen keyboard opens');
+assert.match(mobileViewport,/apple-mobile-web-app-capable/,'iOS Safari should be able to add the game to the home screen as a standalone web app');
+assert.match(mobileViewport,/mobile-web-app-capable/,'Android browsers should recognize the installable web app metadata');
 const pwaManifest=JSON.parse(fs.readFileSync(new URL('../manifest.webmanifest',import.meta.url),'utf8'));
 assert.equal(pwaManifest.orientation,'any','the installed PWA must not force the phone into landscape orientation');
 const mobileGame=createGame({name:'Телефон',faction:'loner'},[],START_BUDGET);
 const mobileHtml=renderGame({screen:'game',characters:[{id:'mobile',name:'Телефон',faction:'loner'}],activeCharacterId:'mobile',settings:{},ui:{tab:'location',pdaOpen:false,modal:null},game:mobileGame});
 assert.ok(mobileHtml.includes('mobile-game-nav'),'mobile game view must include quick navigation');
 assert.ok(mobileHtml.includes('action-composer'),'mobile game view must retain the action input');
+const mobileRendererSource=fs.readFileSync(new URL('../src/3d/renderer.js',import.meta.url),'utf8');
+assert.match(mobileRendererSource,/three-joystick[\s\S]*?three-action-primary/,'mobile 3D view must include a visible touch joystick and a primary action cluster');
+assert.match(mobileRendererSource,/three-action-extra[\s\S]*?data-3d=\"fire\"/,'secondary touch actions must remain accessible from the expandable control tray');
+const mobileTouchCss=mobileCss.slice(mobileCss.lastIndexOf('v4.2.2'));
+assert.match(mobileTouchCss,/min-width:\s*44px/,'mobile action targets must meet a 44px touch target');
+assert.match(mobileTouchCss,/three-action-extra\[hidden\]\s*\{\s*display:\s*none/,'collapsed mobile secondary actions must not cover the game view');
 
 // Registration form stays continuous and compact: no isolated expandable block or large empty side column.
 const registrationHtml=renderCreate({draft:{name:'',birthDate:'',height:'',weight:'',personality:'',biography:'',notes:'',faction:'loner',avatar:'',appearance:''}});

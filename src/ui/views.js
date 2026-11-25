@@ -2,7 +2,6 @@ import { ASSETS, IMAGE_FALLBACKS, FACTIONS, AVATAR_OPTIONS, ITEMS, LOCATIONS, NP
 import { getWeight, countItem, getItem } from '../systems/inventory.js';
 import { getGameDateTime, formatElapsed } from '../systems/game-clock.js';
 import { getLocation, getAvailableTraders, getAvailableStalkers, getStalkerById, getSidorovichJobState, getTravelMinutes, getExploreSpots, getTradeBuyPrice } from '../systems/world.js';
-import { getBestWeapon } from '../systems/combat.js';
 import { getMainStoryQuest } from '../systems/main-story.js';
 import { getItemCondition, getRepairCost } from '../systems/equipment-condition.js';
 
@@ -64,7 +63,7 @@ export function renderMenu(state) {
         ${btn('⚙ Настройки','settings','menu-button')}
         ${btn('Выход','exit','menu-button subtle')}
       </div>
-      <div class="menu-bottom"><span>ВЕРСИЯ 4.2.0</span><span>СОХРАНЕНИЯ ХРАНЯТСЯ НА ЭТОМ УСТРОЙСТВЕ</span></div>
+      <div class="menu-bottom"><span>ВЕРСИЯ 4.2.2</span><span>СОХРАНЕНИЯ ХРАНЯТСЯ НА ЭТОМ УСТРОЙСТВЕ</span></div>
     </div>
     <div class="menu-stamp">ZONE<br>WARNING</div>
   </section>`;
@@ -250,7 +249,8 @@ function renderLocation(game, character, state) {
   const enemyStage=enemy?`<div class="enemy-stage ${enemy.type}"><div class="enemy-art-pair">${enemyPortrait}${enemyBody}</div><div class="enemy-stage-info"><b>${esc(enemy.name)}</b>${enemy.faction?`<div class="enemy-faction-row">${factionInsignia(enemy.faction)}<span>${esc(FACTIONS.find(f=>f.id===enemy.faction)?.name||enemy.faction)}</span></div>`:''}<span>${enemy.hp}/${enemy.maxHp} здоровья</span><div class="bar-track"><i class="danger" style="width:${Math.max(0,enemy.hp/enemy.maxHp*100)}%"></i></div></div></div>`:'';
   const effect=game.combatEffect && Number(game.combatEffect.until||0)>=Number(game.clock.worldMinutes||0)?game.combatEffect.type:null;
   const combatEffect='';
-  const weapon=getBestWeapon(game.inventory,game);
+  const equippedWeaponId=game.equippedWeaponId||null;
+  const weapon=equippedWeaponId&&countItem(game.inventory,equippedWeaponId)>0?getItem(equippedWeaponId):null;
   const magazine=weapon?.ammo?(game.weaponMagazines?.[weapon.id]??'—'):null;
   const reserve=weapon?.ammo?(game.ammoRounds?.[weapon.ammo]??0):null;
   const weaponSide='right';
@@ -260,10 +260,10 @@ function renderLocation(game, character, state) {
   const weaponSlotDefs=[['primary1','1','Первое оружие'],['primary2','2','Второе оружие'],['pistol','P','Пистолет'],['knife','N','Нож'],['binoculars','B','Бинокль'],['bolt','V','Болт']];
   const equipmentHotbar=`<div class="equipment-hotbar" aria-label="Быстрая экипировка">${weaponSlotDefs.map(([slot,key,label])=>{const itemId=slotState[slot],item=itemId?getItem(itemId):null;return `<button class="equipment-hotbar-slot ${item?'filled':''} ${itemId===game.equippedWeaponId?'active':''}" data-action="slot-select" data-slot="${slot}" title="${label}: ${esc(item?.name||'пусто')}"><small>${key}</small><span>${item?itemImage(item):'—'}</span></button>`}).join('')}</div><div class="quick-hotbar" aria-label="Быстрые предметы">${Array.from({length:4},(_,index)=>{const itemId=slotState.quick?.[index],item=itemId?getItem(itemId):null;return `<button class="quick-hotbar-slot ${item?'filled':''}" data-action="slot-select" data-slot="quick${index}" title="Быстрый предмет ${index+1}: ${esc(item?.name||'пусто')}"><small>${index+1}</small><span>${item?itemImage(item):'＋'}</span></button>`}).join('')}</div>`;
   const weaponIcon=consuming?itemImage(consuming):weapon?itemImage(weapon):'<span class="weapon-empty-mark">—</span>';
-  const weaponTitle=consuming?`Использует: ${consuming.name}`:(weapon?.name||'Без оружия');
+  const weaponTitle=consuming?`Использует: ${consuming.name}`:(weapon?.name||'Пустые руки');
   const weaponHud=enemy
     ? `<aside class="weapon-hud right combat"><div class="weapon-hud-top"><small>В РУКАХ</small></div><div class="weapon-idle-body ${consuming?'consuming':''}"><span class="weapon-hud-icon">${weaponIcon}</span><div><small>${consuming?'ИСПОЛЬЗУЕТ':'В РУКАХ'}</small><b>${esc(weaponTitle)}</b></div></div>${weapon?.ammo&&!consuming?`<div class="ammo-readout"><strong>${magazine}</strong><span>в магазине</span><strong>${reserve}</strong><span>в запасе</span></div>`:''}<div class="weapon-quick-actions">${weapon?.ammo&&!consuming?btn('↻ Зарядить','combat-reload','button tiny ghost'):''}${btn('Атака','combat-attack','button tiny danger')}${btn('Рюкзак','inventory-open','button tiny ghost')}</div></aside>`
-    : `<aside class="weapon-hud right idle"><div class="weapon-hud-top"><small>В РУКАХ</small></div><div class="weapon-idle-body ${consuming?'consuming':''}"><span class="weapon-hud-icon">${weaponIcon}</span><div><small>${consuming?'ИСПОЛЬЗУЕТ':'В РУКАХ'}</small><b>${esc(weaponTitle)}</b>${btn('Рюкзак','inventory-open','button tiny ghost')}</div></div></aside>`;
+    : `<aside class="weapon-hud right idle"><div class="weapon-hud-top"><small>В РУКАХ</small></div><div class="weapon-idle-body ${consuming?'consuming':''}"><span class="weapon-hud-icon">${weaponIcon}</span><div><small>${consuming?'ИСПОЛЬЗУЕТ':'В РУКАХ'}</small><b>${esc(weaponTitle)}</b>${weapon?btn('Убрать из рук','unequip-weapon','button tiny ghost'):''}${btn('Рюкзак','inventory-open','button tiny ghost')}</div></div></aside>`;
   const quickCombat=enemy?`<div class="combat-quickbar"><b>БОЕВЫЕ ДЕЙСТВИЯ</b>${btn('Прицелиться','combat-aim','button small')}${btn('Уклониться','combat-dodge','button small')}${btn('Защищаться','combat-defend','button small')}${btn('Граната','combat-grenade','button small danger',`${countItem(game.inventory,'rgd5')?'':'disabled'}`)}${btn('Отступить','combat-flee','button small ghost')}</div>`:'';
   const rescueButton=game.locationId==='atp'&&!game.atpRescue?.cleared?btn('Освободить пленников','atp-rescue-start','button tiny danger'):'';
   const areaPanel='';

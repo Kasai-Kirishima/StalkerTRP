@@ -427,6 +427,11 @@ root.addEventListener('click', (event) => {
   if (action==='close-modal') { const previous=state.ui.modalReturn||null; state.ui.modal=state.ui.modal==='item-details'?'inventory-panel':previous; state.ui.modalReturn=null; state.ui.exploreSpotId=null; return render(); }
   if (action==='story-note-close') { state.ui.modal=null; persist(); return render(); }
   if (action==='close-dialogue') { state.game.dialogueNpcId=null; persist(); return render(); }
+  if (action==='unequip-weapon') {
+    if (!state.game || state.game.activeEncounter) { toast('Сейчас нельзя менять предмет в руках.','warning'); return; }
+    if (!state.game.equippedWeaponId) { toast('У тебя уже пустые руки.','info'); return; }
+    state.game.equippedWeaponId=null; persist(); render(); toast('Предмет убран. Руки свободны.','success'); return;
+  }
   if (action==='flashlight-toggle') { state.ui.flashlight=!state.ui.flashlight; if(state.game?.player)state.game.player.flashlightActive=state.ui.flashlight; persist(); return render(); }
   if (action==='generate-stalker-name') {
     state.draft ||= {name:'',faction:'loner'};

@@ -3,9 +3,10 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { LOCATIONS } from '../src/data/catalog.js';
-import { createSceneLayout, classifyItemModel, buildPreviewGeometry, buildItemPreviewGeometry, selectAimedTarget, sampleTerrainHeight, cordonMapToWorld, clampCordonPosition, isInsideCordonBounds, clipRawMeshToCordonBounds, CORDON_WORLD_BOUNDS, sampleCordonTerrainHeight, npcFacingYaw, buildSceneCollisionData, sampleLocationHeight, sampleMapSurfaceHeight, movementKeyFromCode, inputKeyFromCode, selectNearbyNpc, stepJumpMotion, buildCloudLayer, daylightFor, npcMovementYaw, vehicleWheelAxis, vehicleWheelRadial } from '../src/3d/renderer.js';
+import { createSceneLayout, classifyItemModel, buildPreviewGeometry, buildItemPreviewGeometry, buildFirstPersonViewGeometry, selectAimedTarget, sampleTerrainHeight, cordonMapToWorld, clampCordonPosition, isInsideCordonBounds, clipRawMeshToCordonBounds, CORDON_WORLD_BOUNDS, sampleCordonTerrainHeight, npcFacingYaw, buildSceneCollisionData, sampleLocationHeight, sampleMapSurfaceHeight, movementKeyFromCode, inputKeyFromCode, selectNearbyNpc, stepJumpMotion, buildCloudLayer, daylightFor, npcMovementYaw, vehicleWheelAxis, vehicleWheelRadial } from '../src/3d/renderer.js';
 import { ITEMS } from '../src/data/catalog.js';
 
+const rendererText=fs.readFileSync(new URL('../src/3d/renderer.js',import.meta.url),'utf8');
 const profiles=new Set();
 assert.ok(npcFacingYaw({x:0,z:0},{x:1,z:0})<0,'NPC model must face east with the corrected local -Z forward axis');
 const eastYaw=npcMovementYaw(1,0);assert.ok(Math.abs(eastYaw+Math.PI/2)<1e-9,'NPC forward direction should align with eastward movement');
@@ -74,6 +75,12 @@ assert.ok(sampleLocationHeight('sidorovich-bunker',0,18)>-1.8,'Bunker staircase 
 assert.equal(LOCATIONS.find(loc=>loc.id==='sidorovich-bunker')?.mapVisible,true,'Sidorovich must have a distinct visible map location');
 assert.ok(rendererSource.includes('data-3d=\"sprint\"')&&rendererSource.includes('touchSprint'),'mobile 3D controls should support a hold-to-sprint button');
 assert.ok(rendererSource.includes('is-${resolvedControls}')&&rendererSource.includes("['pc','mobile']"),'renderer should expose separate PC and mobile control modes');
+assert.ok(rendererSource.includes("terrainStepsX:resolvedControls==='mobile'?128:192")&&rendererSource.includes("terrainStepsZ:resolvedControls==='mobile'?256:384"),'mobile rendering should use a lighter terrain mesh to reduce GPU load');
+assert.ok(rendererSource.includes("resolvedControls==='mobile'?1.25:1.6"),'mobile rendering should cap the WebGL pixel ratio to reduce fill-rate pressure');
+assert.ok(rendererSource.includes('three-action-primary')&&rendererSource.includes('data-3d=\"more\"'),'mobile controls should keep the four most-used actions visible and fold secondary actions into a compact tray');
+assert.ok(rendererSource.includes('three-action-extra')&&rendererSource.includes('aria-expanded=\"false\"'),'secondary mobile controls should start collapsed and expose their expanded state accessibly');
+assert.ok(rendererSource.includes('function resetTouchInput()')&&rendererSource.includes("window.addEventListener('blur',resetTouchInput)")&&rendererSource.includes("document.addEventListener('visibilitychange',onVisibilityChange)"),'mobile movement/look controls must release cleanly when the browser loses focus or the app is backgrounded');
+assert.ok(rendererSource.includes("if(action==='more')")&&rendererSource.includes("extra.hidden=!open"),'the secondary mobile control tray must open and close from the touch interface');
 
 const villageCollision=buildSceneCollisionData('rookie-village');
 const warehouseCollision=buildSceneCollisionData('atp');
@@ -117,11 +124,21 @@ assert.ok(rendererSource.includes('b.cylinderAxis(wx,.48,wz,.48,.42,dark,0,20)')
 assert.ok(rendererSource.includes('scale:.19')&&rendererSource.includes('scale:.17,isDropped:true'),'world item props should be reduced to a more believable size');
 assert.ok(rendererSource.includes('restorePointerLock')&&rendererSource.includes('requestPointerLock({unadjustedMovement:true})'),'mouse look should be restored after an in-game rerender when pointer lock was active');
 const mainSource=fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8');assert.ok(mainSource.includes("const restorePointerLock = document.pointerLockElement?.id === 'stalker-3d-world';"),'main render should preserve the pointer-lock state across HUD updates');
-const swSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8');assert.ok(swSource.includes('cordon-pda-v4120-expanded-npc-dialogue'),'service worker cache must be bumped for the global-map release');
+const swSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8');assert.ok(swSource.includes('cordon-pda-v4220-mobile-controls'),'service worker cache must be bumped for the global-map release');
 assert.ok(mainSource.includes('onFlashlightToggle:(active)=>{state.game.player.flashlightActive=active;state.ui.flashlight=active;persist();}'),'flashlight state should persist with player state');
 const viewSource=fs.readFileSync(new URL('../src/ui/views.js',import.meta.url),'utf8');assert.ok(viewSource.includes('<span aria-hidden="true">⌖</span>')&&!viewSource.includes('map-pin-title'),'PDA map pins should show only an icon, without a visible label');
 const characterDetail=factionPreview.player.vertices.length;
 assert.ok(characterDetail>9000,'Player character mesh lost expected arm/hand detail');
+
+const emptyBareHands=buildFirstPersonViewGeometry('loner','empty','none');
+const emptyArmoredHands=buildFirstPersonViewGeometry('loner','empty','leather');
+assertFiniteMesh(emptyBareHands,'unarmored empty-hands view');
+assertFiniteMesh(emptyArmoredHands,'armored empty-hands view');
+assert.ok(emptyBareHands.vertices.length/3>5000,'empty-hands view should contain two detailed open hands, not hide the arms');
+assert.notDeepEqual(emptyBareHands.colors.slice(0,3),emptyArmoredHands.colors.slice(0,3),'unarmored arms should use visible skin rather than an armor sleeve');
+assert.ok(rendererText.includes("weaponId==='empty'||!weaponId")&&rendererText.includes('const equippedId=weaponSlotChoice&&')&&!rendererText.includes('game.equipmentSlots?.pistol'),'no active weapon selection should render empty hands even when a backpack or equipment slot has weapons');
+assert.ok(!rendererText.includes("||'aksu';"),'renderer must not invent a default weapon when all equipment slots are empty');
+
 console.log(`3D renderer tests passed: ${LOCATIONS.length} locations, ${ITEMS.length} item model categories, procedural world, faction characters and 3D meshes for every catalog item.`);
 
 const relief=[[-28,-20],[-10,-10],[0,0],[18,12],[25,-18],[9,25]].map(([x,z])=>sampleTerrainHeight(x,z));assert.ok(Math.max(...relief)-Math.min(...relief)>.45,'terrain should contain visible rises and dips rather than a flat plane');
@@ -129,15 +146,16 @@ const relief=[[-28,-20],[-10,-10],[0,0],[18,12],[25,-18],[9,25]].map(([x,z])=>sa
 const clouds=buildCloudLayer().toRaw();
 assert.ok(clouds.vertices.length>1500,'procedural cloud layer must contain multiple volumetric cloud clusters');
 assert.ok(clouds.vertices.every(Number.isFinite),'cloud mesh vertices must remain finite');
-const rendererText=fs.readFileSync(new URL('../src/3d/renderer.js',import.meta.url),'utf8');
 assert.ok(rendererText.includes('draw(cloudMesh,modelMatrix(pos.x+cloudDrift,sampleGlobalTerrainHeight(pos.x,pos.z)+18,pos.z))'),'clouds must be drawn and drift across the sky');
 assert.ok(rendererText.includes('function addBedroll')&&rendererText.includes('addBedroll(b,-5,4,'),'rookie village must contain a visible sleep bedroll');
 assert.ok(rendererText.includes("if(k==='z'&&!e.repeat)"),'sleep interaction shortcut must be available at the bedroll');
-const dayClock={startedAt:new Date(2026,3,15,12,0).getTime(),timeOffsetMinutes:0};
-const nightClock={...dayClock,timeOffsetMinutes:12*60};
+const nowForClockTest=new Date();const localMinuteOfDay=nowForClockTest.getHours()*60+nowForClockTest.getMinutes();
+const noonOffset=(12*60-localMinuteOfDay+1440)%1440;
+const dayClock={startedAt:nowForClockTest.getTime(),timeOffsetMinutes:noonOffset};
+const nightClock={...dayClock,timeOffsetMinutes:noonOffset+12*60};
 assert.ok(daylightFor(dayClock).daylight>daylightFor(nightClock).daylight,'daylight must vary over the day/night cycle');
 const menuSource=fs.readFileSync(new URL('../src/ui/views.js',import.meta.url),'utf8');
-assert.ok(menuSource.includes('ВЕРСИЯ 4.2.0'),'main menu must display the current version');
+assert.ok(menuSource.includes('ВЕРСИЯ 4.2.2'),'main menu must display the current version');
 assert.ok(!rendererText.includes('three-help'),'obsolete bottom control hint must be removed');
 const mapNW=cordonMapToWorld(0,0),mapSE=cordonMapToWorld(100,100);
 assert.deepEqual(mapNW,{x:-768,z:-1536},'map origin must use the full 768×1536 Cordon proportions');

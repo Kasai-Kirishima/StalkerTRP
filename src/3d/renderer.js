@@ -1131,33 +1131,36 @@ function buildFirstPersonView(faction='loner',weaponId='aksu',armorId='leather')
     leather:[.31,.25,.18],biker:[.11,.12,.11],psz5:[.18,.23,.18],zarya:[.20,.28,.22],berill:[.22,.27,.23],
     debyt:[.22,.28,.20],kosyha:[.12,.14,.13],kozanka:[.13,.13,.12],kozanplash:[.20,.21,.18]
   };
-  const sleeve=armorPalette[armorId]||basePalette[faction]||basePalette.loner;
+  const unarmored=!armorId||armorId==='none';
+  const skin=[.48,.34,.26];
+  const sleeve=unarmored?skin:(armorPalette[armorId]||basePalette[faction]||basePalette.loner);
   const reinforced=['psz5','zarya','berill','debyt'].includes(armorId),longCoat=['kozanplash','biker','kozanka','kosyha'].includes(armorId);
-  const glove=armorId==='berill'?[.22,.24,.21]:[.075,.09,.075],seam=[.42,.37,.27],dark=[.055,.065,.055],cuff=reinforced?[.18,.21,.17]:sleeve;
-  // New paired forearms with visible elbow bends, shaped sleeve folds, cuffs and articulated gloves.
-  b.beam([-.76,-.88,-.12],[-.46,-.67,-.54],.19,sleeve,12,.155);
-  b.sphere(-.46,-.66,-.54,.17,.16,.17,sleeve,10,13);
-  b.beam([-.46,-.66,-.54],[-.18,-.48,-.94],.145,sleeve,11,.11);
-  b.beam([.77,-.88,-.10],[.58,-.67,-.48],.20,sleeve,12,.16);
-  b.sphere(.58,-.66,-.48,.18,.16,.17,sleeve,10,13);
-  b.beam([.58,-.66,-.48],[.38,-.46,-.84],.145,sleeve,11,.115);
-  // Cuffs, stitched seams and elbow pads change visibly with equipped armor.
-  for(const side of [-1,1]){
+  const glove=unarmored?skin:(armorId==='berill'?[.22,.24,.21]:[.075,.09,.075]),seam=[.42,.37,.27],dark=[.055,.065,.055],cuff=reinforced?[.18,.21,.17]:sleeve;
+  // Paired forearms with visible elbow bends. Relaxed empty hands use a slightly slimmer silhouette.
+  const armScale=(weaponId==='empty'||!weaponId)?.82:1;
+  b.beam([-.76,-.88,-.12],[-.46,-.67,-.54],.19*armScale,sleeve,12,.155*armScale);
+  b.sphere(-.46,-.66,-.54,.17*armScale,.16*armScale,.17*armScale,sleeve,10,13);
+  b.beam([-.46,-.66,-.54],[-.18,-.48,-.94],.145*armScale,sleeve,11,.11*armScale);
+  b.beam([.77,-.88,-.10],[.58,-.67,-.48],.20*armScale,sleeve,12,.16*armScale);
+  b.sphere(.58,-.66,-.48,.18*armScale,.16*armScale,.17*armScale,sleeve,10,13);
+  b.beam([.58,-.66,-.48],[.38,-.46,-.84],.145*armScale,sleeve,11,.115*armScale);
+  // Armor cuffs and pads are omitted for an unarmored player: bare forearms meet bare hands.
+  if(!unarmored) for(const side of [-1,1]){
     const x=side<0?-.18:.38, y=side<0?-.48:-.46, z=side<0?-.94:-.84;
     b.cylinder(x,y,z,.125,.13,cuff,12,.115);
     b.beam([side*.48,-.64,-.53],[side*.62,-.65,-.52],.025,seam,6,.022);
     b.box(side*.62,-.65,-.54,.22,.20,.08,reinforced?[.28,.31,.25]:[.20,.22,.18]);
     b.beam([x-.08,y-.04,z-.04],[x+.08,y-.04,z-.04],.012,seam,5,.01);
   }
-  // Gloves are not mittens: palm pads, knuckle pads, separated fingers and thumbs.
-  for(const side of [-1,1]){
+  // Visible grip details are generated only for a held item. Empty-hands gets its own relaxed open pose below.
+  if(weaponId!=='empty'&&weaponId) for(const side of [-1,1]){
     const gx=side<0?-.18:.38,gy=side<0?-.49:-.47,gz=side<0?-1.02:-.94;
     b.sphere(gx,gy,gz,.145,.11,.16,glove,10,13);
     for(let finger=0;finger<4;finger++){
       const fx=gx+(finger-1.5)*.055;
       b.beam([fx,gy-.035,gz-.08],[fx+side*.006,gy-.10,gz-.20],.028,glove,7,.018);
-      b.sphere(fx+side*.006,gy-.10,gz-.20,.026,.025,.028,dark,6,8);
-      b.sphere(fx,gy+.055,gz-.04,.034,.025,.035,reinforced?[.20,.22,.18]:[.14,.15,.12],7,9);
+      if(unarmored){b.box(fx+side*.006,gy-.10,gz-.205,.024,.012,.018,[.62,.46,.38]);}
+      else {b.sphere(fx,gy+.055,gz-.04,.034,.025,.035,reinforced?[.20,.22,.18]:[.14,.15,.12],7,9);}
     }
     b.beam([gx+side*.10,gy,gz-.02],[gx+side*.17,gy-.07,gz-.13],.035,glove,7,.022);
     b.sphere(gx+side*.17,gy-.07,gz-.13,.04,.04,.05,glove,7,9);
@@ -1172,6 +1175,30 @@ function buildFirstPersonView(faction='loner',weaponId='aksu',armorId='leather')
     b.box(0,-.27,-1.02,.16,.14,.22,[.20,.22,.18]);b.cylinder(0,-.27,-.82,.055,.18,[.26,.28,.22],10,.05);
   }else if(weaponId==='fists'){
     addFirstPersonWeapon(b,'fists',faction);
+  }else if(weaponId==='empty'||!weaponId){
+    // Neutral, relaxed open hands. Fingers are separated and slightly curled, not clenched.
+    for(const side of [-1,1]){
+      // Palms sit just ahead of the wrists so they remain visible below the forearms.
+      const hx=side<0?-.17:.38,hy=side<0?-.66:-.64,hz=side<0?-.80:-.70;
+      b.sphere(hx,hy,hz,.125,.085,.115,glove,11,14);
+      for(let finger=0;finger<4;finger++){
+        const spread=(finger-1.5)*.060;
+        const fx=hx+spread;
+        const fan=(finger-1.5)*.012;
+        const midX=fx+fan;
+        const tipX=fx+fan*1.45;
+        const midY=hy-.095+Math.abs(finger-1.5)*.008;
+        const tipY=hy-.185+Math.abs(finger-1.5)*.016;
+        const midZ=hz-.015;
+        const tipZ=hz-.055+Math.abs(finger-1.5)*.012;
+        b.beam([fx,hy-.005,hz-.025],[midX,midY,midZ],.031,glove,8,.020);
+        b.beam([midX,midY,midZ],[tipX,tipY,tipZ],.025,glove,8,.016);
+        if(unarmored)b.box(tipX,tipY-.006,tipZ-.006,.024,.010,.018,[.62,.46,.38]);
+      }
+      const thumbX=hx-side*.145;
+      b.beam([hx-side*.075,hy-.005,hz+.005],[thumbX,hy-.085,hz-.035],.036,glove,8,.022);
+      b.sphere(thumbX,hy-.085,hz-.035,.038,.038,.045,glove,8,10);
+    }
   }else if(weaponId==='knife'){
     b.box(.24,-.42,-.74,.14,.13,.30,dark);
     b.beam([.24,-.35,-.83],[.24,-.25,-1.43],.072,[.50,.52,.46],7,.006);
@@ -1187,6 +1214,10 @@ function buildFirstPersonView(faction='loner',weaponId='aksu',armorId='leather')
     for(let i=0;i<4;i++){const x=-.16+i*.05;b.beam([x,-.40,-1.10],[x+.02,-.48,-1.19],.022,glove,6,.015);}
   }
   return b;
+}
+
+export function buildFirstPersonViewGeometry(faction='loner',weaponId='empty',armorId='none'){
+  return buildFirstPersonView(faction,weaponId,armorId).toRaw();
 }
 
 function buildMutant(kind='blind-dog',seed=1){
@@ -1419,6 +1450,8 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onLocation
   canvas.tabIndex=0;canvas.style.touchAction='none';
   const gl=canvas.getContext('webgl',{antialias:true,alpha:false,depth:true,stencil:false,powerPreference:'high-performance'})||canvas.getContext('experimental-webgl');
   if(!gl){onNotify('WebGL не поддерживается этим браузером. Используется обычный фон локации.');return null;}
+  let resolvedControls=controlsMode;
+  if(!['pc','mobile'].includes(resolvedControls)){let coarse=false;try{coarse=window.matchMedia('(pointer: coarse)').matches||navigator.maxTouchPoints>0;}catch{}resolvedControls=coarse?'mobile':'pc';}
   canvas.parentElement?.classList.add('has-3d-world');
   let p;
   try{p=program(gl);}catch(error){canvas.parentElement?.classList.remove('has-3d-world');onNotify(`Не удалось запустить 3D: ${error.message}`);return null;}
@@ -1427,15 +1460,16 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onLocation
   const albedoTexture=createAlbedoTexture(gl);const cordonMapTexture=createCordonMapTexture(gl);const npcShadowMesh=buildNpcGroundShadow().toMesh(gl);gl.useProgram(p);gl.uniform1i(uniforms.albedo,0);gl.uniform1i(uniforms.characterAtlas,1);
   let loc=LOCATIONS.find(entry=>entry.id===game.locationId)||LOCATIONS.find(entry=>entry.id==='rookie-village');
   const layout=createSceneLayout(loc.id,[]);
-  const globalWorld=buildGlobalWorldGeometry({terrainStepsX:192,terrainStepsZ:384});
+  const globalWorld=buildGlobalWorldGeometry({terrainStepsX:resolvedControls==='mobile'?128:192,terrainStepsZ:resolvedControls==='mobile'?256:384});
   const meshFromRaw=raw=>{const builder=new MeshBuilder();builder.vertices=raw.vertices;builder.normals=raw.normals;builder.colors=raw.colors;builder.uvs=raw.uvs;return builder.toMesh(gl);};
   const terrainMesh=meshFromRaw(globalWorld.terrain),roadMesh=meshFromRaw(globalWorld.roads);
   const regionMeshes=globalWorld.regions.map(region=>({...region,mesh:meshFromRaw(region.raw)}));
   const cloudMesh=buildCloudLayer().toMesh(gl);
   const playerFaction=game.player?.faction||'loner';
-  const equippedId=game.equippedWeaponId||game.equipmentSlots?.pistol||game.equipmentSlots?.primary1||game.equipmentSlots?.primary2||'aksu';
-  const playerArmorId=game.player?.armorId||game.equipmentSlots?.armor||'none';
-  const firstPersonMesh=buildFirstPersonView(playerFaction,equippedId,playerArmorId).toMesh(gl);const binocularMesh=buildFirstPersonView(playerFaction,'binoculars',playerArmorId).toMesh(gl);const fistsMesh=buildFirstPersonView(playerFaction,'fists',playerArmorId).toMesh(gl);const reloadMagazineMesh=buildReloadMagazine(equippedId).toMesh(gl);
+  const weaponSlotChoice=game.equippedWeaponId||null;
+  const equippedId=weaponSlotChoice&&(game.inventory||[]).some(stack=>stack.id===weaponSlotChoice&&Number(stack.qty)>0)?weaponSlotChoice:null;
+  const playerArmorId=game.player?.armorId??game.equipmentSlots?.armor??'none';
+  const firstPersonMesh=buildFirstPersonView(playerFaction,equippedId||'empty',playerArmorId).toMesh(gl);const binocularMesh=buildFirstPersonView(playerFaction,'binoculars',playerArmorId).toMesh(gl);const fistsMesh=buildFirstPersonView(playerFaction,'fists',playerArmorId).toMesh(gl);const reloadMagazineMesh=buildReloadMagazine(equippedId||'aksu').toMesh(gl);
   const npcMeshes=npcs.filter(n=>!n.captured||game.currentAreaId==='atp-first-floor-prisoners').map((npc,index)=>{
     const rr=seeded(hash(npc.id));const angle=(index*2.399+rr()*.5),radius=5+(index%5)*2.1;
     const npcLoc=LOCATIONS.some(entry=>entry.id===npc.location)?npc.location:'rookie-village';
@@ -1504,10 +1538,8 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onLocation
     return false;
   }
   const aimReticle=document.createElement('div');aimReticle.className='three-crosshair';aimReticle.setAttribute('aria-hidden','true');aimReticle.innerHTML='<i></i>';canvas.parentElement.appendChild(aimReticle);
-  let resolvedControls=controlsMode;
-  if(!['pc','mobile'].includes(resolvedControls)){let coarse=false;try{coarse=window.matchMedia('(pointer: coarse)').matches||navigator.maxTouchPoints>0;}catch{}resolvedControls=coarse?'mobile':'pc';}
   const touch=document.createElement('div');touch.className=`three-touch-controls is-${resolvedControls}`;
-  touch.innerHTML='<div class="three-joystick" aria-label="Движение"><i></i></div><div class="three-action-buttons"><button type="button" data-3d="interact">ДЕЙСТВИЕ</button><button type="button" data-3d="sprint">БЕГ</button><button type="button" data-3d="jump">ПРЫЖОК</button><button type="button" data-3d="crouch">ПРИСЕСТЬ</button><button type="button" data-3d="flashlight">ФОНАРЬ</button><button type="button" data-3d="aim">ПРИЦЕЛ</button><button type="button" data-3d="reload">R</button><button type="button" data-3d="binoculars">БИНОКЛЬ</button><button type="button" data-3d="punch">УДАР</button><button type="button" data-3d="look-up">↑</button><button type="button" data-3d="look-down">↓</button><button type="button" data-3d="fire">ОГОНЬ</button></div>';
+  touch.innerHTML='<div class="three-joystick" role="group" aria-label="Виртуальный джойстик движения"><i></i></div><div class="three-action-buttons"><div class="three-action-primary"><button type="button" data-3d="interact" aria-label="Действие">ДЕЙСТВИЕ</button><button type="button" data-3d="sprint" aria-label="Бег, удерживать">БЕГ</button><button type="button" data-3d="jump" aria-label="Прыжок">ПРЫЖОК</button><button type="button" data-3d="crouch" aria-label="Присесть">ПРИСЕСТЬ</button><button type="button" data-3d="more" class="three-action-more" aria-expanded="false" aria-controls="three-extra-actions">ЕЩЁ</button></div><div class="three-action-extra" id="three-extra-actions" hidden><button type="button" data-3d="flashlight">ФОНАРЬ</button><button type="button" data-3d="aim">ПРИЦЕЛ</button><button type="button" data-3d="reload">R</button><button type="button" data-3d="binoculars">БИНОКЛЬ</button><button type="button" data-3d="punch">УДАР</button><button type="button" data-3d="look-up">↑</button><button type="button" data-3d="look-down">↓</button><button type="button" data-3d="fire">ОГОНЬ</button></div></div>';
   canvas.parentElement.appendChild(touch);
   const joy=touch.querySelector('.three-joystick'),knob=joy.querySelector('i');let joyPointer=null,joyRect=null,sprintPointer=null,touchSprint=false;
   const hud=document.createElement('div');hud.className='three-hud';hud.innerHTML='<div class="three-hud-minimap"><canvas width="144" height="144" aria-label="Мини-карта"></canvas><i></i></div><div class="three-hud-health"><div class="three-hud-health-track"><i></i></div><span>100</span></div><div class="three-hud-flashlight">ФОНАРЬ · ВЫКЛ</div>';
@@ -1516,7 +1548,7 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onLocation
   const fleeButton=document.createElement('button');fleeButton.type='button';fleeButton.className='three-flee-button';fleeButton.textContent='СБЕЖАТЬ';fleeButton.hidden=!game.activeEncounter;fleeButton.setAttribute('aria-label','Прервать столкновение и уйти от угрозы');
   fleeButton.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();onFlee();});canvas.parentElement.appendChild(fleeButton);
   const binocularOverlay=document.createElement('div');binocularOverlay.className='three-binocular-overlay';binocularOverlay.setAttribute('aria-hidden','true');binocularOverlay.innerHTML='<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path fill="#040604" fill-rule="evenodd" d="M0 0H100V100H0Z M18 50a21 29 0 1 0 42 0a21 29 0 1 0 -42 0 M40 50a21 29 0 1 0 42 0a21 29 0 1 0 -42 0"/><ellipse cx="39" cy="50" rx="21" ry="29" fill="none" stroke="#87916d" stroke-width=".7"/><ellipse cx="61" cy="50" rx="21" ry="29" fill="none" stroke="#87916d" stroke-width=".7"/><path d="M49 50H51" stroke="#aab58a" stroke-width="1.2"/></svg>';canvas.parentElement.appendChild(binocularOverlay);
-  function resize(){const rect=canvas.getBoundingClientRect();if(!rect.width||!rect.height)return;width=rect.width;height=rect.height;dpr=Math.min(window.devicePixelRatio||1,1.6);canvas.width=Math.max(1,Math.round(width*dpr));canvas.height=Math.max(1,Math.round(height*dpr));gl.viewport(0,0,canvas.width,canvas.height);}
+  function resize(){const rect=canvas.getBoundingClientRect();if(!rect.width||!rect.height)return;width=rect.width;height=rect.height;dpr=Math.min(window.devicePixelRatio||1,resolvedControls==='mobile'?1.25:1.6);canvas.width=Math.max(1,Math.round(width*dpr));canvas.height=Math.max(1,Math.round(height*dpr));gl.viewport(0,0,canvas.width,canvas.height);}
   const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(canvas);resize();
   function nearestNpc(){return selectNearbyNpc(npcMeshes,pos,4.5);}
   function nearestLoot(){let best=null,bd=1e9;for(const entry of lootMeshes){const d=Math.hypot(entry.pos.x-pos.x,entry.pos.z-pos.z);if(d<bd){best=entry;bd=d;}}return best&&bd<3.4?best:null;}
@@ -1596,12 +1628,15 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onLocation
   function contextMenu(e){e.preventDefault();}
   const onTouchAction=e=>{
     const btn=e.target.closest('[data-3d]');if(!btn)return;e.preventDefault();const action=btn.dataset['3d'];
+    if(action==='more'){const extra=touch.querySelector('.three-action-extra'),open=extra.hidden;extra.hidden=!open;btn.setAttribute('aria-expanded',String(open));btn.classList.toggle('active',open);return;}
     if(action==='sprint'){sprintPointer=e.pointerId;touchSprint=true;btn.setPointerCapture?.(e.pointerId);return;}
     if(action==='look-up'||action==='look-down'){lookVertical=action==='look-up'?1:-1;lookVerticalPointer=e.pointerId;btn.setPointerCapture?.(e.pointerId);return;}
     if(action==='aim')toggleAim();else if(action==='reload')reload();else if(action==='binoculars')toggleBinoculars();else if(action==='punch')punch();else if(action==='fire')fire();else if(action==='interact')interact();else if(action==='jump')jump();else if(action==='crouch')toggleCrouch();else if(action==='flashlight')toggleFlashlight();
   };
+  function resetTouchInput(){joyPointer=null;touchMove={x:0,y:0};knob.style.transform='translate(0,0)';sprintPointer=null;touchSprint=false;lookVerticalPointer=null;lookVertical=0;lookPointer=null;}
+  function onVisibilityChange(){if(document.visibilityState==='hidden')resetTouchInput();}
   function joystickDown(e){e.preventDefault();joyPointer=e.pointerId;joyRect=joy.getBoundingClientRect();joy.setPointerCapture?.(e.pointerId);updateJoy(e);}
-  joy.addEventListener('pointerdown',joystickDown);canvas.addEventListener('pointerdown',pointerdown);canvas.addEventListener('contextmenu',contextMenu);window.addEventListener('pointermove',pointermove);window.addEventListener('pointerup',pointerup);window.addEventListener('pointercancel',pointerup);window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);document.addEventListener('pointerlockchange',pointerlock);document.addEventListener('pointerlockerror',pointerlockerror);window.addEventListener('mousemove',mousemove);touch.addEventListener('pointerdown',onTouchAction);
+  joy.addEventListener('pointerdown',joystickDown);canvas.addEventListener('pointerdown',pointerdown);canvas.addEventListener('contextmenu',contextMenu);window.addEventListener('pointermove',pointermove);window.addEventListener('pointerup',pointerup);window.addEventListener('pointercancel',pointerup);window.addEventListener('blur',resetTouchInput);document.addEventListener('visibilitychange',onVisibilityChange);window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);document.addEventListener('pointerlockchange',pointerlock);document.addEventListener('pointerlockerror',pointerlockerror);window.addEventListener('mousemove',mousemove);touch.addEventListener('pointerdown',onTouchAction);
   // Keep mouse-look active when the game rerenders its HUD after an action. The render is synchronous with the player's click/keypress.
   if(restorePointerLock&&canvas.requestPointerLock){try{const request=canvas.requestPointerLock({unadjustedMovement:true});request?.catch?.(()=>onNotify('Захват мыши не восстановился: перетащи мышь по сцене для обзора.'));}catch{try{canvas.requestPointerLock();}catch{onNotify('Используй перетаскивание мышью по сцене для обзора.');}}}
   function updateHud(){
@@ -1660,6 +1695,6 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onLocation
     saveElapsed+=dt;if(saveElapsed>8){saveElapsed=0;game.player.cordonPosition={x:pos.x,z:pos.z,yaw};onCheckpoint();}
   }
   raf=requestAnimationFrame(frame);
-  function destroy(){if(destroyed)return;destroyed=true;cancelAnimationFrame(raf);resizeObserver.disconnect();canvas.removeEventListener('pointerdown',pointerdown);canvas.removeEventListener('contextmenu',contextMenu);window.removeEventListener('pointermove',pointermove);window.removeEventListener('pointerup',pointerup);window.removeEventListener('pointercancel',pointerup);window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);document.removeEventListener('pointerlockchange',pointerlock);document.removeEventListener('pointerlockerror',pointerlockerror);window.removeEventListener('mousemove',mousemove);touch.removeEventListener('pointerdown',onTouchAction);joy.removeEventListener('pointerdown',joystickDown);touch.remove();hud.remove();fleeButton.remove();binocularOverlay.remove();canvas.parentElement?.classList.remove('has-3d-world');aimReticle.remove();for(const mesh of [terrainMesh,roadMesh,cloudMesh,firstPersonMesh,binocularMesh,fistsMesh,reloadMagazineMesh,npcShadowMesh,...regionMeshes.map(e=>e.mesh),...npcMeshes.flatMap(e=>[e.mesh]),...lootMeshes.map(e=>e.mesh),enemyModel?.mesh,shotMesh].filter(Boolean))gl.deleteBuffer(mesh.buffer);gl.deleteTexture(albedoTexture.texture);gl.deleteTexture(cordonMapTexture.texture);gl.deleteProgram(p);if(document.pointerLockElement===canvas)document.exitPointerLock();}
+  function destroy(){if(destroyed)return;destroyed=true;cancelAnimationFrame(raf);resizeObserver.disconnect();canvas.removeEventListener('pointerdown',pointerdown);canvas.removeEventListener('contextmenu',contextMenu);window.removeEventListener('pointermove',pointermove);window.removeEventListener('pointerup',pointerup);window.removeEventListener('pointercancel',pointerup);window.removeEventListener('blur',resetTouchInput);document.removeEventListener('visibilitychange',onVisibilityChange);window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);document.removeEventListener('pointerlockchange',pointerlock);document.removeEventListener('pointerlockerror',pointerlockerror);window.removeEventListener('mousemove',mousemove);touch.removeEventListener('pointerdown',onTouchAction);joy.removeEventListener('pointerdown',joystickDown);touch.remove();hud.remove();fleeButton.remove();binocularOverlay.remove();canvas.parentElement?.classList.remove('has-3d-world');aimReticle.remove();for(const mesh of [terrainMesh,roadMesh,cloudMesh,firstPersonMesh,binocularMesh,fistsMesh,reloadMagazineMesh,npcShadowMesh,...regionMeshes.map(e=>e.mesh),...npcMeshes.flatMap(e=>[e.mesh]),...lootMeshes.map(e=>e.mesh),enemyModel?.mesh,shotMesh].filter(Boolean))gl.deleteBuffer(mesh.buffer);gl.deleteTexture(albedoTexture.texture);gl.deleteTexture(cordonMapTexture.texture);gl.deleteProgram(p);if(document.pointerLockElement===canvas)document.exitPointerLock();}
   activeRenderer={destroy,layout,globalWorld};return activeRenderer;
 }
