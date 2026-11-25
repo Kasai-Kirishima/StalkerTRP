@@ -2040,3 +2040,56 @@ html { zoom: var(--ui-scale, 1); }
  .location-scene.has-3d-world .scene-gm-actions{pointer-events:auto}
 }
 @media(prefers-reduced-motion:reduce){.three-action-buttons button{transition:none}}
+
+/* v3.5 first-person controls, HUD and optics */
+.location-scene.has-3d-world:after{pointer-events:none!important}
+.location-scene.has-3d-world .stalker-3d-canvas{z-index:2;pointer-events:auto;touch-action:none;cursor:crosshair}
+.location-scene.has-3d-world .three-crosshair{z-index:4}
+.three-touch-controls{z-index:6}
+.three-touch-controls.is-mobile .three-action-buttons{right:max(10px,env(safe-area-inset-right));bottom:calc(168px + env(safe-area-inset-bottom));grid-template-columns:repeat(3,48px);gap:6px;max-width:156px}
+.three-touch-controls.is-mobile .three-action-buttons button{width:48px;height:48px;border-radius:13px;font-size:9px;padding:2px;background:rgba(20,29,20,.92);border-color:#899966;box-shadow:0 3px 10px #0009}
+.three-touch-controls.is-mobile .three-action-buttons button[data-3d="fire"]{width:52px;height:52px;border-radius:15px;background:#542d22eF;border-color:#c27b59;font-size:9px}
+.three-touch-controls.is-mobile .three-action-buttons button[data-3d="sprint"]{background:#2d3a24eF}
+.three-touch-controls.is-mobile .three-action-buttons button[data-3d="aim"]{background:#34402aeF}
+.three-touch-controls.is-mobile .three-action-buttons button[data-3d="binoculars"]{font-size:7px}
+.three-touch-controls.is-mobile .three-joystick{bottom:calc(24px + env(safe-area-inset-bottom));width:112px;height:112px}
+.three-touch-controls.is-mobile .three-mobile-help{display:block;bottom:calc(8px + env(safe-area-inset-bottom));left:50%;max-width:calc(100% - 240px);overflow:hidden;text-overflow:ellipsis}
+.three-touch-controls.is-pc .three-help{z-index:6}
+.three-hud{position:absolute;right:max(12px,env(safe-area-inset-right));bottom:calc(12px + env(safe-area-inset-bottom));z-index:8;width:126px;display:grid;gap:7px;pointer-events:none;filter:drop-shadow(0 3px 8px #000b)}
+.three-hud-minimap{position:relative;width:122px;height:122px;border-radius:50%;overflow:hidden;border:2px solid rgba(205,218,167,.76);background:#101a12;box-shadow:0 0 0 4px rgba(7,10,7,.64),inset 0 0 15px #000}
+.three-hud-minimap canvas{display:block;width:100%;height:100%;opacity:.95}
+.three-hud-minimap>i{position:absolute;inset:0;border-radius:50%;border:1px solid rgba(245,245,218,.18);box-shadow:inset 0 0 13px #0008}
+.three-hud-health{display:flex;align-items:center;gap:7px;padding:4px 6px;background:rgba(7,12,8,.86);border:1px solid rgba(154,171,111,.66);border-radius:3px}
+.three-hud-health-track{height:8px;flex:1;overflow:hidden;background:#30352b;border:1px solid #11170f}
+.three-hud-health-track i{display:block;width:100%;height:100%;background:#9aa85e;transition:width .12s linear,background .12s}
+.three-hud-health span{min-width:23px;text-align:right;color:#e6ebce;font:11px 'Share Tech Mono',monospace}
+.three-binocular-overlay{display:none;position:absolute;inset:0;z-index:4;pointer-events:none;background:transparent;box-shadow:inset 0 0 42px #000}.three-binocular-overlay svg{display:block;width:100%;height:100%;filter:drop-shadow(0 0 3px #000)}
+.three-binocular-overlay.active{display:block}
+.three-binocular-overlay:after{content:"";position:absolute;left:50%;top:49%;width:2px;height:34%;background:#dfe8c5;opacity:.35;transform:translateX(-50%);box-shadow:0 0 0 1px #0008}
+.map-frame-large .map-pin span{display:block;color:#edf2d0;font:700 11px/1 'Share Tech Mono',monospace;text-align:center;text-shadow:0 1px 3px #000;transform:translateY(-.5px);pointer-events:none}
+.map-frame-large .map-pin.current span{color:#11170d}
+.map-frame-large .map-pin.quest-target:not(.current) span{color:#17130a}
+@media(max-width:540px){
+  .three-hud{right:8px;bottom:calc(8px + env(safe-area-inset-bottom));width:104px;gap:5px}
+  .three-hud-minimap{width:100px;height:100px}
+  .three-hud-health{padding:3px 4px}
+  .three-hud-health-track{height:7px}
+  .three-hud-health span{font-size:10px}
+  .three-touch-controls.is-mobile .three-action-buttons{bottom:calc(126px + env(safe-area-inset-bottom));grid-template-columns:repeat(3,42px);gap:5px;max-width:136px}
+  .three-touch-controls.is-mobile .three-action-buttons button{width:42px;height:42px;font-size:8px}
+  .three-touch-controls.is-mobile .three-action-buttons button[data-3d="fire"]{width:46px;height:46px}
+  .three-touch-controls.is-mobile .three-joystick{width:98px;height:98px}
+  .three-touch-controls.is-mobile .three-mobile-help{display:none}
+}
+
+/* v3.5.0: deliberate first-person aim state, icon-only map pins, and clean input layer */
+.location-scene.has-3d-world>.scene-background{pointer-events:none!important}
+.location-scene.has-3d-world .three-crosshair.is-aimed{width:12px;height:12px;opacity:.92}
+.location-scene.has-3d-world .three-crosshair.is-aimed:before{height:11px}
+.location-scene.has-3d-world .three-crosshair.is-aimed:after{width:11px}
+.location-scene.has-3d-world .three-crosshair.is-aimed i{width:3px;height:3px}
+.location-scene.has-3d-world .three-crosshair.is-optic{display:none}
+.map-frame-large .map-pin[title]{text-decoration:none}
+.map-frame-large .map-pin span{font-size:12px;line-height:1}
+
+.three-action-buttons button.active{background:#53613a!important;border-color:#d0dc9b!important;box-shadow:0 0 0 2px #d0dc9b55,0 3px 12px #000b}

@@ -63,7 +63,7 @@ assert.ok(shelteredGame.emission.nextAt>=shelteredGame.clock.worldMinutes+9*1440
 leaveShelter(shelteredGame);
 assert.equal(shelteredGame.player.sheltered,false);
 assert.equal(LOCATIONS.length,18);
-assert.equal(LOCATIONS.filter(location=>location.mapVisible!==false).length,17,'17 labelled map pins should appear over the supplied base map');
+assert.equal(LOCATIONS.filter(location=>location.mapVisible!==false).length,18,'all 18 locations, including Sidorovich bunker, should appear as icon-only map pins');
 for(const item of ITEMS){const artwork=item.image||ASSETS.itemImages?.[item.id]||ASSETS.armor?.[item.id];assert.ok(artwork,`inventory item ${item.id} must have artwork, not an emoji`);if(!artwork.startsWith('data:')&&!artwork.startsWith('http'))assert.ok(fs.existsSync(new URL(artwork)),`inventory artwork must exist locally for offline use: ${item.id}`);}
 
 // Every map exit must point to a real location, have a return transition,
@@ -299,14 +299,14 @@ for (const faction of FACTIONS) {
 
 // Starter economy supports a practical multi-item kit and distinct leather jacket/cosukha art.
 assert.equal(START_BUDGET,5000,'starting budget should allow one practical faction kit without funding an advanced loadout');
-assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=3410"),'service worker registration URL should refresh with the release');
+assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=3500"),'service worker registration URL should refresh with the release');
 const mainModuleSource=fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 assert.ok(mainModuleSource.includes("import { mountStalker3D, disposeStalker3D } from './3d/renderer.js';"),'main module must import the 3D renderer functions it calls during the first render');
 const serviceWorkerSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8');
 assert.ok(serviceWorkerSource.includes('./assets/textures/cordon-materials.png'),'offline shell should cache the procedural material atlas');
 assert.ok(serviceWorkerSource.includes('./assets/textures/npc-appearance-atlas.png'),'offline shell should cache the full-body NPC appearance atlas');
 assert.ok(!serviceWorkerSource.includes('bundled-music')&&!serviceWorkerSource.includes('radio-stations')&&!serviceWorkerSource.includes('music-archive'),'music and radio modules must be completely removed from the offline shell');
-assert.ok(serviceWorkerSource.includes('cordon-pda-v3410-menu-npc-appearance'),'service worker cache name should identify the first-person no-music release');
+assert.ok(serviceWorkerSource.includes('cordon-pda-v3500-pov-terrain-interiors'),'service worker cache name should identify the first-person no-music release');
 const swUrl=new URL('../sw.js',import.meta.url);
 const precachePaths=[...serviceWorkerSource.matchAll(/\"(\.\/[^\"]+)\"/g)].map(match=>match[1]);
 assert.ok(precachePaths.length>=150,'the offline shell should include the expanded artwork bundle');
@@ -708,12 +708,13 @@ beginEncounter(combatVisualGame,'bandit');
 const combatHtml=renderGame({screen:'game',characters:[character],activeCharacterId:'smoke',settings:{},ui:{tab:'location',pdaOpen:false,modal:null},game:combatVisualGame});
 assert.ok(combatHtml.includes('enemy-portrait-art') && combatHtml.includes('enemy-body-art') && combatHtml.includes('enemy-faction-row'),'combat should show separate portrait, full-body appearance and faction insignia');
 assert.ok(combatHtml.includes('data-action="combat-attack"') && combatHtml.includes('data-action="combat-reload"'),'combat HUD should expose attack and reload actions only during an encounter');
-assert.ok(combatHtml.includes('first-person-weapon right') && combatHtml.includes('assets/items/pm.webp'),'equipped weapons should render as inward-facing first-person hand sprites');
+assert.ok(fs.readFileSync(new URL('../src/3d/renderer.js',import.meta.url),'utf8').includes("buildFirstPersonView(playerFaction,equippedId,playerArmorId)"),'equipped weapons should use dedicated 3D first-person hand and weapon meshes');
+assert.ok(!combatHtml.includes('first-person-weapon right'),'the scene must not overlay PNG weapon cutouts on top of 3D weapon models');
 assert.equal(getBestWeapon(combatVisualGame.inventory,combatVisualGame)?.id,'pm','ammo stacks in the backpack must initialize a firearm magazine');
 assert.ok((combatVisualGame.weaponMagazines?.pm||0)>0,'a purchased/found ammo stack must put rounds in the selected weapon magazine');
 combatVisualGame.equippedWeaponId='knife';
 const attack=playerAttack(combatVisualGame);
-assert.ok(attack.message.includes('Нож'));
+assert.ok(attack.message.toLowerCase().includes('нож'));
 
 const uiState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false},account:{},draft:{name:'',birthDate:'',height:'',weight:'',personality:'',biography:'',notes:'',faction:'loner',avatar:''},loadout:{selected:{}},ui:{tab:'location',pdaOpen:false,modal:null},game};
 assert.ok(renderMenu(uiState).includes('Играть'));

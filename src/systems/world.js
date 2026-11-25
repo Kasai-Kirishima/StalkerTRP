@@ -1023,7 +1023,7 @@ export function getSidorovichJobState(game) {
 }
 
 export function acceptSidorovichJob(game) {
-  if (game.locationId!=='sidorovich-bunker') return {ok:false,message:'Сначала вернись в подвал Сидоровича.'};
+  if (game.locationId!=='sidorovich-bunker') return {ok:false,message:'Сначала вернись в отдельный бункер Сидоровича.'};
   const jobs=getSidorovichJobState(game);
   if (jobs.active) return {ok:false,message:'У тебя уже есть его поручение. Сначала закончи его.'};
   if (game.clock.worldMinutes<jobs.cooldownUntil) return {ok:false,message:'Сидорович пока не подготовил новую работу. Загляни позже.'};
@@ -1415,7 +1415,7 @@ export function nameSecretAnomaly(game, rawName) {
 }
 
 export function turnInSecretAnomalyQuest(game) {
-  if (game.locationId!=='sidorovich-bunker') return {ok:false,message:'Вернись к Сидоровичу в подвал.'};
+  if (game.locationId!=='sidorovich-bunker') return {ok:false,message:'Вернись к Сидоровичу в его подземный бункер.'};
   const quest=game.quests?.find(entry=>entry.id==='signal-dump');
   if (!quest || quest.status!=='ready' || !game.secretAnomaly?.name) return {ok:false,message:'Сначала исследуй аномалию и дай ей название.'};
   quest.status='completed'; game.money+=quest.reward; game.player.questsDone=(game.player.questsDone||0)+1; grantReputation(game,5);

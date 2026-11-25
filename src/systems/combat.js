@@ -97,8 +97,9 @@ function enemyReply(game, enemy, multiplier=1, lead='') {
   return {ok:true,message};
 }
 
-export function reloadWeapon(game) {
-  const weapon=getBestWeapon(game.inventory,game);
+export function reloadWeapon(game, weaponId=null) {
+  const requested=weaponId?getItem(weaponId):null;
+  const weapon=requested&&countItem(game.inventory,requested.id)>0?requested:getBestWeapon(game.inventory,game);
   if (!weapon?.ammo) return {ok:false,message:'Выбранное оружие не требует перезарядки.'};
   const loaded=ensureMagazine(game,weapon); const size=magazineSize(weapon.ammo); const reserve=game.ammoRounds?.[weapon.ammo]||0;
   if (loaded>=size) return {ok:false,message:'Магазин уже полон.'};
@@ -196,7 +197,7 @@ export function beginEncounter(game, type='blind-dog') {
   const mutantLooks=ASSETS.mutants?.[mutantKey]||[];
   const mutantAppearance=mutantLooks.length?mutantLooks[Math.floor(Math.random()*mutantLooks.length)]:'';
   const enemyWeaponPools={military:['aksu','vm17','pm'],bandit:['gaduka','sawedoff','pm'],loner:['vm17','sawedoff','pm']};
-  const weaponPool=(enemyWeaponPools[faction]||[]).filter(id=>getItem(id)?.weapon && ASSETS.weaponImages?.[id]);
+  const weaponPool=(enemyWeaponPools[faction]||[]).filter(id=>getItem(id)?.weapon && getItem(id).weapon!=='grenade');
   const weaponId=weaponPool.length?weaponPool[Math.floor(Math.random()*weaponPool.length)]:null;
   game.activeEncounter = { type, name, hp, maxHp:hp, damage, count:1, imageIndex:0, image:'', ...(faction?{faction,icon:look?.icon||'',appearance:look?.appearance||'',insignia:ASSETS.factionInsignias?.[faction]||'',...(weaponId?{weaponId}:{})}:mutantAppearance?{appearance:mutantAppearance}:{}) };
   rememberEntity(game, game.activeEncounter, 'creature');
@@ -214,10 +215,13 @@ export function beginWolfDogPack(game) {
   return {ok:true,message:`У вагончика тебя заметила стая. Первый пёс бросается на тебя. Всего здесь пять собак.`};
 }
 
-export function playerAttack(game) {
+export function playerAttack(game, options={}) {
   const enemy = game.activeEncounter;
   if (!enemy) return { ok:false, message:'Сейчас никто не угрожает.' };
-  const weapon = getBestWeapon(game.inventory,game);
+  const requested=options.weaponId?getItem(options.weaponId):null;
+  const weapon = requested && countItem(game.inventory,requested.id)>0 ? requested : getBestWeapon(game.inventory,game);
+  const isKnife=weapon?.id==='knife'||weapon?.weapon==='melee';
+  if (isKnife && Number.isFinite(options.distance) && options.distance>2.15) return {ok:false,message:'Слишком далеко для удара ножом. Нужно подойти вплотную.'};
   if (!weapon) {
     const owned=(game.inventory||[]).map(stack=>getItem(stack.id)).filter(item=>item?.weapon&&item.weapon!=='grenade');
     return { ok:false, message:owned.length?'Оружие неисправно или нет подходящих патронов. Переключись на исправный ствол или обратись к Маслову за ремонтом.':'У тебя нет подходящего оружия. Можно попытаться отступить.' };
@@ -230,14 +234,15 @@ export function playerAttack(game) {
   }
   const hadAim=!!game.player.aimed && (game.clock.worldMinutes||0)<=Number(game.player.aimedUntil||0);
   game.player.aimed=false; game.player.aimedUntil=0;
-  game.combatEffect={type:'fire',until:(game.clock.worldMinutes||0)+2};
+  game.combatEffect={type:isKnife?'knife':'fire',until:(game.clock.worldMinutes||0)+2};
   const weaponCondition=getItemCondition(game,weapon.id);
-  const damage = Math.max(3, Math.round((weapon.damage + Math.floor(Math.random()*9) - 4 + (hadAim?8:0))*(.55+.45*weaponCondition/100)));
-  damageItemCondition(game,weapon.id,.28+damage*.009);
+  const rawDamage=isKnife ? 5+Math.floor(Math.random()*5) : weapon.damage + Math.floor(Math.random()*9) - 4 + (hadAim?8:0);
+  const damage = Math.max(2, Math.round(rawDamage*(.55+.45*weaponCondition/100)));
+  damageItemCondition(game,weapon.id,isKnife?.12:.28+damage*.009);
   enemy.hp = Math.max(0, enemy.hp - damage);
-  advanceGame(game, 2);
-  game.combatCooldownUntil=(game.clock.worldMinutes||0)+1;
-  let message = `Ты используешь ${weapon.name}. Противник получает ${damage} урона.`;
+  advanceGame(game, isKnife?1:2);
+  game.combatCooldownUntil=(game.clock.worldMinutes||0)+(isKnife?.5:1);
+  let message = isKnife ? `Ты наносишь короткий удар ножом с близкого расстояния. Противник получает ${damage} урона.` : `Ты используешь ${weapon.name}. Противник получает ${damage} урона.`;
   if (enemy.hp <= 0) {
     const reward = rewardForDefeat(enemy);
     game.money += reward;
@@ -295,6 +300,28 @@ export function playerAttack(game) {
   }
   addLog(game, message, 'danger');
   return { ok:true, message };
+}
+
+export function playerPunch(game, options={}) {
+  const enemy=game.activeEncounter;
+  if(!enemy)return {ok:false,message:'Сейчас не с кем драться.'};
+  if(!Number.isFinite(options.distance)||options.distance>1.65)return {ok:false,message:'Слишком далеко для удара рукой. Подойди ближе.'};
+  if((game.player.stamina||0)<3)return {ok:false,message:'Не хватает сил для удара.'};
+  if(game.combatCooldownUntil&&game.clock.worldMinutes<game.combatCooldownUntil)return {ok:false,message:'Нужно немного восстановиться перед следующим действием.'};
+  const damage=3+Math.floor(Math.random()*4);
+  enemy.hp=Math.max(0,enemy.hp-damage);
+  game.player.stamina=Math.max(0,(game.player.stamina||0)-3);
+  game.combatEffect={type:'punch',until:(game.clock.worldMinutes||0)+1};
+  advanceGame(game,1);
+  let message=`Ты наносишь удар рукой с близкого расстояния. Противник получает ${damage} урона.`;
+  if(enemy.hp<=0){
+    const reward=rewardForDefeat(enemy);game.money+=reward;awardCombatKill(game);game.activeEncounter=null;
+    const storyResult=resolveMainStoryEncounter(game,enemy);if(storyResult)message+=` ${storyResult}`;
+    registerCorpseLoot(game,enemy);message+=` Угроза устранена. Найдено ${reward} Купонов.`;
+    addLog(game,message);return {ok:true,finished:true,message};
+  }
+  const reply=enemyReply(game,enemy,.72);message+=` ${reply.message}`;addLog(game,message,'danger');
+  return {ok:true,message};
 }
 
 export function defend(game) {

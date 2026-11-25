@@ -3,7 +3,7 @@ import { ASSETS, FACTIONS, START_BUDGET, MAX_CARRY_KG, NPCS, ITEMS, LOCATIONS, A
 import { renderMenu, renderAccount, renderCharacters, renderCreate, renderLoadout, renderGame, renderGameSettings, renderModal, esc } from './ui/views.js';
 import { canFitLoadout, getInventoryCost, getLoadoutWeight, addItem, getItem, getWeight, countItem, removeItem, useItem, transferItem } from './systems/inventory.js';
 import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, breakContainer, replyNpcFreeText, takeShelter, leaveShelter, sitAtCampfire, getExploreSpots, getActiveLootItems, openStorage, turnInPudelQuest, turnInSecretAnomalyQuest, claimAtpRescueReward, beginAtpRescue, generateStalkerName, acceptPersonalQuest, turnInPersonalQuest, getAvailableStalkers } from './systems/world.js';
-import { playerAttack, defend, flee, beginEncounter, beginWolfDogPack, reloadWeapon, aimWeapon, dodge, throwGrenade, throwBoltInCombat, useItemInCombat, selectWeapon } from './systems/combat.js';
+import { playerAttack, playerPunch, defend, flee, beginEncounter, beginWolfDogPack, reloadWeapon, aimWeapon, dodge, throwGrenade, throwBoltInCombat, useItemInCombat, selectWeapon } from './systems/combat.js';
 import { buyFromTrader, sellToTrader } from './systems/world.js';
 import { processPlayerAction } from './systems/action-engine.js';
 import { getGameDateTime } from './systems/game-clock.js';
@@ -100,6 +100,7 @@ function setScreen(screen) {
 }
 
 function render() {
+  const restorePointerLock = document.pointerLockElement?.id === 'stalker-3d-world';
   disposeStalker3D();
   document.documentElement.style.setProperty('--ui-scale', state.settings.uiScale || 1);
   document.body.classList.toggle('reduced-motion', !!state.settings.reducedMotion);
@@ -124,27 +125,63 @@ function render() {
         npcs:nearby,
         reducedMotion:!!state.settings.reducedMotion,
         controlsMode:state.settings.controlScheme||'auto',
+        restorePointerLock,
         onInteract:(npcId)=>{
           const result=talkToNpc(state.game,npcId);
           if(result.ok){state.ui.modal=null;persist();render();}
           else toast(result.message,'warning');
         },
-        onTravel:(destinationId)=>{
+        onTravel:(destinationId,transition={})=>{
+          const fromId=state.game.locationId;
           const result=travelTo(state.game,destinationId);
-          persist();render();toast(result.message,result.encounter?'warning':result.ok?'info':'warning');
+          if(!result.ok){toast(result.message,'warning');return result;}
+          if(result.ok){
+            state.game.player.worldPositions ||= {};
+            let arrival;
+            if(destinationId==='sidorovich-bunker')arrival={x:0,z:18.5,yaw:0};
+            else if(fromId==='sidorovich-bunker'&&destinationId==='rookie-village')arrival={x:0,z:27.5,yaw:Math.PI};
+            else {
+              const edge=transition.edge||{x:0,z:-34};
+              if(Math.abs(edge.x)>Math.abs(edge.z))arrival=edge.x>0?{x:-29.2,z:0,yaw:Math.PI/2}:{x:29.2,z:0,yaw:-Math.PI/2};
+              else arrival=edge.z<0?{x:0,z:29.2,yaw:0}:{x:0,z:-29.2,yaw:Math.PI};
+            }
+            state.game.player.worldPositions[destinationId]=arrival;
+          }
+          persist();render();toast(result.message,result.encounter?'warning':result.ok?'info':'warning');return result;
         },
-        onFire:(targetNpc)=>{
-          if(state.game.activeEncounter){const result=playerAttack(state.game);persist();render();toast(result.message,result.ok?'success':'warning');return;}
-          if(!targetNpc){toast('Пока нет цели в зоне взаимодействия. Подойди ближе к противнику.','info');return;}
+        onFire:(targetNpc,actionInfo={})=>{
+          if(state.game.activeEncounter){const result=playerAttack(state.game,{weaponId:actionInfo.weaponId,distance:actionInfo.distance});persist();render();toast(result.message,result.ok?'success':'warning');return;}
+          if(!targetNpc){toast(actionInfo.mode==='knife'?'Подойди вплотную, чтобы достать противника ножом.':'Пока нет противника в секторе прицела.','info');return;}
           const faction=targetNpc.faction||'loner';
           if(faction===state.game.player.faction || (state.game.player.faction==='loner' && faction==='loner')){toast(`${targetNpc.name} не противник. Не стоит начинать перестрелку без причины.`,'warning');return;}
           const type=faction==='military'?'military':faction==='bandit'?'bandit':'stalker';
           if(beginEncounter(state.game,type)){
-            Object.assign(state.game.activeEncounter,{name:targetNpc.name,icon:targetNpc.icon||state.game.activeEncounter.icon,appearance:targetNpc.appearance||state.game.activeEncounter.appearance,faction,weaponId:targetNpc.weaponId||state.game.activeEncounter.weaponId,npcId:targetNpc.id});
+            Object.assign(state.game.activeEncounter,{name:targetNpc.name,icon:targetNpc.icon||state.game.activeEncounter.icon,appearance:targetNpc.appearance||state.game.activeEncounter.appearance,faction,weaponId:targetNpc.weaponId||state.game.activeEncounter.weaponId,npcId:targetNpc.id,worldPos:actionInfo.targetPosition?{x:actionInfo.targetPosition.x,z:actionInfo.targetPosition.z}:targetNpc?{x:actionInfo.position?.x??0,z:actionInfo.position?.z??0}:{x:actionInfo.position?.x??0,z:actionInfo.position?.z??0}});
             state.game.combatTargetNpcId=targetNpc.id;
-            persist();render();toast(`${targetNpc.name} вскидывает оружие. Началась перестрелка.`,'danger');
+            if(actionInfo.mode==='knife'&&Number.isFinite(actionInfo.distance)&&actionInfo.distance<=2.15){const result=playerAttack(state.game,{weaponId:'knife',distance:actionInfo.distance});persist();render();toast(result.message,result.ok?'success':'warning');return;}
+            persist();render();toast(`${targetNpc.name} замечает тебя. Началась стычка.`,'danger');
           }
         },
+        onReload:(weaponId)=>{const result=reloadWeapon(state.game,weaponId);if(result.ok)persist();return result;},
+        onPunch:(targetNpc,distance,actionInfo={})=>{
+          if(state.game.activeEncounter){const result=playerPunch(state.game,{distance});persist();render();toast(result.message,result.ok?'success':'warning');return result;}
+          if(!targetNpc){toast('Для удара нужно подойти вплотную к противнику.','info');return {ok:false};}
+          const faction=targetNpc.faction||'loner';
+          if(faction===state.game.player.faction){toast(`${targetNpc.name} не противник.`,'warning');return {ok:false};}
+          const type=faction==='military'?'military':faction==='bandit'?'bandit':'stalker';
+          if(beginEncounter(state.game,type)){
+            Object.assign(state.game.activeEncounter,{name:targetNpc.name,icon:targetNpc.icon||state.game.activeEncounter.icon,appearance:targetNpc.appearance||state.game.activeEncounter.appearance,faction,weaponId:targetNpc.weaponId||state.game.activeEncounter.weaponId,npcId:targetNpc.id,worldPos:actionInfo.targetPosition?{x:actionInfo.targetPosition.x,z:actionInfo.targetPosition.z}:targetNpc?{x:actionInfo.position?.x??0,z:actionInfo.position?.z??0}:{x:actionInfo.position?.x??0,z:actionInfo.position?.z??0}});
+            state.game.combatTargetNpcId=targetNpc.id;
+            const result=playerPunch(state.game,{distance});persist();render();toast(result.message,result.ok?'success':'warning');return result;
+          }
+          return {ok:false};
+        },
+        onBinoculars:(active)=>{
+          const hasBinoculars=countItem(state.game.inventory,'binoculars')>0||state.game.equipmentSlots?.binoculars==='binoculars';
+          if(active&&!hasBinoculars){toast('Нужен бинокль в инвентаре или слоте экипировки.','warning');return false;}
+          state.game.player.binocularsActive=active;persist();return true;
+        },
+        onAimChange:(active)=>{state.game.player.isAiming=active;},
         onPickup:(itemId)=>{
           const item=getItem(itemId);
           const result=addItem(state.game.inventory,itemId,1);
@@ -903,6 +940,6 @@ setInterval(()=>{
   updateClockDisplays();
 },15000);
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=3410').catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=3500').catch(()=>{}));
 }
 render();
