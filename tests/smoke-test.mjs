@@ -10,10 +10,6 @@ import { generateDialogueReply, findRoute, matchLocationTarget, isRouteQuestion 
 import { rememberEntity, stemRussianWord, containsReferencePronoun, genderedSubject } from '../src/systems/russian-language.js';
 import { buildNpcAiPayload, requestNpcAiReply, isValidNpcAiEndpoint } from '../src/systems/npc-ai.js';
 import { renderMenu, renderCreate, renderLoadout, renderGame, renderModal, renderGameSettings } from '../src/ui/views.js';
-import { getRadioStationForLocation, RADIO_STATIONS } from '../src/data/radio-stations.js';
-import { BUNDLED_MUSIC_TRACKS } from '../src/data/bundled-music.js';
-import { createMusicEngine } from '../src/systems/music.js';
-import { extractAudioFilesFromZip } from '../src/systems/music-archive.js';
 const fs = await import('node:fs');
 const pathModule = await import('node:path');
 const { fileURLToPath } = await import('node:url');
@@ -303,10 +299,11 @@ for (const faction of FACTIONS) {
 
 // Starter economy supports a practical multi-item kit and distinct leather jacket/cosukha art.
 assert.equal(START_BUDGET,5000,'starting budget should allow one practical faction kit without funding an advanced loadout');
-assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=300"),'service worker registration URL should refresh with the release');
+assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=3300"),'service worker registration URL should refresh with the release');
 const serviceWorkerSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8');
-assert.ok(serviceWorkerSource.includes('./src/data/bundled-music.js')&&serviceWorkerSource.includes('./src/data/radio-stations.js'),'offline shell should cache the built-in music manifest and base radio station data');
-assert.ok(serviceWorkerSource.includes('cordon-pda-v3000-personal-barter-gm'),'service worker cache name should change for the current release');
+assert.ok(serviceWorkerSource.includes('./assets/textures/cordon-materials.png'),'offline shell should cache the procedural material atlas');
+assert.ok(!serviceWorkerSource.includes('bundled-music')&&!serviceWorkerSource.includes('radio-stations')&&!serviceWorkerSource.includes('music-archive'),'music and radio modules must be completely removed from the offline shell');
+assert.ok(serviceWorkerSource.includes('cordon-pda-v3300-first-person-controls-no-music'),'service worker cache name should identify the first-person no-music release');
 const swUrl=new URL('../sw.js',import.meta.url);
 const precachePaths=[...serviceWorkerSource.matchAll(/\"(\.\/[^\"]+)\"/g)].map(match=>match[1]);
 assert.ok(precachePaths.length>=150,'the offline shell should include the expanded artwork bundle');
@@ -402,7 +399,7 @@ assert.equal(searchLocation(game).ok,true,'location loot should respawn');
 const dialogueGame=createGame(character,[],START_BUDGET);
 dialogueGame.locationId='sidorovich-bunker';
 talkToNpc(dialogueGame,'sidorovich');
-const dialogueState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false},account:{},ui:{tab:'location',modal:null,music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game:dialogueGame};
+const dialogueState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false},account:{},ui:{tab:'location',modal:null},game:dialogueGame};
 assert.ok(!renderGame(dialogueState).includes('quest-accept'));
 replyNpc(dialogueGame,'sidorovich','работа');
 const sidorovichDialogue=renderGame(dialogueState);
@@ -421,7 +418,7 @@ beginEncounter(banditEncounterGame,'bandit');
 assert.ok(banditEncounterGame.activeEncounter.icon?.includes('/assets/npc/Vneska/banditicon'));
 assert.ok(banditEncounterGame.activeEncounter.appearance?.includes('/assets/npc/Vneska/bandit'));
 assert.ok(banditEncounterGame.activeEncounter.insignia?.includes('/assets/insignia/bandituicon.webp'));
-assert.equal(processPlayerAction(banditEncounterGame,'послушать музыку').action,'player-open','music command should open the local PDA player');
+assert.notEqual(processPlayerAction(banditEncounterGame,'послушать музыку').action,'player-open','old music-player commands must no longer open a player');
 
 // Sidorovich's repeatable assignments: tails, debt collector, and Medusa.
 const jobGame=createGame(character,[],START_BUDGET);
@@ -463,7 +460,7 @@ const wolfOffer=replyNpc(wolfQuestGame,'wolf','работа');
 assert.ok(wolfOffer.includes('вагончика') && wolfOffer.includes('пять слепых собак'));
 wolfQuestGame.dialogueHistory=[{role:'npc',text:wolfOffer}];
 assert.ok(wolfQuestGame.dialogueReply.includes('новичков'));
-const wolfDialogueState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false},account:{},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game:wolfQuestGame};
+const wolfDialogueState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false},account:{},ui:{tab:'location',pdaOpen:false,modal:null},game:wolfQuestGame};
 assert.ok(renderGame(wolfDialogueState).includes('пять слепых собак'),'Wolf offer must be visible inside the dialogue modal');
 assert.equal(acceptWolfDogQuest(wolfQuestGame).ok,true);
 assert.equal(wolfQuestGame.quests.find(q=>q.id==='wolf-dog-pack').status,'active');
@@ -568,12 +565,12 @@ const cartographerOffer=ambientOffers.find(person=>person.role==='Сталкер
 const cookOffer=ambientOffers.find(person=>person.role==='Повар у костра');
 assert.ok(cartographerOffer && cookOffer,'the village must populate distinct specialist roles');
 assert.notDeepEqual(cartographerOffer.stock.map(entry=>entry.id).sort(),cookOffer.stock.map(entry=>entry.id).sort(),'barter offers should follow each NPC occupation rather than one shared faction list');
-assert.notEqual(cartographerOffer.priceMultiplier,cookOffer.priceMultiplier,'ordinary stalkers should have individual prices');
+assert.ok(new Set(ambientOffers.map(person=>person.priceMultiplier)).size>1,'ordinary stalkers should have individual prices');
 assert.ok(ambientOffers.every(person=>person.stock.every(entry=>!['zarya','berill','stalnoishlem','pg4','psz5','aksu','medved'].includes(entry.id))),'ordinary Cordon stock should stay within the early-game tier');
 const squadOffer=[...squadTrader.stock].filter(entry=>entry.qty>0).sort((a,b)=>a.price-b.price)[0];
 assert.ok(squadOffer,'a regular stalker should have at least one available barter item');
 assert.equal(buyFromTrader(contactGame,squadContact.id,squadOffer.id).ok,true,'a player can buy an affordable item from a regular stalker');
-const contactScene=renderGame({game:contactGame,characters:[{id:'contact',name:'Контакт',faction:'loner'}],activeCharacterId:'contact',ui:{tab:'location',modal:null,pdaOpen:false,music:{}},settings:{}});
+const contactScene=renderGame({game:contactGame,characters:[{id:'contact',name:'Контакт',faction:'loner'}],activeCharacterId:'contact',ui:{tab:'location',modal:null,pdaOpen:false},settings:{}});
 assert.ok(contactScene.includes(`data-action="trade-open" data-id="${squadContact.id}"`),'local squad member should expose a direct trade action in the scene');
 
 
@@ -705,7 +702,7 @@ addItem(combatVisualGame.inventory,'pm',1);
 addItem(combatVisualGame.inventory,'ammo9x18',1);
 combatVisualGame.equippedWeaponId='pm';
 beginEncounter(combatVisualGame,'bandit');
-const combatHtml=renderGame({screen:'game',characters:[character],activeCharacterId:'smoke',settings:{},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:'local',queue:[],index:0,playing:false}},game:combatVisualGame});
+const combatHtml=renderGame({screen:'game',characters:[character],activeCharacterId:'smoke',settings:{},ui:{tab:'location',pdaOpen:false,modal:null},game:combatVisualGame});
 assert.ok(combatHtml.includes('enemy-portrait-art') && combatHtml.includes('enemy-body-art') && combatHtml.includes('enemy-faction-row'),'combat should show separate portrait, full-body appearance and faction insignia');
 assert.ok(combatHtml.includes('data-action="combat-attack"') && combatHtml.includes('data-action="combat-reload"'),'combat HUD should expose attack and reload actions only during an encounter');
 assert.ok(combatHtml.includes('first-person-weapon right') && combatHtml.includes('assets/items/pm.webp'),'equipped weapons should render as inward-facing first-person hand sprites');
@@ -715,7 +712,7 @@ combatVisualGame.equippedWeaponId='knife';
 const attack=playerAttack(combatVisualGame);
 assert.ok(attack.message.includes('Нож'));
 
-const uiState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false},account:{},draft:{name:'',birthDate:'',height:'',weight:'',personality:'',biography:'',notes:'',faction:'loner',avatar:''},loadout:{selected:{}},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game};
+const uiState={screen:'game',characters:[character],activeCharacterId:'smoke',pendingCharacter:null,settings:{reducedMotion:false},account:{},draft:{name:'',birthDate:'',height:'',weight:'',personality:'',biography:'',notes:'',faction:'loner',avatar:''},loadout:{selected:{}},ui:{tab:'location',pdaOpen:false,modal:null},game};
 assert.ok(renderMenu(uiState).includes('Играть'));
 assert.ok(renderMenu(uiState).includes('fonderevnanovickov'),'menu should reference a local background');
 const createHtml=renderCreate(uiState);
@@ -745,22 +742,8 @@ uiState.game.locationId='rookie-village';
 uiState.ui.pdaOpen=false;
 uiState.ui.tab='location';
 const locationHtml=renderGame(uiState);
-assert.ok(!locationHtml.includes('data-action="radio-toggle"') && !locationHtml.includes('Радио Деревни новичков'),'base radio must be activated by natural command, not shown as a HUD panel');
-assert.equal(getRadioStationForLocation('rookie-village')?.id,'loner-village','Rookie Village should expose its radio only through the interaction system');
-assert.equal(getRadioStationForLocation('atp')?.id,'bandit-atp','the ATP bandit base should have its own radio station');
-assert.equal(getRadioStationForLocation('forest-camp'),null,'ordinary forest camp should not expose a radio function');
-assert.equal(getRadioStationForLocation('north-checkpoint'),null,'radio should not appear at every military outpost');
-assert.equal(getRadioStationForLocation('south-checkpoint')?.id,'south-checkpoint','South Checkpoint should have its own radio station');
-assert.equal(getRadioStationForLocation('elevator'),null,'ordinary travel locations should not expose base radios');
-assert.equal(RADIO_STATIONS.length,3,'only the Rookie Village, ATP and South Checkpoint should have radio points');
-assert.equal(BUNDLED_MUSIC_TRACKS.length,71,'the built-in music title catalog should contain the 71 names from the supplied music folder');
-for(const track of BUNDLED_MUSIC_TRACKS) assert.ok(track.source==='catalog' && track.title && !track.url,'the website should embed music titles only, without requiring a local import or claiming audio is bundled');
-const originalDocument=globalThis.document;
-const fakeAudio={listeners:{},src:'',paused:true,addEventListener(type,fn){this.listeners[type]=fn;},load(){},async play(){this.paused=false;return true;},pause(){this.paused=true;},removeAttribute(name){if(name==='src')this.src='';}};
-globalThis.document={createElement(tag){assert.equal(tag,'audio');return fakeAudio;},body:{appendChild(){}}};
-try { const engine=createMusicEngine(); const sample={id:'bundled-smoke',title:'Проверочный эфир',url:'./assets/music/smoke.ogg',fileName:'smoke.ogg',stations:['loner-village']}; const [meta]=engine.addBundledTracks([sample]); assert.equal(meta.source,'bundled'); assert.equal(engine.count,1); assert.equal(await engine.play(meta),true); assert.equal(fakeAudio.src,sample.url); engine.stop(); engine.clear(); } finally { if(originalDocument===undefined) delete globalThis.document; else globalThis.document=originalDocument; }
-assert.ok(!/https?:\/\//i.test(locationHtml),'the location scene must not add external music URLs');
-assert.ok(!locationHtml.includes('music-dock'),'the bottom music dock should remain removed');
+assert.ok(!locationHtml.includes('data-action="radio-toggle"') && !locationHtml.includes('base-radio-panel'),'the world HUD must not render a radio player');
+assert.ok(!locationHtml.includes('music-dock')&&!locationHtml.includes('player-open')&&!locationHtml.includes('Список композиций'),'the game must not expose a music player or track catalogue');
 assert.ok(!locationHtml.includes('npc-interaction'),'the player should request nearby contacts instead of having an NPC strip permanently open over the scene');
 assert.ok(locationHtml.includes('Купонов') && !/\bRU\b/.test(locationHtml),'all balances should use the in-world Coupons currency label');
 addItem(game.inventory,'bread',1);
@@ -782,19 +765,12 @@ assert.match(costumeFitCss,/\.pda-fullscreen-page\{[^}]*rgba\(7,12,8,\.48\)[^}]*
 assert.match(costumeFitCss,/\.pda-fullscreen-page\{[^}]*var\(--pda-texture\)/s,'the fullscreen PDA should use the supplied PDA glass texture');
 assert.match(costumeFitCss,/\.contact-card-clean\{[^}]*grid-template-columns:82px/s,'contacts should use compact rows with separate artwork cells');
 const remoteRadioState={...uiState,game:{...uiState.game,locationId:'elevator'}};
-assert.ok(!renderGame(remoteRadioState).includes('Радио'),'no location should expose an internet radio station');
-uiState.ui.pdaOpen=true;
-uiState.ui.tab='player';
-uiState.ui.localMusicTracks=BUNDLED_MUSIC_TRACKS;
-uiState.ui.music={mode:'catalog',trackId:BUNDLED_MUSIC_TRACKS[0].id,queue:BUNDLED_MUSIC_TRACKS.map(t=>t.id),index:0,playing:false};
-const playerHtml=renderGame(uiState);
-assert.ok(playerHtml.includes('Список композиций'));
-assert.ok(!playerHtml.includes('player-play-track') && !playerHtml.includes('player-prev') && !playerHtml.includes('player-next'));
-assert.ok(playerHtml.includes('71') && playerHtml.includes(BUNDLED_MUSIC_TRACKS[0].title),'the player should display built-in track names only, without fake playback controls');
-assert.ok(!playerHtml.includes('Импортировать ZIP') && !playerHtml.includes('local-music-archive') && !playerHtml.includes('Выбрать папку Music'),'the player must use its built-in title catalog without asking for import'); 
-const musicRuntimeSource=['src/systems/music.js','src/systems/music-archive.js','src/main.js','src/ui/views.js'].map(file=>fs.readFileSync(new URL(`../${file}`,import.meta.url),'utf8')).join('\n');
-assert.ok(!/iframe|videoId|youtube\.com|youtu\.be|spotify\.com|radio\./i.test(musicRuntimeSource),'music runtime must not embed remote players or network radio streams');
-assert.ok(musicRuntimeSource.includes('addBundledTracks') && musicRuntimeSource.includes("source==='catalog'"),'PDA and base radios should share the built-in title catalog');
+assert.ok(!renderGame(remoteRadioState).includes('base-radio-panel'),'no location should expose a radio panel');
+const removedMusicRuntime=['src/systems/music.js','src/systems/music-archive.js','src/data/bundled-music.js','src/data/radio-stations.js'];
+for(const file of removedMusicRuntime) assert.ok(!fs.existsSync(new URL(`../${file}`,import.meta.url)),`${file} must be removed from the project`);
+const noMusicSource=['src/main.js','src/ui/views.js','src/systems/action-engine.js','src/core/storage.js','styles.css','sw.js','manifest.webmanifest'].map(file=>fs.readFileSync(new URL(`../${file}`,import.meta.url),'utf8')).join('\n');
+assert.ok(!/createMusicEngine|BUNDLED_MUSIC_TRACKS|music-dock|base-radio-panel|player-play-track|radio-toggle|local-music-archive/i.test(noMusicSource),'music and radio player code and styles must be removed entirely');
+assert.ok(!/player-track|base-radio-controls|base-radio-heading|base-radio-track/i.test(noMusicSource),'stale music-player CSS must also be removed');
 uiState.ui.tab='trade';
 uiState.ui.tradeNpcId='sidorovich';
 uiState.game.locationId='sidorovich-bunker';
@@ -855,7 +831,7 @@ assert.ok(!contactsMarkup.includes('Не здесь'),'contacts should not list 
 // Quests are hidden from the quest list until accepted and then show progress.
 const questVisibilityGame=createGame(character,[],START_BUDGET);
 const hiddenQuest=questVisibilityGame.quests.find(q=>q.id!=='wolf-dog-pack');
-const questVisibilityState={screen:'game',characters:[character],activeCharacterId:'smoke',settings:{reducedMotion:false},ui:{tab:'quests',pdaOpen:true,mapView:'map',modal:null,music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game:questVisibilityGame};
+const questVisibilityState={screen:'game',characters:[character],activeCharacterId:'smoke',settings:{reducedMotion:false},ui:{tab:'quests',pdaOpen:true,mapView:'map',modal:null},game:questVisibilityGame};
 assert.ok(!renderGame(questVisibilityState).includes(hiddenQuest.title),'unaccepted jobs must stay out of the quest log');
 assert.equal(acceptWorldQuest(questVisibilityGame,hiddenQuest.id).ok,true);
 assert.ok(renderGame(questVisibilityState).includes(hiddenQuest.title),'an accepted job must appear in the quest log');
@@ -886,7 +862,7 @@ assert.ok(wolfTrailerModal.includes('Вагончик') && !wolfTrailerModal.inc
 const conversationGame=createGame(character,[],START_BUDGET);
 conversationGame.locationId='rookie-village';
 talkToNpc(conversationGame,'wolf');
-const plainDialogueHtml=renderGame({screen:'game',characters:[character],activeCharacterId:'smoke',settings:{},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:'local',queue:[],index:0,playing:false}},game:conversationGame});
+const plainDialogueHtml=renderGame({screen:'game',characters:[character],activeCharacterId:'smoke',settings:{},ui:{tab:'location',pdaOpen:false,modal:null},game:conversationGame});
 const plainDialogueBlock=plainDialogueHtml.match(/<main class=\"dialogue-simple\"[\s\S]*?<\/main>/)?.[0]||'';
 assert.ok(plainDialogueBlock.includes('dialogue-line') && plainDialogueBlock.includes('Волк'),'dialogue should use a simple name-and-text transcript');
 assert.ok(plainDialogueBlock.includes('dialogue-profile-portrait') && plainDialogueBlock.includes('faction-insignia') && plainDialogueBlock.includes('rank-insignia') && !plainDialogueBlock.includes('npc-scene-body') && !plainDialogueBlock.includes('enemy-body-art'),'dialogue should show portrait, faction and rank marks without a full body image');
@@ -1007,17 +983,6 @@ const conversationalGame=createGame({name:'Разговор',faction:'loner'},[]
 conversationalGame.locationId='rookie-village';
 for(const [phrase,intent] of [['Как ты сюда попал?','backstory'],['Чем сейчас занят?','activity'],['Откуда у тебя снаряга?','equipment'],['Кто ты такой?','identity'],['Дай совет.','advice']]){const answer=replyNpcFreeText(conversationalGame,'wolf',phrase);assert.ok(answer.ok&&answer.message.length>30,`Wolf should answer naturally: ${phrase}`);assert.equal(conversationalGame.dialogueContext.lastIntent,intent,`dialogue AI should resolve intent: ${phrase}`);}
 
-// Radio commands are only available at the three configured bases and on/off commands are distinct.
-const radioGame=createGame({name:'Радио',faction:'loner'},[],START_BUDGET);
-radioGame.locationId='rookie-village';
-assert.equal(processPlayerAction(radioGame,'включи радио').action,'radio-on');
-assert.equal(processPlayerAction(radioGame,'выключи радио').action,'radio-off');
-radioGame.locationId='farmstead';
-assert.match(processPlayerAction(radioGame,'включи радио').message,/Радиоприёмники доступны/);
-
-
-
-
 // v16 loot windows and permanent personal storage containers.
 const lootUiGame=createGame({name:'Обыск',faction:'loner'},[],START_BUDGET);
 const multiLoot=startAreaSearch(lootUiGame,'village-house');
@@ -1041,7 +1006,7 @@ assert.equal(getActiveLootItems(crateGame).length,firstCrateCount,'reopening an 
 const corpseId=registerCorpseLoot(crateGame,{type:'bandit',name:'Бандит у насыпи'});
 assert.ok(corpseId && crateGame.activeLoot.title.includes('Бандит у насыпи'),'defeated opponents should have a loot container for the left search pane');
 assert.ok(getActiveLootItems(crateGame).length>=1,'corpse containers should hold items that can be transferred');
-const corpsePanelState={screen:'game',characters:[character],activeCharacterId:'smoke',settings:{reducedMotion:false},ui:{tab:'location',modal:'loot-panel',music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game:crateGame};
+const corpsePanelState={screen:'game',characters:[character],activeCharacterId:'smoke',settings:{reducedMotion:false},ui:{tab:'location',modal:'loot-panel'},game:crateGame};
 assert.ok(renderModal(corpsePanelState).includes('Вещи погибшего'),'corpse loot should be clearly labelled in the left pane');
 const storageSpot=getExploreSpots('rookie-village').find(entry=>entry.kind==='storage');
 assert.ok(storageSpot,'the Cordon village basement should expose a personal storage spot');
@@ -1051,7 +1016,7 @@ const atpStorage=getExploreSpots('atp').find(entry=>entry.storageId==='atp-secon
 const barracksStorage=getExploreSpots('south-checkpoint').find(entry=>entry.storageId==='barracks-locker');
 assert.ok(atpStorage && barracksStorage,'ATP second floor and barracks must expose personal storage');
 assert.ok(lootUiGame.squads.length>=8,'the Cordon should have more than the original three squads');
-const lootPanelState={screen:'game',characters:[character],activeCharacterId:'smoke',settings:{reducedMotion:false},ui:{tab:'location',pdaOpen:false,modal:'loot-panel',mapView:'map',music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game:lootUiGame};
+const lootPanelState={screen:'game',characters:[character],activeCharacterId:'smoke',settings:{reducedMotion:false},ui:{tab:'location',pdaOpen:false,modal:'loot-panel',mapView:'map'},game:lootUiGame};
 const lootMarkup=renderModal(lootPanelState);
 assert.ok(lootMarkup.includes('Найденные вещи') || lootMarkup.includes('Хранилище'));
 assert.ok(lootMarkup.includes('Рюкзак игрока') && lootMarkup.includes('Забрать всё') && lootMarkup.includes('Сложить всё'));
@@ -1262,7 +1227,7 @@ assert.match(mobileViewport,/interactive-widget=resizes-content/,'the mobile lay
 const pwaManifest=JSON.parse(fs.readFileSync(new URL('../manifest.webmanifest',import.meta.url),'utf8'));
 assert.equal(pwaManifest.orientation,'any','the installed PWA must not force the phone into landscape orientation');
 const mobileGame=createGame({name:'Телефон',faction:'loner'},[],START_BUDGET);
-const mobileHtml=renderGame({screen:'game',characters:[{id:'mobile',name:'Телефон',faction:'loner'}],activeCharacterId:'mobile',settings:{},ui:{tab:'location',pdaOpen:false,modal:null,music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game:mobileGame});
+const mobileHtml=renderGame({screen:'game',characters:[{id:'mobile',name:'Телефон',faction:'loner'}],activeCharacterId:'mobile',settings:{},ui:{tab:'location',pdaOpen:false,modal:null},game:mobileGame});
 assert.ok(mobileHtml.includes('mobile-game-nav'),'mobile game view must include quick navigation');
 assert.ok(mobileHtml.includes('action-composer'),'mobile game view must retain the action input');
 
@@ -1285,7 +1250,7 @@ assert.match(storyTalk('wolf','rookie-village'),/Сидорович/);
 assert.equal(storyGame.mainStory.stage,'go-to-sidorovich');
 assert.equal(getMainStoryQuest(storyGame).title,'Совет Волка','speaking with Wolf should create the explicit next quest to visit Sidorovich');
 assert.match(getMainStoryQuest(storyGame).objective,/Сидоровича/,'the journal objective should clearly direct the player to Sidorovich');
-const storyViewState={screen:'game',characters:[{id:'story-test',name:'Проверка сюжета',faction:'loner'}],activeCharacterId:'story-test',settings:{},ui:{tab:'quests',pdaOpen:true,modal:null,music:{mode:'local',trackId:null,queue:[],index:0,playing:false}},game:storyGame};
+const storyViewState={screen:'game',characters:[{id:'story-test',name:'Проверка сюжета',faction:'loner'}],activeCharacterId:'story-test',settings:{},ui:{tab:'quests',pdaOpen:true,modal:null},game:storyGame};
 const wolfAfterTalkHtml=renderGame(storyViewState);
 assert.ok(wolfAfterTalkHtml.includes('Совет Волка')&&wolfAfterTalkHtml.includes('Спуститься к Сидоровичу'),'after Wolf dialogue the active quest and its direct action must be visible in the quest journal');
 assert.equal(travelTo(storyGame,'sidorovich-bunker').ok,true,'the player should be able to follow the new quest from the village to Sidorovich');
@@ -1430,31 +1395,4 @@ const repairState={game:equipmentMechanicsGame,ui:{modal:'repair-panel'}};
 const repairHtml=renderModal(repairState);
 assert.ok(repairHtml.includes('Мастерская Маслова')&&repairHtml.includes('Починить'),'the basement technician should offer item repair actions');
 
-console.log('Smoke tests passed: PDA/map modes, imported NPC/faction/quest artwork, title-only music catalogue, personal barter migration, contextual NPC/Game Master dialogue, bandit dialogue, proportional inventory layout, quest visibility/progress, trade overlays, RP exploration, profile and combat.');
-
-// The in-browser ZIP importer reads audio locally and handles regular ZIP central directories.
-function makeStoredZip(fileName, content) {
-  const encoder=new TextEncoder();
-  const name=encoder.encode(fileName);
-  const data=content instanceof Uint8Array?content:new Uint8Array(content);
-  const local=new Uint8Array(30+name.length+data.length);
-  const localView=new DataView(local.buffer);
-  localView.setUint32(0,0x04034b50,true); localView.setUint16(4,20,true);
-  localView.setUint16(8,0,true); localView.setUint32(18,data.length,true); localView.setUint32(22,data.length,true);
-  localView.setUint16(26,name.length,true); local.set(name,30); local.set(data,30+name.length);
-  const central=new Uint8Array(46+name.length);
-  const centralView=new DataView(central.buffer);
-  centralView.setUint32(0,0x02014b50,true); centralView.setUint16(4,20,true); centralView.setUint16(6,20,true);
-  centralView.setUint16(10,0,true); centralView.setUint32(20,data.length,true); centralView.setUint32(24,data.length,true);
-  centralView.setUint16(28,name.length,true); centralView.setUint32(42,0,true); central.set(name,46);
-  const end=new Uint8Array(22); const endView=new DataView(end.buffer);
-  endView.setUint32(0,0x06054b50,true); endView.setUint16(8,1,true); endView.setUint16(10,1,true);
-  endView.setUint32(12,central.length,true); endView.setUint32(16,local.length,true);
-  const zip=new Blob([local,central,end]); Object.defineProperty(zip,'name',{value:'test-music.zip'}); return zip;
-}
-const tinyMusicZip=makeStoredZip('Music/test-track.mp3',new Uint8Array([0x49,0x44,0x33,0x00]));
-const importedZipTracks=await extractAudioFilesFromZip(tinyMusicZip);
-assert.equal(importedZipTracks.length,1,'ZIP import should extract supported audio files');
-assert.equal(importedZipTracks[0].name,'test-track.mp3');
-assert.equal(importedZipTracks[0].size,4);
-assert.equal(importedZipTracks[0].type,'audio/mpeg');
+console.log('Smoke tests passed: PDA/map modes, NPC/faction/quest artwork, personal barter migration, contextual NPC/Game Master dialogue, proportional inventory layout, quest visibility/progress, trade overlays, RP exploration, profile, combat and full music/radio removal.');

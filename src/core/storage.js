@@ -6,7 +6,7 @@ export const DEFAULT_SETTINGS = {
   soundEnabled: true,
   soundVolume: 0.35,
   npcAiEndpoint: '',
-  removedPlayerTrackIds: []
+  controlScheme: 'auto'
 };
 
 export function createInitialState() {
@@ -19,7 +19,7 @@ export function createInitialState() {
     account: { sessions: 0, enemiesDefeated: 0, questsCompleted: 0, artifactsFound: 0, distanceTravelled: 0 },
     draft: { name:'', birthDate:'', height:'', weight:'', personality:'', biography:'', notes:'', faction:'loner', avatar:'' },
     loadout: { selected: {} },
-    ui: { tab:'location', modal:null, notification:'', music:{ mode:'local', trackId:null, queue:[], index:0, playing:false }, tradeNpcId:null, mapLocationId:null, encyclopediaCategory:'locations', helpTopic:'basics' },
+    ui: { tab:'location', modal:null, notification:'', tradeNpcId:null, mapLocationId:null, encyclopediaCategory:'locations', helpTopic:'basics' },
     game: null
   };
 }
@@ -30,14 +30,18 @@ export function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return fallback;
     const saved = JSON.parse(raw);
+    const settings={ ...fallback.settings, ...(saved.settings || {}) };
+    delete settings.removedPlayerTrackIds;
+    const ui={ ...fallback.ui, ...(saved.ui || {}) };
+    delete ui.music; delete ui.localMusicTracks;
     return {
       ...fallback,
       ...saved,
-      settings: { ...fallback.settings, ...(saved.settings || {}), removedPlayerTrackIds: Array.isArray(saved.settings?.removedPlayerTrackIds) ? saved.settings.removedPlayerTrackIds : [] },
+      settings,
       account: { ...fallback.account, ...(saved.account || {}) },
       draft: { ...fallback.draft, ...(saved.draft || {}) },
       loadout: { selected:{}, ...(saved.loadout || {}) },
-      ui: { ...fallback.ui, ...(saved.ui || {}), music:{ ...fallback.ui.music, ...(saved.ui?.music||{}), playing:false } }
+      ui
     };
   } catch (error) {
     console.warn('Не удалось прочитать сохранение:', error);

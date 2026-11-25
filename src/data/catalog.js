@@ -360,7 +360,7 @@ export const AVATAR_OPTIONS = [
   { src:ASSETS.npcPortraits.dzerzhinsky, appearance:ASSETS.npcBodies.dzerzhinsky, faction:'military', insignia:ASSETS.factionInsignias.military, name:'Дмитрий Дзержинский', group:'npc' }
 ];
 
-// Music is loaded only from files selected by the player. No external music streams are bundled.
+// Game sound effects are generated locally; no soundtrack or radio player is included.
 export const QUESTS = [
   { id:'first-steps', title:'Первые шаги', giver:'wolf', text:'Осмотрись в деревне новичков и загляни к Волку за советом.', reward:100, condition:'talk:wolf', status:'available' },
   { id:'wolf-dog-pack', title:'Собаки у вагончика', giver:'wolf', text:'Уничтожь пять слепых собак, которые обосновались у вагончика севернее деревни новичков, затем вернись к Волку.', reward:320, condition:'wolf-dog-pack', status:'available' },

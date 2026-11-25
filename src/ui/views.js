@@ -5,7 +5,6 @@ import { getLocation, getAvailableTraders, getAvailableStalkers, getStalkerById,
 import { getBestWeapon } from '../systems/combat.js';
 import { getMainStoryQuest } from '../systems/main-story.js';
 import { getItemCondition, getRepairCost } from '../systems/equipment-condition.js';
-import { getRadioStationForLocation } from '../data/radio-stations.js';
 
 export const esc = (value='') => String(value).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const money = (value) => `${Number(value || 0).toLocaleString('ru-RU')} Купонов`;
@@ -175,7 +174,7 @@ export function renderLoadout(state) {
 }
 
 function gameNav(active) {
-  const tabs = [ ['map','map','Карта'],['stats','stats','Статистика'],['player','player','Плеер'],['messages','messages','Связь'],['quests','quests','Задания'],['contacts','contacts','Контакты'],['encyclopedia','book','Энциклопедия'],['help','help','Помощь'] ];
+  const tabs = [ ['map','map','Карта'],['stats','stats','Статистика'],['messages','messages','Связь'],['quests','quests','Задания'],['contacts','contacts','Контакты'],['encyclopedia','book','Энциклопедия'],['help','help','Помощь'] ];
   return tabs.map(([id,ico,label])=>`<button class="nav-tab ${active===id?'active':''}" data-action="tab" data-tab="${id}"><span>${iconSvg(ico)}</span><b>${label}</b></button>`).join('');
 }
 
@@ -277,6 +276,7 @@ function renderLocation(game, character, state) {
   const hazards=hazardLabels.length?`<div class="scene-hazards">${hazardLabels.map(label=>`<span>${esc(label)}</span>`).join('')}</div>`:'';
   const anomaly=location?.hazards?.includes('gravity')?`<div class="anomaly-scene" aria-hidden="true"><i></i><i></i><i></i></div>`:'';
   return `<section class="location-scene ${enemy?'in-combat':''} ${maskClass}" style="--scene-image:url('${scene}');--scene-brightness:${brightness}">
+    <canvas id="stalker-3d-world" class="stalker-3d-canvas" aria-label="Трёхмерная сцена Кордона"></canvas>
     <div class="scene-background" style="background-image:linear-gradient(90deg,rgba(7,11,7,.75),rgba(7,11,7,.08) 55%,rgba(7,11,7,.55)),url('${scene}');filter:${brightness}"></div>${vignette}${anomaly}${heldWeaponImage}
     <div class="scene-topline"><div class="scene-gm"><small>GAME MASTER · ${esc(location?.name||'КОРДОН')}</small><p>${esc(gmText)}</p>${locationSceneActions?`<div class="scene-gm-actions">${locationSceneActions}</div>`:''}</div><div class="scene-clock"><b>${time.time}</b><span>${esc(time.date)}</span><small>${esc(game.weather||'Пасмурно')}</small></div></div>
     ${emissionBanner}<div class="scene-vitals"><span>♥ ${game.player.hp}/${game.player.maxHp}</span><span>⚡ ${Math.round(game.player.stamina)}%</span><span class="${game.player.hunger>=75?'vital-warning':''}">🍞 Голод ${Math.round(game.player.hunger)}%</span><span class="${game.player.thirst>=75?'vital-warning':''}">💧 Жажда ${Math.round(game.player.thirst)}%</span><span>☢ ${countItem(game.inventory,'pripyat-dosimeter')?`Припять: ${Math.round(game.player.radiation)}%`:`${Math.round(game.player.radiation)}%`}</span>${countItem(game.inventory,'medved')?`<span>📡 Медведь: ${location?.anomalies?.length?'есть отклик':'тихо'}</span>`:''}${emissionCountdown}</div>
@@ -370,13 +370,6 @@ function renderQuests(game) {
 }
 
 
-function renderPlayer(state) {
-  const tracks=state.ui.localMusicTracks||[];
-  const trackRows=tracks.map((track,index)=>`<article class="player-track"><span class="player-track-number">${String(index+1).padStart(2,'0')}</span><div class="player-track-meta"><b>${esc(track.title)}</b><small>${esc(track.artist&&track.artist!=='Музыкальный каталог'?track.artist:'')}</small></div></article>`).join('');
-  return `<div class="tab-page player-page"><div class="tab-heading"><div><div class="eyebrow">КПК · МУЗЫКАЛЬНЫЙ КАТАЛОГ</div><h2>Музыка</h2></div><span class="player-status"><i></i>${tracks.length} НАЗВАНИЙ</span></div>
-    <section class="player-library panel"><div class="panel-title"><h3>Список композиций</h3><span>${tracks.length}</span></div><div class="player-track-list">${trackRows||'<div class="empty-state">Каталог пуст.</div>'}</div></section>
-  </div>`;
-}
 
 function renderTrade(game,state) {
   const traders=getAvailableTraders(game,game.locationId);
@@ -477,9 +470,9 @@ function renderHelp(game,state={}) {
     ['trade','Торговля','Купоны и обмен','Открой диалог и нажми «Обмен» либо напиши в поле действий «торговать с Сидоровичем». В окне слева товары NPC, справа твои вещи. Кнопка «Купить» списывает Купоны, «Продать» добавляет их. Начни с фраз «покажи товар», «купить бинт», «продать хвост».'],
     ['loot','Обыск и рюкзак','Поиск вещей','Нажми «Места и обыск», выбери труп, тайник, контейнер или помещение. В двух окнах слева лежит найденное, справа твой рюкзак. Перетаскивай предметы или нажимай «Забрать всё» и «Сложить всё». Если ящик закрыт, сначала используй «Сломать ящик».'],
     ['combat','Бой','Оружие и защита','В бою выбери оружие через слоты рюкзака. Пиши «стрелять», «прицелиться», «перезарядить», «уклониться», «бросить гранату», «использовать бинт» или «отступить». На экране боя отдельно показаны портрет противника, его полнофигурная внешность и знак группировки. Во время схватки КПК закрыт.'],
-    ['roleplay','RP-действия','Неформальные действия','Можно описывать не только игровые кнопки. Пиши «подразнить сталкера», «пригрозить бандиту», «рассказать анекдот», «послушать музыку», «лечь на траву», «включить свет в подвале», «предложить бартер» или «украсть незаметно». Действия с риском могут вызвать реакцию NPC или охраны.'],
+    ['roleplay','RP-действия','Неформальные действия','Можно описывать не только игровые кнопки. Пиши «подразнить сталкера», «пригрозить бандиту», «рассказать анекдот», «лечь на траву», «включить свет в подвале», «предложить бартер» или «украсть незаметно». Действия с риском могут вызвать реакцию NPC или охраны.'],
     ['survival','Выживание','Голод, жажда и отдых','Следи за показателями на экране: еда снижает голод, вода — жажду, аптечки лечат, антирад снижает радиацию. Для костра пиши «сесть у костра» или «пожарить колбасу». В темноте включай фонарик, перед выбросом ищи закрытое укрытие.'],
-    ['pda','КПК и энциклопедия','Навигация и записи','Нажми «Открыть КПК». Вкладки сверху переключают карту, личное дело, плеер, сообщения, задания, контакты, энциклопедию и помощь. На карте нажми точку, чтобы увидеть местные места и цели заданий. Новые статьи энциклопедии появляются после посещений, разговоров и находок. Сохранение можно экспортировать кнопкой со стрелкой вниз.']
+    ['pda','КПК и энциклопедия','Навигация и записи','Нажми «Открыть КПК». Вкладки сверху переключают карту, личное дело, сообщения, задания, контакты, энциклопедию и помощь. На карте нажми точку, чтобы увидеть местные места и цели заданий. Новые статьи энциклопедии появляются после посещений, разговоров и находок. Сохранение можно экспортировать кнопкой со стрелкой вниз.']
   ];
   const active=topics.some(([key])=>key===state.ui?.helpTopic)?state.ui.helpTopic:'basics';
   const topic=topics.find(([key])=>key===active)||topics[0];
@@ -543,7 +536,7 @@ function renderSleep(game) {
 
 export function renderGameSettings(state) {
   return `<section class="screen-wrap settings-screen"><header class="screen-heading"><div><div class="eyebrow">СИСТЕМНЫЕ ПАРАМЕТРЫ</div><h2>Настройки</h2><p>Параметры интерфейса и локального сохранения.</p></div>${btn('← Назад','settings-back','button ghost')}</header>
-    <div class="settings-layout"><div class="panel npc-ai-settings"><h3>Общение с NPC · ИИ</h3><p class="muted">По умолчанию работает локальный контекстный движок. Для генеративной модели укажи адрес собственного AI-прокси: он должен принимать JSON от игры и возвращать <code>{reply: \"текст\"}</code>. API-ключ в браузере не хранится — не вставляй секретные ключи сюда.</p><label class="setting-row npc-ai-endpoint-row"><span><b>Адрес AI-прокси</b><small>Оставь пустым, чтобы использовать локальные ответы NPC.</small></span><input type="url" data-setting="npcAiEndpoint" value="${esc(state.settings.npcAiEndpoint||'')}" placeholder="http://127.0.0.1:8787/npc-chat" autocomplete="off" spellcheck="false"></label><small class="muted">Внешний ИИ отправляет текст сообщения и игровой контекст на указанный сервер. Используй только свой доверенный адрес.</small></div><div class="panel"><h3>Музыкальный каталог</h3><p class="muted">Встроенный список из 71 названия. Импорт папок и файлов не требуется. В этой версии доступны названия композиций, без воспроизведения аудиозаписей.</p>${btn('♫ Открыть каталог','settings-open-player','button primary')}</div>
+    <div class="settings-layout"><div class="panel npc-ai-settings"><h3>Общение с NPC · ИИ</h3><p class="muted">По умолчанию работает локальный контекстный движок. Для генеративной модели укажи адрес собственного AI-прокси: он должен принимать JSON от игры и возвращать <code>{reply: \"текст\"}</code>. API-ключ в браузере не хранится — не вставляй секретные ключи сюда.</p><label class="setting-row npc-ai-endpoint-row"><span><b>Адрес AI-прокси</b><small>Оставь пустым, чтобы использовать локальные ответы NPC.</small></span><input type="url" data-setting="npcAiEndpoint" value="${esc(state.settings.npcAiEndpoint||'')}" placeholder="http://127.0.0.1:8787/npc-chat" autocomplete="off" spellcheck="false"></label><small class="muted">Внешний ИИ отправляет текст сообщения и игровой контекст на указанный сервер. Используй только свой доверенный адрес.</small></div><div class="panel"><h3>Управление в 3D</h3><p class="muted">Выбери схему отдельно от устройства. «Авто» включает сенсорные кнопки на телефоне и клавиатуру с мышью на ПК.</p><label class="setting-row"><span><b>Схема управления</b><small>Изменение применяется сразу в 3D-сцене.</small></span><select data-setting="controlScheme"><option value="auto" ${(state.settings.controlScheme||'auto')==='auto'?'selected':''}>Автоматически</option><option value="pc" ${state.settings.controlScheme==='pc'?'selected':''}>ПК · клавиатура и мышь</option><option value="mobile" ${state.settings.controlScheme==='mobile'?'selected':''}>Мобильное · джойстик и касания</option></select></label><small class="muted">ПК: WASD, Shift, мышь, E и ЛКМ. Телефон: левый стик, правая зона обзора, кнопки действия и огня.</small></div>
     <div class="panel"><h3>Звуки</h3><label class="setting-row"><span><b>Звуковые эффекты</b><small>Синтезированные звуки интерфейса, аномалий и событий</small></span><input type="checkbox" data-setting="soundEnabled" ${state.settings.soundEnabled!==false?'checked':''}></label><label class="setting-row"><span><b>Громкость эффектов</b><small>Общая громкость звуковых событий</small></span><input type="range" min="0" max="1" step="0.05" data-setting="soundVolume" value="${Number(state.settings.soundVolume??0.35)}"></label></div>
     <div class="panel"><h3>Интерфейс</h3><label class="setting-row"><span><b>Уменьшить анимацию</b><small>Для слабых устройств</small></span><input type="checkbox" data-setting="reducedMotion" ${state.settings.reducedMotion?'checked':''}></label><div class="setting-row"><span><b>Ориентация</b><small>Автоматически подстраивается под вертикальный и горизонтальный экран.</small></span><span class="setting-value">AUTO</span></div><label class="setting-row"><span><b>Разрешение / масштаб интерфейса</b><small>Подстройка размера элементов под экран</small></span><select data-setting="uiScale"><option value="0.9" ${state.settings.uiScale===0.9?'selected':''}>90%</option><option value="1" ${!state.settings.uiScale||state.settings.uiScale===1?'selected':''}>100%</option><option value="1.1" ${state.settings.uiScale===1.1?'selected':''}>110%</option><option value="1.2" ${state.settings.uiScale===1.2?'selected':''}>120%</option></select></label></div>
     <div class="panel"><h3>Сохранения</h3><p class="muted">Данные хранятся в браузере этого устройства. Экспортируй файл, чтобы перенести прогресс на другой телефон или ноутбук.</p><div class="setting-actions">${btn('↓ Скачать сохранение','export-save','button primary')}<label class="button ghost upload-button">Загрузить сохранение<input type="file" id="save-upload" accept="application/json" hidden></label></div><small>Перенос между устройствами: экспорт на первом устройстве → импорт на втором.</small></div></div>
@@ -621,12 +614,12 @@ export function renderGame(state) {
   const character=state.characters.find(c=>c.id===state.activeCharacterId) || state.pendingCharacter || {name:'Сталкер',avatar:''};
   if (!game) return `<div class="screen-wrap">${btn('← Назад','back-characters','button ghost')}<div class="empty-state">Сохранение игры не найдено.</div></div>`;
   const clock=getGameDateTime(game.clock);
-  const pdaTabs=['map','stats','player','messages','quests','contacts','encyclopedia','help'];
+  const pdaTabs=['map','stats','messages','quests','contacts','encyclopedia','help'];
   if (state.ui.pdaOpen && !pdaTabs.includes(state.ui.tab)) state.ui.tab='map';
   else if (!['location',...pdaTabs].includes(state.ui.tab)) state.ui.tab='location';
   const tabs={
     location:renderLocation(game,character,state), map:renderMap(game,state),
-    stats:renderStats(game,character), player:renderPlayer(state), messages:renderMessages(game), quests:renderQuests(game), contacts:renderContacts(game,state), encyclopedia:renderEncyclopedia(game,state), help:renderHelp(game,state)
+    stats:renderStats(game,character), messages:renderMessages(game), quests:renderQuests(game), contacts:renderContacts(game,state), encyclopedia:renderEncyclopedia(game,state), help:renderHelp(game,state)
   };
   const pdaOpen=!!state.ui.pdaOpen;
   if (pdaOpen) {
@@ -641,5 +634,5 @@ export function renderGame(state) {
     <header class="game-topbar"><div class="topbar-player">${avatarMarkup(character.avatar,character.name,'☢')}<div><b>${esc(character.name)}</b><small>${esc(FACTIONS.find(f=>f.id===game.player.faction)?.name||'')}</small></div></div><div class="topbar-status"><span class="money-readout">${iconSvg('coins')} ${money(game.money)}</span><span>${iconSvg('heart')} ${game.player.hp}/${game.player.maxHp}</span><span class="clock-readout" data-game-clock>${iconSvg('clock')} ${clock.date} · ${clock.time}</span></div><div class="topbar-buttons">${btn(`${iconSvg('bag')} Рюкзак`,'inventory-open','button ghost')}${btn(`${iconSvg('book')} КПК`,'pda-toggle','button pda-toggle-button','aria-expanded="false"')}${btn(iconSvg('settings'),'settings','icon-button',`title="Настройки" aria-label="Настройки"`)}${btn(iconSvg('download'),'export-save','icon-button',`title="Экспорт сохранения" aria-label="Экспорт сохранения"`)}</div></header>
     <div class="game-content pda-closed-content">${tabs.location}</div>
     <form class="action-composer" id="action-form"><span class="composer-symbol">${iconSvg('talk')}</span><input id="player-action" type="text" maxlength="220" placeholder="Опиши действие… например: осмотреться, поговорить с Волком, обыскать местность" autocomplete="off"><button class="send-action" type="submit">${iconSvg('talk')} Отправить</button></form>
-  </div><nav class="mobile-game-nav" aria-label="Быстрые разделы КПК">${[['map','Карта'],['quests','Задания'],['contacts','Люди'],['player','Профиль'],['messages','Журнал']].map(([key,label])=>`<button data-action="tab" data-tab="${key}" class="${state.ui.tab===key?'active':''}">${iconSvg(key)}<span>${label}</span></button>`).join('')}</nav>${renderArtifact(game)}${renderDialogue(game,character)}${state.ui.modal==='sleep'?renderSleep(game):''}</section>`;
+  </div><nav class="mobile-game-nav" aria-label="Быстрые разделы КПК">${[['map','Карта'],['stats','Профиль'],['quests','Задания'],['contacts','Люди'],['messages','Журнал']].map(([key,label])=>`<button data-action="tab" data-tab="${key}" class="${state.ui.tab===key?'active':''}">${iconSvg(key)}<span>${label}</span></button>`).join('')}</nav>${renderArtifact(game)}${renderDialogue(game,character)}${state.ui.modal==='sleep'?renderSleep(game):''}</section>`;
 }

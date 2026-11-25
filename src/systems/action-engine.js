@@ -4,7 +4,6 @@ import { playerAttack, beginEncounter, combatTextAction, getBestWeapon } from '.
 import { useItem, countItem, removeItem, addItem, getWeight } from './inventory.js';
 import { getItemCondition } from './equipment-condition.js';
 import { containsReferencePronoun, getRememberedEntity, rememberEntity, grammaticalGender, genderedSubject, pronounInDative, tokenizeRussian, stemRussianWord } from './russian-language.js';
-import { getRadioStationForLocation } from '../data/radio-stations.js';
 
 const random = (items) => items[Math.floor(Math.random()*items.length)];
 const normalize = (value) => String(value || '').toLowerCase().replaceAll('ё','е').replace(/[«»„“”"'`]/g,' ').replace(/[^а-яa-z0-9-]+/g,' ').trim().replace(/\s+/g,' ');
@@ -182,17 +181,6 @@ export function processPlayerAction(game, rawText) {
   const named=rememberMention(game,text);
   const reference=resolveReference(game,text);
 
-  // Radio is a local base interaction, activated through natural-language commands.
-  const radioStation=getRadioStationForLocation(game.locationId);
-  if (/(выключи(ть)?|отключи(ть)?|останови(ть)?)\s+радио|радио\s+(выключи|отключи|останови)/.test(text)) {
-    if (!radioStation) return {message:'Радиоприёмники доступны на АТП, в Деревне новичков и на Южном блокпосте.'};
-    return {message:`Ты выключаешь радиоприёмник: ${radioStation.name}.`,action:'radio-off'};
-  }
-  if (/(включи(ть)?|запусти(ть)?|настрой(ть)?)\s+радио|радио\s+(включи|запусти)|слушать\s+радио/.test(text)) {
-    if (!radioStation) return {message:'Радиоприёмники доступны на АТП, в Деревне новичков и на Южном блокпосте.'};
-    return {message:`Ты подходишь к радиоприёмнику. ${radioStation.name}: включаю эфирный список.`,action:'radio-on'};
-  }
-
   // Generic approach: show nearby people so the player can choose a specific contact.
   const approachVerb=/(подош(е|ё)л|подхожу|подойти|приблизил(ся|ась)|подбежал|направил(ся|ась) к|окликнул|поздороват(ься|ся)|обратил(ся|ась)|заговорить|поговорить|хочу поговорить|ищу собеседник|хочу найти собеседник|к кому обратиться|подойду)/.test(text);
   const approachPerson=/(сталкер|нпс|человек|люд|персонаж|мужик|парень|девуш|кто рядом|с кем|рядом|кого-нибудь|кого нибудь)/.test(text);
@@ -255,7 +243,6 @@ export function processPlayerAction(game, rawText) {
     const jokes=['Сталкер спрашивает у торговца: «А скидка будет?» — «Будет. Но сначала найди товар по полной цене».','На Кордоне даже компас иногда показывает на Сидоровича. Видимо, у него магнит для Купонов.','Новичок спрашивает: «Где тут безопасно?» Ему отвечают: «В меню сохранения».','Сталкер говорит: «Я только посмотрю». Через час он уже считает найденные болты и спорит с детектором.'];
     return {message:`Ты просишь рассказать анекдот. ${random(jokes)}`};
   }
-  if (/(слушать музыку|послушать музыку|включить музыку|поставить музыку|открыть плеер|музыку в кпк)/.test(text)) return {message:'Открываю встроенный каталог музыкальных названий в КПК.',action:'player-open'};
   if (/(побухать|выпить водки|напиться)/.test(text)) return {message:'У костра можно спокойно посидеть с горячим чаем, перекусить и послушать истории местных.'};
   if (/(украсть|стащить|своровать|обчистить)/.test(text)) {
     const people=getAvailableStalkers(game,game.locationId).filter(person=>person.id!==game.dialogueNpcId);
@@ -295,7 +282,6 @@ export function processPlayerAction(game, rawText) {
     return {message:combatResult.message, action:'combat', ok:combatResult.ok};
   }
 
-  if (/(выключ|останов|стоп).{0,18}(музык|плеер)/.test(text) || /(музык|плеер).{0,12}(выключ|останов)/.test(text)) return {message:'Воспроизведение остановлено.',action:'player-stop'};
   if (/(укрыл|пряч|спрят|переждать выброс|в укрыти|зайти внутрь)/.test(text)) {
     const spot=EXPLORE_SPOTS.find(entry=>entry.locationId===game.locationId && entry.shelter && entry.aliases?.some(alias=>wordFamily(text,[alias]))) || null;
     const result=takeShelter(game,spot?.id||game.currentAreaId||null);

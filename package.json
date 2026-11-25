@@ -1,13 +1,12 @@
 {
   "name": "stalker-cordon-pda-prototype",
-  "version": "3.0.0",
+  "version": "3.3.0",
   "private": true,
   "type": "module",
-  "description": "STALKER Cordon RP prototype with mobile-first UI, sequential Cordon story, equipment condition, field-tested quest and equipment interactions, a title-only built-in music catalogue for PDA player and base radios, NPC dialogue, offline artwork, and balanced Cordon barter economy, compact HUD, quest-focused story and contextual GM/NPC dialogue",
+  "description": "STALKER Cordon browser RPG with offline first-person WebGL world with PC/mobile control schemes, procedural detailed meshes, free movement, NPC combat and retained story/dialogue systems",
   "scripts": {
-    "test": "node tests/smoke-test.mjs",
-    "ai-proxy": "node server/npc-ai-proxy.mjs",
-    "music:manifest": "node scripts/build-music-manifest.mjs"
+    "test": "node tests/smoke-test.mjs && node tests/3d-renderer-test.mjs",
+    "ai-proxy": "node server/npc-ai-proxy.mjs"
   },
   "engines": {
     "node": ">=18"

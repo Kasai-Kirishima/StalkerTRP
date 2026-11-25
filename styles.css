@@ -11,7 +11,6 @@
 .player-status.live i{background:#b4d85d;box-shadow:0 0 10px #a4cd50}
 .player-controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:11px}
 .player-disclaimer{font-size:10px;line-height:1.45;color:#89957d;margin:8px 0}
-.player-track-number{font:11px 'Share Tech Mono',monospace;color:#879665;text-align:center}
 /* Full remote-avatar picker */
 .avatar-modal{width:min(780px,100%)}
 .avatar-group{margin-top:17px}
@@ -49,11 +48,6 @@
 .player-now p{color:#b3c19b;margin:0 0 10px}
 .player-now>small{display:block;margin-top:9px;color:#8e9a7b}
 .player-library{margin-top:14px}
-.player-track-list{display:grid;gap:5px;max-height:470px;overflow:auto}
-.player-track{display:grid;grid-template-columns:32px minmax(0,1fr) 58px;align-items:center;gap:8px;padding:7px 9px;border:1px solid #313d2b;background:#151c14}
-.player-track.selected{border-color:#94a85b;background:#222d1c}
-.player-track .button{white-space:nowrap}
-.player-track .player-track-meta b{font-size:12px}
 /* Functional trade interface */
 .trade-merchant-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .trade-merchant{display:flex;align-items:center;gap:12px;text-align:left;color:#e1e8cc;cursor:pointer;margin:0;padding:13px}
@@ -568,17 +562,8 @@ html { zoom: var(--ui-scale, 1); }
 /* Tall armor sprites are trimmed to their visible silhouette and fitted without cutting the shoulders or hem. */
 .armor-inventory-item .inventory-item-image .armor-art-image{display:block;width:auto;height:100%;max-width:100%;max-height:100%;object-fit:contain;object-position:center center;transform:none}
 .armor-inventory-item .inventory-item-name{font-size:clamp(8px,.8vw,10px)}
-.local-music-actions{display:flex;flex-wrap:wrap;align-items:center;gap:9px;margin:10px 0;padding:10px;background:#151e13;border:1px solid #45533a}
-.local-music-actions small{flex:1 1 220px;color:#aab69a;font-size:10px;line-height:1.45}
-.local-music-actions input{display:none}
 .player-page{max-width:1050px;margin:0 auto}
 .player-now h3{margin:5px 0;font-size:clamp(20px,2vw,28px)}
-.player-track-list{display:grid;gap:5px;max-height:34vh;overflow:auto;padding-right:3px}
-.player-track{display:flex;align-items:center;gap:9px;min-width:0;padding:8px;background:#141c12;border:1px solid #394631}
-.player-track.selected{border-color:#9eaf67;background:#202b19}
-.player-track-meta{display:grid;gap:2px;flex:1;min-width:0}
-.player-track-meta b,.player-track-meta small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.player-track-meta small{font-size:9px;color:#9ca98c}
 .player-disclaimer{margin:8px 0;color:#89957d;font-size:9px;line-height:1.4}
 @media(min-width:900px) and (max-height:850px){
   .pda-fullscreen-header{padding:6px 12px}
@@ -1512,24 +1497,7 @@ html { zoom: var(--ui-scale, 1); }
  .name-generator-row .button{width:100%}
 }
 
-/* Base radios use the same built-in audio library as the PDA player. */
-.base-radio-panel{display:grid;gap:11px;margin:12px 0;padding:12px 14px;background:linear-gradient(110deg,rgba(30,43,25,.96),rgba(14,21,14,.96));border:1px solid #586747;box-shadow:0 8px 24px #0005}
-.base-radio-panel.playing{border-color:#9aaa61;box-shadow:0 0 0 1px #9aaa6122,0 8px 24px #0005}
-.base-radio-heading{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
-.base-radio-heading h3{margin:3px 0 4px;color:#e3e9c8;font-size:16px}
-.base-radio-heading p{margin:0;color:#aab897;font-size:10px;line-height:1.45}
-.base-radio-indicator{display:flex;align-items:center;gap:6px;white-space:nowrap;color:#9da98d;font:9px 'Share Tech Mono',monospace}
-.base-radio-indicator i{width:7px;height:7px;border-radius:50%;background:#66714e;box-shadow:0 0 0 2px #66714e33}
-.base-radio-panel.playing .base-radio-indicator{color:#d8e69c}
-.base-radio-panel.playing .base-radio-indicator i{background:#d8e69c;box-shadow:0 0 0 3px #d8e69c33,0 0 9px #d8e69c}
-.base-radio-controls{display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding-top:9px;border-top:1px solid #394a32}
-.base-radio-track{display:grid;gap:3px;min-width:180px;flex:1}
-.base-radio-track b{color:#e2e9cf;font-size:11px}
-.base-radio-track small{color:#94a382;font-size:9px}
-.base-radio-controls .button{min-height:32px;padding:6px 10px;font-size:10px}
-.player-library .player-track-meta small{font-size:9px;color:#a0ad8d}
-.player-library .player-track-number{font-variant-numeric:tabular-nums}
-@media(max-width:680px){.base-radio-heading{display:grid}.base-radio-controls{align-items:stretch}.base-radio-track{flex-basis:100%}.base-radio-controls .button{flex:1}}
+
 
 
 /* v2.9.7 — touch-first mobile layout; safe-area, scroll regions and compact landscape support. */
@@ -1590,7 +1558,7 @@ html { zoom: var(--ui-scale, 1); }
   .scene-vitals{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:4px;width:100%;margin:0;font-size:8px}
   .scene-vitals span{padding:3px 4px}
   .scene-hazards{position:relative;z-index:1;display:flex;flex-wrap:wrap;gap:4px;margin:0}
-  .emission-banner,.enemy-stage,.combat-quickbar,.base-radio-panel{position:relative;z-index:1;margin:4px 0;width:100%;max-width:none}
+  .emission-banner,.enemy-stage,.combat-quickbar{position:relative;z-index:1;margin:4px 0;width:100%;max-width:none}
   .enemy-stage{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
   .enemy-art-pair{max-height:130px;justify-content:center;overflow:hidden}
   .enemy-body-frame{max-height:120px}
@@ -1719,7 +1687,7 @@ html { zoom: var(--ui-scale, 1); }
 @media(max-width:760px) {
   .game-shell,.game-main,.pda-fullscreen-page { max-width:100vw; }
   .game-content.pda-closed-content,.pda-fullscreen-content { scrollbar-gutter:stable; }
-  .scene-gm,.scene-places,.main-story-panel,.base-radio-panel,.current-area-panel { min-width:0; }
+  .scene-gm,.scene-places,.main-story-panel,.current-area-panel { min-width:0; }
   .scene-interactions,.npc-interaction,.npc-chip,.quest-card,.inventory-item-clear { min-width:0; }
   .mobile-game-nav button { min-height:44px; touch-action:manipulation; }
   .action-composer button,.topbar-buttons button,.scene-entry-actions button,.current-area-actions button { touch-action:manipulation; }
@@ -2017,8 +1985,6 @@ html { zoom: var(--ui-scale, 1); }
 .quest-card-actions .button{min-height:30px;}
 .map-toolbar p,.map-toolbar-status b{display:none!important}
 .map-frame-large .map-pin-title{display:none!important}
-.player-track{transition:background .18s,border-color .18s,transform .18s;}
-.player-track:hover{transform:translateX(2px);border-color:rgba(188,207,126,.55);}
 .npc-chip,.nearby-person,.contact-action-button{transition:transform .16s ease,border-color .16s ease,filter .16s ease;}
 .npc-chip:active,.nearby-person:active,.contact-action-button:active,.scene-loadout-hotbar button:active{transform:scale(.97);filter:brightness(1.18);}
 @keyframes quest-card-enter{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
@@ -2040,4 +2006,37 @@ html { zoom: var(--ui-scale, 1); }
   .scene-loadout-hotbar .equipment-hotbar-slot>span{width:18px;height:18px;}
   .scene-loadout-hotbar .quick-hotbar-slot{min-height:26px;padding:2px;}
 }
-@media(prefers-reduced-motion:reduce){.quest-card,.player-track,.npc-chip,.nearby-person,.contact-action-button{animation:none!important;transition:none!important}}
+@media(prefers-reduced-motion:reduce){.quest-card,.npc-chip,.nearby-person,.contact-action-button{animation:none!important;transition:none!important}}
+
+/* STALKER 3D world layer — offline WebGL renderer */
+.location-scene.has-3d-world .scene-background{opacity:0;pointer-events:none}
+.stalker-3d-canvas{position:absolute;inset:0;z-index:0;display:block;width:100%;height:100%;min-height:100%;background:#20251d;touch-action:none;cursor:crosshair;outline:none}
+.location-scene.has-3d-world:after{z-index:1;background:linear-gradient(180deg,rgba(6,9,6,.42),rgba(5,8,5,.02) 27%,rgba(5,8,5,.08) 62%,rgba(5,8,5,.57))}
+.location-scene.has-3d-world>.scene-topline,
+.location-scene.has-3d-world>.scene-vitals,
+.location-scene.has-3d-world>.scene-hazards,
+.location-scene.has-3d-world>.emission-banner,
+.location-scene.has-3d-world>.enemy-stage,
+.location-scene.has-3d-world>.combat-quickbar,
+.location-scene.has-3d-world>.consumption-action-overlay,
+.location-scene.has-3d-world>.scene-loadout-hotbar,
+.location-scene.has-3d-world>.scene-footer,
+.location-scene.has-3d-world>.anomaly-scene,
+.location-scene.has-3d-world>.mask-vignette{position:relative;z-index:3}
+.location-scene.has-3d-world>.scene-footer{position:absolute}
+.location-scene.has-3d-world>.scene-loadout-hotbar{position:absolute}
+.three-touch-controls{position:absolute;inset:0;z-index:5;pointer-events:none;display:none;touch-action:none}.three-touch-controls.is-pc{display:block}.three-touch-controls.is-pc .three-joystick,.three-touch-controls.is-pc .three-action-buttons,.three-touch-controls.is-pc .three-mobile-help{display:none}.three-touch-controls.is-mobile{display:block}.three-touch-controls.is-mobile .three-help{display:none}
+.three-crosshair{position:absolute;left:50%;top:50%;z-index:2;width:22px;height:22px;transform:translate(-50%,-50%);display:none;place-items:center;opacity:.72;filter:drop-shadow(0 1px 2px #000);pointer-events:none}.location-scene.has-3d-world .three-crosshair{display:grid}.three-crosshair:before,.three-crosshair:after{content:"";position:absolute;background:#dce4c3a8}.three-crosshair:before{width:1px;height:20px}.three-crosshair:after{width:20px;height:1px}.three-crosshair i{width:4px;height:4px;border:1px solid #dce4c3;background:#192018;border-radius:50%}
+.three-joystick{position:absolute;left:max(16px,env(safe-area-inset-left));bottom:calc(124px + env(safe-area-inset-bottom));width:116px;height:116px;border-radius:50%;border:1px solid #b8c58a77;background:radial-gradient(circle,#1d2618a8,#11170e78 68%,#080b08aa);box-shadow:0 6px 24px #0008;pointer-events:auto;touch-action:none;display:grid;place-items:center}
+.three-joystick:before{content:"";position:absolute;width:72%;height:72%;border:1px dashed #cad59b55;border-radius:50%}
+.three-joystick i{position:relative;width:39px;height:39px;border-radius:50%;background:linear-gradient(145deg,#879564,#343e2b);border:1px solid #d1daa0;box-shadow:0 3px 12px #0009;pointer-events:none}
+.three-action-buttons{position:absolute;right:max(18px,env(safe-area-inset-right));bottom:calc(130px + env(safe-area-inset-bottom));display:grid;gap:12px;pointer-events:auto}
+.three-action-buttons button{width:58px;height:58px;border-radius:50%;border:1px solid #a6b97a;background:#182318df;color:#edf2d0;font:700 13px 'Share Tech Mono',monospace;box-shadow:0 5px 18px #0009;touch-action:manipulation}
+.three-action-buttons button[data-3d="fire"]{width:70px;height:70px;background:#4a2a20e8;border-color:#b87553;font-size:10px}.three-action-buttons button[data-3d="sprint"]{background:#283521e8;border-color:#8d9b63}
+.three-mobile-help{display:none;position:absolute;left:50%;bottom:18px;transform:translateX(-50%);padding:6px 10px;border:1px solid #75835388;background:#081008b8;color:#dfe7c4;font:9px 'Share Tech Mono',monospace;white-space:nowrap;pointer-events:none}.three-help{position:absolute;bottom:12px;left:50%;transform:translateX(-50%);padding:5px 9px;border:1px solid #75835388;background:#081008b8;color:#dfe7c4;font:9px 'Share Tech Mono',monospace;white-space:nowrap;pointer-events:none}
+@media(max-width:760px),(hover:none) and (pointer:coarse){
+ .stalker-3d-canvas{height:100%;min-height:100%}
+ .location-scene.has-3d-world>.scene-topline{pointer-events:none}
+ .location-scene.has-3d-world .scene-gm-actions{pointer-events:auto}
+}
+@media(prefers-reduced-motion:reduce){.three-action-buttons button{transition:none}}

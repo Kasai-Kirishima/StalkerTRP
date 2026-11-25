@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#11160f">
+<title>STALKER Cordon · 3D QA 3.3.0</title>
+<link rel="stylesheet" href="./styles.css">
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#11160f;color:#e8ebd3;font-family:Arial,sans-serif}.preview-shell{position:relative;width:100%;height:100%;overflow:hidden}.location-scene{height:100%!important;min-height:100%!important;padding:0!important}.scene-background,.location-scene:after{display:none!important}.preview-head{position:absolute;top:12px;left:16px;z-index:20;padding:10px 14px;border:1px solid #72814e;background:#091009d9;pointer-events:none}.preview-head b{display:block;font-size:15px;letter-spacing:.08em}.preview-head small{display:block;margin-top:4px;color:#cbd69d}.preview-status{position:absolute;top:12px;right:16px;z-index:20;padding:8px;background:#091009dd;border:1px solid #596b40;font-size:11px}.preview-footer{position:absolute;left:16px;bottom:14px;z-index:20;padding:9px 11px;background:#091009dd;border:1px solid #596b40;font-size:11px;pointer-events:none}.preview-nav{position:absolute;right:16px;bottom:14px;z-index:20;display:flex;gap:7px}.preview-nav button{padding:9px 12px;color:#e9edcf;background:#1b271b;border:1px solid #77894a;cursor:pointer}.preview-controls{position:absolute;left:50%;top:14px;transform:translateX(-50%);display:flex;gap:6px;z-index:22}.preview-controls button{padding:8px 10px;background:#111a12df;color:#e4ebcd;border:1px solid #657748}
+.location-scene>.preview-head,.location-scene>.preview-status,.location-scene>.preview-footer,.location-scene>.preview-nav,.location-scene>.preview-controls{position:absolute}
+</style>
+</head>
+<body>
+<main class="preview-shell"><section class="location-scene"><canvas id="stalker-3d-world" class="stalker-3d-canvas"></canvas><div class="preview-head"><b>STALKER · КОРДОН 3D / 3.3.0</b><small id="loc-name">Загрузка…</small></div><div class="preview-status">WEBGL · FIRST PERSON · OFFLINE ASSETS</div><div class="preview-controls"><button id="village">Деревня</button><button id="atp">АТП</button><button id="farm">Хутор</button><button id="checkpoint">Блокпост</button></div><div class="preview-footer" id="npc-hint">WASD — движение · Shift — бег · мышь — обзор · E — действие · ЛКМ/F — огонь</div></section></main>
+<script type="module">
+import {createGame,getAvailableStalkers,travelTo,talkToNpc,getLocation} from './src/systems/world.js';
+import {beginEncounter,playerAttack} from './src/systems/combat.js';
+import {mountStalker3D,disposeStalker3D} from './src/3d/renderer.js';
+let locationId=new URLSearchParams(location.search).get('location')||'rookie-village',game,renderer;
+const character={id:'preview-character',name:'Сталкер',faction:'loner',callsign:'Тень',avatar:'',appearance:''};
+function say(text){document.querySelector('#npc-hint').textContent=text;}
+function load(){disposeStalker3D();game=createGame(character,[{id:'pm',qty:1},{id:'ammo9x18',qty:4},{id:'knife',qty:1},{id:'bread',qty:2},{id:'water',qty:1}],1800);game.locationId=locationId;game.player.locationsVisited=[locationId];const npcs=getAvailableStalkers(game,locationId);document.querySelector('#loc-name').textContent=getLocation(locationId)?.name||locationId;renderer=mountStalker3D(document.querySelector('#stalker-3d-world'),{game,npcs,onInteract:id=>{const r=talkToNpc(game,id);say(r.ok?`Разговор начат: ${r.npc.name} · ${r.npc.role||'сталкер'}`:r.message);},onTravel:id=>{const r=travelTo(game,id);say(r.message);if(r.ok){locationId=id;setTimeout(load,80);}},onFire:npc=>{if(game.activeEncounter){const r=playerAttack(game);say(r.message);return;}if(npc&&npc.faction!=='loner'&&beginEncounter(game,npc.faction==='military'?'military':'bandit')){Object.assign(game.activeEncounter,{name:npc.name,faction:npc.faction,appearance:npc.appearance,icon:npc.icon});say(`Опасность: ${npc.name}. Нажми F ещё раз, чтобы атаковать.`);}else say('Нет враждебной цели перед тобой.');},onNotify:say,onCheckpoint:()=>{}});}
+document.querySelector('#village').onclick=()=>{locationId='rookie-village';load();};document.querySelector('#atp').onclick=()=>{locationId='atp';load();};document.querySelector('#farm').onclick=()=>{locationId='farmstead';load();};document.querySelector('#checkpoint').onclick=()=>{locationId='south-checkpoint';load();};load();
+window.addEventListener('beforeunload',disposeStalker3D);
+</script>
+</body>
+</html>
