@@ -1,9 +1,9 @@
 {
   "name": "stalker-cordon-pda-prototype",
-  "version": "3.6.0",
+  "version": "3.8.0",
   "private": true,
   "type": "module",
-  "description": "STALKER Cordon browser RPG with offline first-person WebGL world with PC/mobile control schemes, layout-independent physical-key movement, jump/crouch, flashlight, nearby NPC dialogue and local NPC wandering, faction procedural first-person 3D weapons, collision-aware seamless zone transitions, binoculars and retained story/dialogue systems",
+  "description": "STALKER Cordon browser RPG v3.8.0 with map-aligned terrain and Cordon satellite ground texture with evolving daylight, drifting clouds, bedroll sleep point, versioned menu, offline first-person WebGL world and PC/mobile controls",
   "scripts": {
     "test": "node tests/startup-test.mjs && node tests/smoke-test.mjs && node tests/3d-renderer-test.mjs",
     "ai-proxy": "node server/npc-ai-proxy.mjs"

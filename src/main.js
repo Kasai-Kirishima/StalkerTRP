@@ -183,6 +183,7 @@ function render() {
         },
         onAimChange:(active)=>{state.game.player.isAiming=active;},
         onFlashlightToggle:(active)=>{state.game.player.flashlightActive=active;state.ui.flashlight=active;persist();},
+        onSleep:()=>{if(state.game.activeEncounter){toast('Во время опасности отдыхать нельзя.','warning');return;}state.ui.modal='sleep';render();},
         onPickup:(itemId)=>{
           const item=getItem(itemId);
           const result=addItem(state.game.inventory,itemId,1);

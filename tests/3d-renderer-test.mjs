@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { LOCATIONS } from '../src/data/catalog.js';
-import { createSceneLayout, classifyItemModel, buildPreviewGeometry, buildItemPreviewGeometry, selectAimedTarget, sampleTerrainHeight, npcFacingYaw, buildSceneCollisionData, sampleLocationHeight, movementKeyFromCode, inputKeyFromCode, selectNearbyNpc, stepJumpMotion } from '../src/3d/renderer.js';
+import { createSceneLayout, classifyItemModel, buildPreviewGeometry, buildItemPreviewGeometry, selectAimedTarget, sampleTerrainHeight, cordonMapToWorld, sampleCordonTerrainHeight, npcFacingYaw, buildSceneCollisionData, sampleLocationHeight, sampleMapSurfaceHeight, movementKeyFromCode, inputKeyFromCode, selectNearbyNpc, stepJumpMotion, buildCloudLayer, daylightFor } from '../src/3d/renderer.js';
 import { ITEMS } from '../src/data/catalog.js';
 
 const profiles=new Set();
@@ -55,7 +55,7 @@ for(const location of LOCATIONS){
 }
 for(const required of ['village','checkpoint','farm','industrial','forest','roadside'])assert.ok(profiles.has(required),`Missing environment profile ${required}`);
 for(const item of ITEMS){assert.ok(['weapon','armor','artifact','medicine','ammo','food','supply'].includes(classifyItemModel(item.id)),`3D item model missing for ${item.id}`);const model=buildItemPreviewGeometry(item.id);assert.ok(model?.mesh?.vertices?.length>60,`3D geometry missing for ${item.id}`);assert.equal(model.mesh.uvs.length,model.mesh.vertices.length/3*2,`3D texture UV missing for ${item.id}`);assertFiniteMesh(model.mesh,`item ${item.id}`);}
-for(const location of LOCATIONS){const preview=buildPreviewGeometry(location.id);assert.ok(preview.world.vertices.length>1000,`Scene geometry missing for ${location.id}`);assert.equal(preview.world.uvs.length,preview.world.vertices.length/3*2,`Texture UVs missing for ${location.id}`);assertFiniteMesh(preview.world,`world ${location.id}`);assert.ok(preview.player.vertices.length>100,`Player model missing for ${location.id}`);assert.ok(preview.firstPerson.vertices.length>100,`First-person arms and weapon mesh missing for ${location.id}`);assert.ok(preview.firstPerson.vertices.length<preview.player.vertices.length,`First-person view mesh should not be a full-body character for ${location.id}`);assertFiniteMesh(preview.player,`player ${location.id}`);assertFiniteMesh(preview.firstPerson,`first-person ${location.id}`);assert.ok(preview.groundSamples.length>=5,`Rolling terrain samples missing for ${location.id}`);assert.equal(preview.player.uvs.length,preview.player.vertices.length/3*2,`Player texture UVs missing for ${location.id}`);}
+for(const location of LOCATIONS){const preview=buildPreviewGeometry(location.id);assert.ok(preview.world.vertices.length>1000,`Scene geometry missing for ${location.id}`);assert.ok(preview.terrain?.vertices?.length>1000,`Map terrain mesh missing for ${location.id}`);assert.ok(preview.props?.vertices?.length>500,`Location props missing for ${location.id}`);assert.ok(preview.terrain.normals.every((value,index)=>index%3!==1||value>.55),`Terrain normals must face upward for ${location.id}`);assert.equal(preview.world.uvs.length,preview.world.vertices.length/3*2,`Texture UVs missing for ${location.id}`);assertFiniteMesh(preview.world,`world ${location.id}`);assert.ok(preview.player.vertices.length>100,`Player model missing for ${location.id}`);assert.ok(preview.firstPerson.vertices.length>100,`First-person arms and weapon mesh missing for ${location.id}`);assert.ok(preview.firstPerson.vertices.length<preview.player.vertices.length,`First-person view mesh should not be a full-body character for ${location.id}`);assertFiniteMesh(preview.player,`player ${location.id}`);assertFiniteMesh(preview.firstPerson,`first-person ${location.id}`);assert.ok(preview.groundSamples.length>=5,`Rolling terrain samples missing for ${location.id}`);assert.equal(preview.player.uvs.length,preview.player.vertices.length/3*2,`Player texture UVs missing for ${location.id}`);}
 // Character previews must retain enough mesh detail for layered sleeves, elbows and articulated gloves.
 const factionPreview=buildPreviewGeometry('rookie-village');
 assert.equal(factionPreview.playerPosition.x,-8,'rookie village spawn should keep a clear first-person sightline');
@@ -66,6 +66,7 @@ assert.ok(rendererSource.includes("buildHumanoid(faction,'npc'")&&rendererSource
 assert.ok(rendererSource.includes('npcFacingYaw(entry.pos,pos)')&&rendererSource.includes('npcFacingYaw({x:ex,z:ez},pos)'),'NPCs and encounter characters should face the player correctly');
 assert.ok(rendererSource.includes('npcFacingYaw(entry.pos,pos)'),'NPCs should keep independently updated facing toward the player');
 assert.ok(sampleLocationHeight('sidorovich-bunker',0,-2)<-4.5,'Sidorovich trading room must be below the surface');
+assert.ok(sampleMapSurfaceHeight('sidorovich-bunker',0,-2)>-1.8,'the map terrain sampler must remain at surface height above the bunker room');
 assert.ok(sampleLocationHeight('sidorovich-bunker',0,18)>-1.8,'Bunker staircase must rise toward surface level');
 assert.equal(LOCATIONS.find(loc=>loc.id==='sidorovich-bunker')?.mapVisible,true,'Sidorovich must have a distinct visible map location');
 assert.ok(rendererSource.includes('data-3d=\"sprint\"')&&rendererSource.includes('touchSprint'),'mobile 3D controls should support a hold-to-sprint button');
@@ -106,7 +107,7 @@ assert.ok(rendererSource.includes('three-hud-health')&&rendererSource.includes('
 assert.ok(rendererSource.includes('if(now-lastTravelAt>1200)'),'all zone exits, including Sidorovich bunker, must transition automatically without a loading screen');
 assert.ok(rendererSource.includes('restorePointerLock')&&rendererSource.includes('requestPointerLock({unadjustedMovement:true})'),'mouse look should be restored after an in-game rerender when pointer lock was active');
 const mainSource=fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8');assert.ok(mainSource.includes("const restorePointerLock = document.pointerLockElement?.id === 'stalker-3d-world';"),'main render should preserve the pointer-lock state across HUD updates');
-const swSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8');assert.ok(swSource.includes('cordon-pda-v3600-physical-input-jump-flashlight'),'service worker cache must be bumped for the new controls and renderer');
+const swSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8');assert.ok(swSource.includes('cordon-pda-v3800-map-aligned-terrain'),'service worker cache must be bumped for the new controls and renderer');
 assert.ok(mainSource.includes('onFlashlightToggle:(active)=>{state.game.player.flashlightActive=active;state.ui.flashlight=active;persist();}'),'flashlight state should persist with player state');
 const viewSource=fs.readFileSync(new URL('../src/ui/views.js',import.meta.url),'utf8');assert.ok(viewSource.includes('<span aria-hidden="true">⌖</span>')&&!viewSource.includes('map-pin-title'),'PDA map pins should show only an icon, without a visible label');
 const characterDetail=factionPreview.player.vertices.length;
@@ -114,3 +115,32 @@ assert.ok(characterDetail>9000,'Player character mesh lost expected arm/hand det
 console.log(`3D renderer tests passed: ${LOCATIONS.length} locations, ${ITEMS.length} item model categories, procedural world, faction characters and 3D meshes for every catalog item.`);
 
 const relief=[[-28,-20],[-10,-10],[0,0],[18,12],[25,-18],[9,25]].map(([x,z])=>sampleTerrainHeight(x,z));assert.ok(Math.max(...relief)-Math.min(...relief)>.45,'terrain should contain visible rises and dips rather than a flat plane');
+
+const clouds=buildCloudLayer().toRaw();
+assert.ok(clouds.vertices.length>1500,'procedural cloud layer must contain multiple volumetric cloud clusters');
+assert.ok(clouds.vertices.every(Number.isFinite),'cloud mesh vertices must remain finite');
+const rendererText=fs.readFileSync(new URL('../src/3d/renderer.js',import.meta.url),'utf8');
+assert.ok(rendererText.includes('draw(cloudMesh,modelMatrix(cloudDrift,0,0,0))'),'clouds must be drawn and drift across the sky');
+assert.ok(rendererText.includes('function addBedroll')&&rendererText.includes('addBedroll(b,-5,4,'),'rookie village must contain a visible sleep bedroll');
+assert.ok(rendererText.includes("if(k==='z'&&!e.repeat)"),'sleep interaction shortcut must be available at the bedroll');
+const dayClock={startedAt:new Date(2026,3,15,12,0).getTime(),timeOffsetMinutes:0};
+const nightClock={...dayClock,timeOffsetMinutes:12*60};
+assert.ok(daylightFor(dayClock).daylight>daylightFor(nightClock).daylight,'daylight must vary over the day/night cycle');
+const menuSource=fs.readFileSync(new URL('../src/ui/views.js',import.meta.url),'utf8');
+assert.ok(menuSource.includes('ВЕРСИЯ 3.8.0'),'main menu must display the current version');
+assert.ok(!rendererText.includes('three-help'),'obsolete bottom control hint must be removed');
+const mapNW=cordonMapToWorld(0,0),mapSE=cordonMapToWorld(100,100);
+assert.deepEqual(mapNW,{x:-768,z:-1536},'map origin must use the full 768×1536 Cordon proportions');
+assert.deepEqual(mapSE,{x:768,z:1536},'map bounds must preserve the full Cordon proportions');
+assert.ok(Number.isFinite(sampleCordonTerrainHeight(50,44)),'map relief sampler must return finite heights');
+assert.ok(sampleCordonTerrainHeight(50,43)>sampleCordonTerrainHeight(50,47)+1.2,'railway embankment should rise above the mapped bridge cut');
+assert.ok(sampleCordonTerrainHeight(33,43)>sampleCordonTerrainHeight(33,46)+1.0,'maintenance underpass should cut through the railway bank');
+assert.ok(sampleCordonTerrainHeight(86,59)<sampleCordonTerrainHeight(78,59)-.75,'eastern ravine should sit below its surrounding shoulder');
+const mapRelief=[sampleCordonTerrainHeight(10,20),sampleCordonTerrainHeight(50,47),sampleCordonTerrainHeight(86,59),sampleCordonTerrainHeight(18,66)];
+assert.ok(Math.max(...mapRelief)-Math.min(...mapRelief)>1.2,'map-scale ridges, lowland and ravine relief must remain distinguishable');
+assert.ok(rendererText.includes('cordon-clean.webp')&&rendererText.includes('uMapMode')&&rendererText.includes('addCordonRoadNetwork'),'gameplay terrain must use the source Cordon map texture and its mapped road profile');
+assert.ok(rendererText.includes('mapMottle')&&rendererText.includes('mapGrain'),'map-textured terrain must retain fine-scale ground breakup');
+assert.ok(rendererText.includes('bunkerVoid'),'surface mesh must preserve the Sidorovich bunker opening');
+const bunkerPreview=buildPreviewGeometry('sidorovich-bunker');
+assert.ok(bunkerPreview.terrain.vertices.length/3<112*112*6,'surface triangles must be omitted over the Sidorovich bunker room');
+assert.ok(bunkerPreview.terrain.uvs.every(value=>value>=0&&value<=1),'map-aligned ground UVs must stay within the source image');

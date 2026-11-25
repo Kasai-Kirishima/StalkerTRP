@@ -306,7 +306,7 @@ const serviceWorkerSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'u
 assert.ok(serviceWorkerSource.includes('./assets/textures/cordon-materials.png'),'offline shell should cache the procedural material atlas');
 assert.ok(serviceWorkerSource.includes('./assets/textures/npc-appearance-atlas.png'),'offline shell should cache the full-body NPC appearance atlas');
 assert.ok(!serviceWorkerSource.includes('bundled-music')&&!serviceWorkerSource.includes('radio-stations')&&!serviceWorkerSource.includes('music-archive'),'music and radio modules must be completely removed from the offline shell');
-assert.ok(serviceWorkerSource.includes('cordon-pda-v3600-physical-input-jump-flashlight'),'service worker cache name should identify the first-person no-music release');
+assert.ok(serviceWorkerSource.includes('cordon-pda-v3800-map-aligned-terrain'),'service worker cache name should identify the first-person no-music release');
 const swUrl=new URL('../sw.js',import.meta.url);
 const precachePaths=[...serviceWorkerSource.matchAll(/\"(\.\/[^\"]+)\"/g)].map(match=>match[1]);
 assert.ok(precachePaths.length>=150,'the offline shell should include the expanded artwork bundle');

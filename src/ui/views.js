@@ -64,7 +64,7 @@ export function renderMenu(state) {
         ${btn('⚙ Настройки','settings','menu-button')}
         ${btn('Выход','exit','menu-button subtle')}
       </div>
-      <div class="menu-bottom"><span>БЕТА-ПРОТОТИП</span><span>СОХРАНЕНИЯ ХРАНЯТСЯ НА ЭТОМ УСТРОЙСТВЕ</span></div>
+      <div class="menu-bottom"><span>ВЕРСИЯ 3.8.0</span><span>СОХРАНЕНИЯ ХРАНЯТСЯ НА ЭТОМ УСТРОЙСТВЕ</span></div>
     </div>
     <div class="menu-stamp">ZONE<br>WARNING</div>
   </section>`;
