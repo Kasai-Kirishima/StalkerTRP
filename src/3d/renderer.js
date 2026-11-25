@@ -52,6 +52,9 @@ uniform sampler2D uAlbedo;
 uniform sampler2D uCharacterAtlas;
 uniform float uTextureReady;
 uniform float uSpritePass;
+uniform vec3 uFlashlightPosition;
+uniform vec3 uFlashlightDirection;
+uniform float uFlashlightOn;
 float hash31(vec3 p){p=fract(p*.1031);p+=dot(p,p.yzx+33.33);return fract((p.x+p.y)*p.z);}
 float hash21(vec2 p){return hash31(vec3(p.x,p.y,17.17));}
 float noise2(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.0-2.0*f);float a=hash21(i),b=hash21(i+vec2(1.,0.)),c=hash21(i+vec2(0.,1.)),d=hash21(i+vec2(1.,1.));return mix(mix(a,b,f.x),mix(c,d,f.x),f.y);}
@@ -87,8 +90,14 @@ void main(){
   float rustNoise=fbm(vec2(vWorld.x*.45+vWorld.y*.12,vWorld.z*.55));
   float metalMask=step(.30,abs(vColor.r-vColor.g)+abs(vColor.g-vColor.b))*(1.0-foliageMask);
   albedo=mix(albedo,albedo*(.82+rustNoise*.42),metalMask*.22);
-  float light=fill+diffuse*.72;
+  vec3 flashlightRay=vWorld-uFlashlightPosition;
+  float flashlightDistance=length(flashlightRay);
+  float flashlightCone=smoothstep(.72,.91,dot(normalize(flashlightRay),normalize(uFlashlightDirection)));
+  float flashlightFalloff=1.0-smoothstep(3.0,23.0,flashlightDistance);
+  float flashlight=uFlashlightOn*flashlightCone*flashlightFalloff;
+  float light=fill+diffuse*.72+flashlight*1.45;
   vec3 base=max(vec3(0.0),albedo*(light+grit+broad+damp)*uSunColor);
+  base+=albedo*vec3(1.0,.91,.69)*flashlight*.24;
   vec3 viewDir=normalize(vViewPosition);
   float spec=pow(max(dot(reflect(-normalize(-uSunDirection),n),viewDir),0.0),24.0)*.10;
   base+=uSunColor*spec;
@@ -1144,10 +1153,24 @@ function pointSegmentDistance(px,pz,a,b){
   return Math.hypot(px-(a.x+t*dx),pz-(a.z+t*dz));
 }
 
+const MOVEMENT_CODE_MAP={KeyW:'w',KeyA:'a',KeyS:'s',KeyD:'d',ArrowUp:'arrowup',ArrowDown:'arrowdown',ArrowLeft:'arrowleft',ArrowRight:'arrowright'};
+const SAFE_ACTION_CODE_MAP={Space:'space',ShiftLeft:'shift',ShiftRight:'shift',ControlLeft:'control',ControlRight:'control',KeyE:'e',KeyL:'l'};
+export function movementKeyFromCode(code){return MOVEMENT_CODE_MAP[code]||null;}
+export function inputKeyFromCode(code,key=''){return movementKeyFromCode(code)||SAFE_ACTION_CODE_MAP[code]||String(key||'').toLowerCase();}
+export function selectNearbyNpc(entries,player,maxDistance=4.5){let best=null,bestDistance=maxDistance;for(const entry of entries||[]){const d=Math.hypot(entry.pos.x-player.x,entry.pos.z-player.z);if(d<bestDistance){best=entry;bestDistance=d;}}return best;}
+export function stepJumpMotion(height,velocity,dt,gravity=18){
+  let nextHeight=Math.max(0,Number(height)||0),nextVelocity=Number(velocity)||0;
+  if(nextHeight<=0&&nextVelocity<=0)return {height:0,velocity:0,grounded:true};
+  nextVelocity-=gravity*Math.max(0,Math.min(.05,Number(dt)||0));
+  nextHeight+=nextVelocity*Math.max(0,Math.min(.05,Number(dt)||0));
+  if(nextHeight<=0)return {height:0,velocity:0,grounded:true};
+  return {height:nextHeight,velocity:nextVelocity,grounded:false};
+}
+
 let activeRenderer=null;
 export function disposeStalker3D(){if(activeRenderer){activeRenderer.destroy();activeRenderer=null;}}
 
-export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=()=>{},onFire=()=>{},onPickup=()=>false,onNotify=()=>{},onCheckpoint=()=>{},onReload=()=>({ok:false}),onPunch=()=>({ok:false}),onBinoculars=()=>true,onAimChange=()=>{},reducedMotion=false,controlsMode='auto',restorePointerLock=false}={}){
+export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=()=>{},onFire=()=>{},onPickup=()=>false,onNotify=()=>{},onCheckpoint=()=>{},onReload=()=>({ok:false}),onPunch=()=>({ok:false}),onBinoculars=()=>true,onAimChange=()=>{},onFlashlightToggle=()=>{},reducedMotion=false,controlsMode='auto',restorePointerLock=false}={}){
   disposeStalker3D();
   if(!canvas||!game) return null;
   canvas.tabIndex=0;canvas.style.touchAction='none';
@@ -1157,7 +1180,7 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
   let p;
   try{p=program(gl);}catch(error){canvas.parentElement?.classList.remove('has-3d-world');onNotify(`Не удалось запустить 3D: ${error.message}`);return null;}
   const attrib={pos:gl.getAttribLocation(p,'aPosition'),normal:gl.getAttribLocation(p,'aNormal'),color:gl.getAttribLocation(p,'aColor'),uv:gl.getAttribLocation(p,'aUv')};
-  const uniforms={projection:gl.getUniformLocation(p,'uProjection'),view:gl.getUniformLocation(p,'uView'),model:gl.getUniformLocation(p,'uModel'),normal:gl.getUniformLocation(p,'uNormal'),sun:gl.getUniformLocation(p,'uSunDirection'),sunColor:gl.getUniformLocation(p,'uSunColor'),fog:gl.getUniformLocation(p,'uFogColor'),fogNear:gl.getUniformLocation(p,'uFogNear'),fogFar:gl.getUniformLocation(p,'uFogFar'),time:gl.getUniformLocation(p,'uTime'),albedo:gl.getUniformLocation(p,'uAlbedo'),characterAtlas:gl.getUniformLocation(p,'uCharacterAtlas'),textureReady:gl.getUniformLocation(p,'uTextureReady'),spritePass:gl.getUniformLocation(p,'uSpritePass')};
+  const uniforms={projection:gl.getUniformLocation(p,'uProjection'),view:gl.getUniformLocation(p,'uView'),model:gl.getUniformLocation(p,'uModel'),normal:gl.getUniformLocation(p,'uNormal'),sun:gl.getUniformLocation(p,'uSunDirection'),sunColor:gl.getUniformLocation(p,'uSunColor'),fog:gl.getUniformLocation(p,'uFogColor'),fogNear:gl.getUniformLocation(p,'uFogNear'),fogFar:gl.getUniformLocation(p,'uFogFar'),time:gl.getUniformLocation(p,'uTime'),albedo:gl.getUniformLocation(p,'uAlbedo'),characterAtlas:gl.getUniformLocation(p,'uCharacterAtlas'),textureReady:gl.getUniformLocation(p,'uTextureReady'),spritePass:gl.getUniformLocation(p,'uSpritePass'),flashlightPosition:gl.getUniformLocation(p,'uFlashlightPosition'),flashlightDirection:gl.getUniformLocation(p,'uFlashlightDirection'),flashlightOn:gl.getUniformLocation(p,'uFlashlightOn')};
   const albedoTexture=createAlbedoTexture(gl);const npcShadowMesh=buildNpcGroundShadow().toMesh(gl);gl.useProgram(p);gl.uniform1i(uniforms.albedo,0);gl.uniform1i(uniforms.characterAtlas,1);
   const loc=LOCATIONS.find(entry=>entry.id===game.locationId)||LOCATIONS[0];const layout=createSceneLayout(loc.id,loc.neighbors||[]);const rng=seeded(hash(loc.id));
   const staticBuilder=new MeshBuilder();const sceneHeight=(x,z)=>sampleLocationHeight(loc.id,x,z);const bunkerVoid=loc.id==='sidorovich-bunker'?(x,z)=>(Math.abs(x)<9.35&&z>-7.2&&z<7.2)||(Math.abs(x)<2.25&&z>=7.2&&z<=20.5):null;addGround(staticBuilder,rng,sceneHeight,bunkerVoid);addLocationSet(staticBuilder,loc.id,rng);const exits=addExitLayout(staticBuilder,loc.neighbors||[],loc.id);const worldMesh=staticBuilder.toMesh(gl);
@@ -1168,7 +1191,7 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
   const npcMeshes=npcs.filter(n=>!n.captured||game.currentAreaId==='atp-first-floor-prisoners').map((npc,index)=>{
     const rr=seeded(hash(npc.id));const angle=(index*2.399+rr()*.5),radius=7+(index%4)*3.6;const pos=loc.id==='sidorovich-bunker'&&npc.id==='sidorovich'?{x:0,z:-2.0}:{x:Math.cos(angle)*radius,z:Math.sin(angle)*radius-5};
     const faction=npc.faction||'loner';
-    return {npc,pos,mesh:buildHumanoid(faction,'npc',hash(npc.id),npc.weaponId||true,0).toMesh(gl),yaw:npcFacingYaw(pos,{x:0,z:0}),phase:rr()*6.28};
+    return {npc,pos,home:{x:pos.x,z:pos.z},destination:null,nextWander:performance.now()+rr()*2600,yaw:npcFacingYaw(pos,{x:0,z:0}),phase:rr()*6.28,moving:false,mesh:buildHumanoid(faction,'npc',hash(npc.id),npc.weaponId||true,0).toMesh(gl)};
   });
   const collected=game.player.worldLootCollected ||= {};
   const collectedHere=new Set(collected[loc.id]||[]);
@@ -1197,15 +1220,16 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
   let width=0,height=0,dpr=1,raf=0,last=performance.now(),saveElapsed=0,fireCooldown=0;
   let keyState={},touchMove={x:0,y:0},lookPointer=null,isPointerLocked=false,mouseDown=false,mouseButton=0,destroyed=false;
   let aimHeld=false,aimToggle=false,binocularActive=!!game.player?.binocularsActive,lookVertical=0,lookVerticalPointer=null;
+  let jumpHeight=0,jumpVelocity=0,lastJumpAt=-10000,crouchToggle=!!game.player?.isCrouching,flashlightActive=!!game.player?.flashlightActive;
   let reloadAt=-10000,meleeAt=-10000,punchAt=-10000,lastTravelAt=-10000,hudElapsed=0;
   const collisionData=buildSceneCollisionData(loc.id);
-  function isBlocked(x,z){
+  function isBlocked(x,z,ignoreNpcId=null,from=null){
     if(Math.abs(x)>64||Math.abs(z)>64)return true;
     if(collisionData.walls.some(wall=>pointSegmentDistance(x,z,wall.a,wall.b)<.43))return true;
     if(collisionData.solids.some(solid=>Math.hypot(x-solid.x,z-solid.z)<solid.r+.34))return true;
-    if(npcMeshes.some(entry=>Math.hypot(x-entry.pos.x,z-entry.pos.z)<.66))return true;
+    if(npcMeshes.some(entry=>entry.npc.id!==ignoreNpcId&&Math.hypot(x-entry.pos.x,z-entry.pos.z)<.66))return true;
     if(enemyEntry&&Math.hypot(x-enemyEntry.pos.x,z-enemyEntry.pos.z)<.66)return true;
-    const currentY=sampleLocationHeight(loc.id,pos.x,pos.z),nextY=sampleLocationHeight(loc.id,x,z);
+    const currentY=sampleLocationHeight(loc.id,from?.x??pos.x,from?.z??pos.z),nextY=sampleLocationHeight(loc.id,x,z);
     if(Math.abs(nextY-currentY)>.72)return true;
     return false;
   }
@@ -1213,18 +1237,34 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
   let resolvedControls=controlsMode;
   if(!['pc','mobile'].includes(resolvedControls)){let coarse=false;try{coarse=window.matchMedia('(pointer: coarse)').matches||navigator.maxTouchPoints>0;}catch{}resolvedControls=coarse?'mobile':'pc';}
   const touch=document.createElement('div');touch.className=`three-touch-controls is-${resolvedControls}`;
-  touch.innerHTML='<div class="three-joystick" aria-label="Движение"><i></i></div><div class="three-action-buttons"><button type="button" data-3d="interact">ДЕЙСТВИЕ</button><button type="button" data-3d="sprint">БЕГ</button><button type="button" data-3d="aim">ПРИЦЕЛ</button><button type="button" data-3d="reload">R</button><button type="button" data-3d="binoculars">БИНОКЛЬ</button><button type="button" data-3d="punch">УДАР</button><button type="button" data-3d="look-up">↑</button><button type="button" data-3d="look-down">↓</button><button type="button" data-3d="fire">ОГОНЬ</button></div><div class="three-help">WASD · Shift · мышь · ПКМ прицел · R перезарядка · B бинокль · Q прицел · E действие · ЛКМ огонь · C удар</div><div class="three-mobile-help">Стик — движение · свайп справа — обзор · ↑/↓ — вертикальный обзор</div>';
+  touch.innerHTML='<div class="three-joystick" aria-label="Движение"><i></i></div><div class="three-action-buttons"><button type="button" data-3d="interact">ДЕЙСТВИЕ</button><button type="button" data-3d="sprint">БЕГ</button><button type="button" data-3d="jump">ПРЫЖОК</button><button type="button" data-3d="crouch">ПРИСЕСТЬ</button><button type="button" data-3d="flashlight">ФОНАРЬ</button><button type="button" data-3d="aim">ПРИЦЕЛ</button><button type="button" data-3d="reload">R</button><button type="button" data-3d="binoculars">БИНОКЛЬ</button><button type="button" data-3d="punch">УДАР</button><button type="button" data-3d="look-up">↑</button><button type="button" data-3d="look-down">↓</button><button type="button" data-3d="fire">ОГОНЬ</button></div><div class="three-help">WASD · Shift · Space прыжок · Ctrl присесть · A/E диалог · L фонарь · мышь — обзор</div><div class="three-mobile-help">Стик — движение · свайп справа — обзор · Прыжок / Присесть / Фонарь</div>';
   canvas.parentElement.appendChild(touch);
   const joy=touch.querySelector('.three-joystick'),knob=joy.querySelector('i');let joyPointer=null,joyRect=null,sprintPointer=null,touchSprint=false;
-  const hud=document.createElement('div');hud.className='three-hud';hud.innerHTML='<div class="three-hud-minimap"><canvas width="144" height="144" aria-label="Мини-карта"></canvas><i></i></div><div class="three-hud-health"><div class="three-hud-health-track"><i></i></div><span>100</span></div>';
+  const hud=document.createElement('div');hud.className='three-hud';hud.innerHTML='<div class="three-hud-minimap"><canvas width="144" height="144" aria-label="Мини-карта"></canvas><i></i></div><div class="three-hud-health"><div class="three-hud-health-track"><i></i></div><span>100</span></div><div class="three-hud-flashlight">ФОНАРЬ · ВЫКЛ</div>';
   canvas.parentElement.appendChild(hud);
-  const mapCanvas=hud.querySelector('canvas'),mapCtx=mapCanvas.getContext('2d'),healthFill=hud.querySelector('.three-hud-health-track i'),healthText=hud.querySelector('.three-hud-health span');
+  const mapCanvas=hud.querySelector('canvas'),mapCtx=mapCanvas.getContext('2d'),healthFill=hud.querySelector('.three-hud-health-track i'),healthText=hud.querySelector('.three-hud-health span'),flashlightText=hud.querySelector('.three-hud-flashlight');
   const binocularOverlay=document.createElement('div');binocularOverlay.className='three-binocular-overlay';binocularOverlay.setAttribute('aria-hidden','true');binocularOverlay.innerHTML='<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path fill="#040604" fill-rule="evenodd" d="M0 0H100V100H0Z M18 50a21 29 0 1 0 42 0a21 29 0 1 0 -42 0 M40 50a21 29 0 1 0 42 0a21 29 0 1 0 -42 0"/><ellipse cx="39" cy="50" rx="21" ry="29" fill="none" stroke="#87916d" stroke-width=".7"/><ellipse cx="61" cy="50" rx="21" ry="29" fill="none" stroke="#87916d" stroke-width=".7"/><path d="M49 50H51" stroke="#aab58a" stroke-width="1.2"/></svg>';canvas.parentElement.appendChild(binocularOverlay);
   function resize(){const rect=canvas.getBoundingClientRect();if(!rect.width||!rect.height)return;width=rect.width;height=rect.height;dpr=Math.min(window.devicePixelRatio||1,1.6);canvas.width=Math.max(1,Math.round(width*dpr));canvas.height=Math.max(1,Math.round(height*dpr));gl.viewport(0,0,canvas.width,canvas.height);}
   const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(canvas);resize();
-  function nearestNpc(){let best=null,bd=1e9;for(const entry of npcMeshes){const d=Math.hypot(entry.pos.x-pos.x,entry.pos.z-pos.z);if(d<bd){best=entry;bd=d;}}return best&&bd<4.5?best:null;}
+  function nearestNpc(){return selectNearbyNpc(npcMeshes,pos,4.5);}
   function nearestLoot(){let best=null,bd=1e9;for(const entry of lootMeshes){const d=Math.hypot(entry.pos.x-pos.x,entry.pos.z-pos.z);if(d<bd){best=entry;bd=d;}}return best&&bd<3.4?best:null;}
   function nearestExit(){let best=null,bd=1e9;for(const exit of exits){const d=Math.hypot(exit.x-pos.x,exit.z-pos.z);if(d<bd){best=exit;bd=d;}}return best&&bd<5.5?best:null;}
+  function updateNpcMovement(dt,now){
+    for(const entry of npcMeshes){
+      if(!entry.destination||now>=entry.nextWander){
+        const angle=Math.sin(entry.phase+now*.00017)*Math.PI+(entry.phase%1)*1.4;
+        const radius=1.2+((Math.floor(entry.phase*1000)%4)+1)*.42;
+        entry.destination={x:entry.home.x+Math.cos(angle)*radius,z:entry.home.z+Math.sin(angle)*radius};
+        entry.nextWander=now+2600+(entry.phase%1)*3100;
+      }
+      const dx=entry.destination.x-entry.pos.x,dz=entry.destination.z-entry.pos.z,d=Math.hypot(dx,dz);
+      entry.moving=d>.20;
+      if(!entry.moving){entry.destination=null;continue;}
+      const step=Math.min(d,.48*dt),nx=entry.pos.x+dx/d*step,nz=entry.pos.z+dz/d*step;
+      if(!isBlocked(nx,entry.pos.z,entry.npc.id,entry.pos)&&!isBlocked(entry.pos.x,nz,entry.npc.id,entry.pos)){entry.pos.x=nx;entry.pos.z=nz;entry.yaw=Math.atan2(dx,dz);}
+      else {entry.destination=null;entry.nextWander=now+300;}
+    }
+  }
   function arrivalForExit(exit){return {from:loc.id,edge:{x:exit.x,z:exit.z},yaw};}
   function travel(exit){if(!exit)return false;lastTravelAt=performance.now();const result=onTravel(exit.id,arrivalForExit(exit));return result;}
   function interact(){const target=nearestNpc();if(target){onInteract(target.npc.id);return;}const loot=nearestLoot();if(loot){const ok=onPickup(loot.id);if(ok){game.player.worldLootCollected[loc.id] ||= [];game.player.worldLootCollected[loc.id].push(loot.key);gl.deleteBuffer(loot.mesh.buffer);lootMeshes.splice(lootMeshes.indexOf(loot),1);onCheckpoint();}return;}const exit=nearestExit();if(exit){travel(exit);return;}onNotify('Рядом никого нет. Подойди ближе к сталкеру, предмету или выходу.');}
@@ -1251,8 +1291,21 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
   function toggleAim(){aimToggle=!aimToggle;game.player.isAiming=aimToggle||aimHeld;onAimChange(game.player.isAiming);touch.querySelector('[data-3d="aim"]')?.classList.toggle('active',game.player.isAiming);}
   function toggleBinoculars(){const next=!binocularActive;const allowed=onBinoculars(next);if(allowed===false)return;binocularActive=next;game.player.binocularsActive=next;if(next){aimToggle=false;aimHeld=false;game.player.isAiming=false;onAimChange(false);}binocularOverlay.classList.toggle('active',next);}
   function punch(){const target=aimedNpc(1.9,.18)||enemyEntry;const distance=target?Math.hypot(target.pos.x-pos.x,target.pos.z-pos.z):Infinity;if(!target||distance>1.65){onNotify('Для удара нужно подойти вплотную.');return;}punchAt=performance.now();onPunch(target.npc||null,distance,{position:{x:pos.x,z:pos.z,yaw},targetPosition:target.pos||null});}
-  function keydown(e){if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;const k=e.key.toLowerCase();if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright',' ','f','e','shift','q','r','b','c'].includes(k))e.preventDefault();keyState[k]=true;if(k==='e'&&!e.repeat)interact();if(k==='f'&&!e.repeat)fire();if(k==='q'&&!e.repeat)toggleAim();if(k==='r'&&!e.repeat)reload();if(k==='b'&&!e.repeat)toggleBinoculars();if(k==='c'&&!e.repeat)punch();}
-  function keyup(e){keyState[e.key.toLowerCase()]=false;}
+  function toggleCrouch(){crouchToggle=!crouchToggle;game.player.isCrouching=crouchToggle;touch.querySelector('[data-3d="crouch"]')?.classList.toggle('active',crouchToggle);}
+  function jump(){if(jumpHeight>0||performance.now()-lastJumpAt<280||crouchToggle||keyState.control)return;lastJumpAt=performance.now();jumpVelocity=6.3;}
+  function toggleFlashlight(){flashlightActive=!flashlightActive;game.player.flashlightActive=flashlightActive;flashlightText.textContent=flashlightActive?'ФОНАРЬ · ВКЛ':'ФОНАРЬ · ВЫКЛ';flashlightText.classList.toggle('active',flashlightActive);touch.querySelector('[data-3d="flashlight"]')?.classList.toggle('active',flashlightActive);onFlashlightToggle(flashlightActive);}
+  function keydown(e){
+    if(['INPUT','TEXTAREA','SELECT'].includes(document.activeElement?.tagName))return;
+    const movementKey=movementKeyFromCode(e.code);
+    if(e.code==='KeyA'&&nearestNpc()){e.preventDefault();if(!e.repeat)interact();return;}
+    const k=inputKeyFromCode(e.code,e.key);
+    if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright','space','shift','control','e','f','q','r','b','c','l'].includes(k))e.preventDefault();
+    keyState[k]=true;
+    if(k==='e'&&!e.repeat)interact();if(k==='space'&&!e.repeat)jump();if(k==='l'&&!e.repeat)toggleFlashlight();
+    if(k==='c'&&!e.repeat)punch();
+    if(k==='f'&&!e.repeat)fire();if(k==='q'&&!e.repeat)toggleAim();if(k==='r'&&!e.repeat)reload();if(k==='b'&&!e.repeat)toggleBinoculars();
+  }
+  function keyup(e){const k=inputKeyFromCode(e.code,e.key);keyState[k]=false;}
   function applyLook(dx,dy,sensitivity=.0045){yaw+=dx*sensitivity;pitch=clamp(pitch-dy*sensitivity*.92,-1.12,.90);}
   function pointerdown(e){
     if(e.pointerType==='touch'){
@@ -1276,7 +1329,7 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
     const btn=e.target.closest('[data-3d]');if(!btn)return;e.preventDefault();const action=btn.dataset['3d'];
     if(action==='sprint'){sprintPointer=e.pointerId;touchSprint=true;btn.setPointerCapture?.(e.pointerId);return;}
     if(action==='look-up'||action==='look-down'){lookVertical=action==='look-up'?1:-1;lookVerticalPointer=e.pointerId;btn.setPointerCapture?.(e.pointerId);return;}
-    if(action==='aim')toggleAim();else if(action==='reload')reload();else if(action==='binoculars')toggleBinoculars();else if(action==='punch')punch();else if(action==='fire')fire();else if(action==='interact')interact();
+    if(action==='aim')toggleAim();else if(action==='reload')reload();else if(action==='binoculars')toggleBinoculars();else if(action==='punch')punch();else if(action==='fire')fire();else if(action==='interact')interact();else if(action==='jump')jump();else if(action==='crouch')toggleCrouch();else if(action==='flashlight')toggleFlashlight();
   };
   function joystickDown(e){e.preventDefault();joyPointer=e.pointerId;joyRect=joy.getBoundingClientRect();joy.setPointerCapture?.(e.pointerId);updateJoy(e);}
   joy.addEventListener('pointerdown',joystickDown);canvas.addEventListener('pointerdown',pointerdown);canvas.addEventListener('contextmenu',contextMenu);window.addEventListener('pointermove',pointermove);window.addEventListener('pointerup',pointerup);window.addEventListener('pointercancel',pointerup);window.addEventListener('keydown',keydown);window.addEventListener('keyup',keyup);document.addEventListener('pointerlockchange',pointerlock);document.addEventListener('pointerlockerror',pointerlockerror);window.addEventListener('mousemove',mousemove);touch.addEventListener('pointerdown',onTouchAction);
@@ -1285,6 +1338,7 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
   function updateHud(){
     const maxHp=Math.max(1,Number(game.player?.maxHp)||100),hp=clamp(Number(game.player?.hp??maxHp),0,maxHp),pct=hp/maxHp*100;
     healthFill.style.width=`${pct}%`;healthFill.style.background=pct<25?'#b64e3d':pct<55?'#b8a34b':'#9aa85e';healthText.textContent=String(Math.round(hp));
+    flashlightText.textContent=flashlightActive?'ФОНАРЬ · ВКЛ':'ФОНАРЬ · ВЫКЛ';flashlightText.classList.toggle('active',flashlightActive);
     const c=mapCtx,w=mapCanvas.width,h=mapCanvas.height,cx=w/2,cy=h/2,scale=1.42;c.clearRect(0,0,w,h);c.save();c.beginPath();c.arc(cx,cy,68,0,Math.PI*2);c.clip();c.fillStyle='#172117';c.fillRect(0,0,w,h);
     c.strokeStyle='#82916b55';c.lineWidth=1;for(let radius of [20,42,64]){c.beginPath();c.arc(cx,cy,radius,0,Math.PI*2);c.stroke();}c.strokeStyle='#84926b44';c.beginPath();c.moveTo(cx,0);c.lineTo(cx,h);c.moveTo(0,cy);c.lineTo(w,cy);c.stroke();
     const ca=Math.cos(yaw),sa=Math.sin(yaw);const mapPoint=(x,z)=>{const dx=x-pos.x,dz=z-pos.z;return {x:cx+(dx*ca+dz*sa)*scale,y:cy+(dx*sa-dz*ca)*scale};};
@@ -1293,32 +1347,34 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
     c.save();c.translate(cx,cy);c.rotate(0);c.fillStyle='#edf0c9';c.beginPath();c.moveTo(0,-9);c.lineTo(6,7);c.lineTo(0,4);c.lineTo(-6,7);c.closePath();c.fill();c.restore();c.restore();
   }
   function draw(mesh,model){gl.bindBuffer(gl.ARRAY_BUFFER,mesh.buffer);const stride=11*4;gl.enableVertexAttribArray(attrib.pos);gl.vertexAttribPointer(attrib.pos,3,gl.FLOAT,false,stride,0);gl.enableVertexAttribArray(attrib.normal);gl.vertexAttribPointer(attrib.normal,3,gl.FLOAT,false,stride,12);gl.enableVertexAttribArray(attrib.color);gl.vertexAttribPointer(attrib.color,3,gl.FLOAT,false,stride,24);gl.enableVertexAttribArray(attrib.uv);gl.vertexAttribPointer(attrib.uv,2,gl.FLOAT,false,stride,36);gl.uniformMatrix4fv(uniforms.model,false,model);gl.uniformMatrix3fv(uniforms.normal,false,normalMatrix(model));gl.uniform1f(uniforms.spritePass,0);gl.disable(gl.BLEND);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,albedoTexture.texture);gl.drawArrays(gl.TRIANGLES,0,mesh.count);}
-  function frame(now){if(destroyed)return;raf=requestAnimationFrame(frame);const dt=Math.min(.04,(now-last)/1000||.016);last=now;
+  function frame(now){if(destroyed)return;raf=requestAnimationFrame(frame);const dt=Math.min(.04,(now-last)/1000||.016);last=now;updateNpcMovement(dt,now);
     const forward=(keyState.w||keyState.arrowup?1:0)-(keyState.s||keyState.arrowdown?1:0)-touchMove.y;
     const strafe=(keyState.d||keyState.arrowright?1:0)-(keyState.a||keyState.arrowleft?1:0)+touchMove.x;
     const magnitude=Math.hypot(forward,strafe)||1,nf=forward/Math.max(1,magnitude),ns=strafe/Math.max(1,magnitude);
-    const speed=(keyState.shift||touchSprint?7.0:3.7)*dt;const dx=(Math.sin(yaw)*nf+Math.cos(yaw)*ns)*speed,dz=(-Math.cos(yaw)*nf+Math.sin(yaw)*ns)*speed;
+    const crouched=crouchToggle||keyState.control;const speed=(crouched?1.65:(keyState.shift||touchSprint?7.0:3.7))*dt;const dx=(Math.sin(yaw)*nf+Math.cos(yaw)*ns)*speed,dz=(-Math.cos(yaw)*nf+Math.sin(yaw)*ns)*speed;
     if(Math.abs(forward)+Math.abs(strafe)>.01){
       const nx=pos.x+dx,nz=pos.z+dz;let moved=0;
       if(!isBlocked(nx,pos.z)){pos.x=nx;moved+=Math.abs(dx);}if(!isBlocked(pos.x,nz)){pos.z=nz;moved+=Math.abs(dz);}
       if(moved>0){pos.yaw=yaw;game.player.worldPositions[loc.id]={x:pos.x,z:pos.z,yaw};game.distanceTravelled=(game.distanceTravelled||0)+moved*.001;}
     }
     if(lookVertical) pitch=clamp(pitch+lookVertical*dt*.82,-1.12,.90);
+    const jumpState=stepJumpMotion(jumpHeight,jumpVelocity,dt);jumpHeight=jumpState.height;jumpVelocity=jumpState.velocity;
     // Adjacent zones connect at their physical edge markers; crossing a marker streams straight into the next scene.
     if(now-lastTravelAt>1200){const crossing=exits.find(exit=>Math.hypot(exit.x-pos.x,exit.z-pos.z)<1.85);if(crossing){const result=travel(crossing);if(result===false||result?.ok===false){const dx0=pos.x-crossing.x,dz0=pos.z-crossing.z,l0=Math.hypot(dx0,dz0)||1;pos.x=crossing.x+dx0/l0*2.4;pos.z=crossing.z+dz0/l0*2.4;game.player.worldPositions[loc.id]={x:pos.x,z:pos.z,yaw};if(result?.message)onNotify(result.message);}}}
-    const terrainY=sampleLocationHeight(loc.id,pos.x,pos.z);const eyeY=terrainY+1.66;const camera=[pos.x,eyeY,pos.z];const cameraPitch=clamp(pitch,-1.12,.90);const target=[pos.x+Math.sin(yaw)*Math.cos(cameraPitch)*10,eyeY+Math.sin(cameraPitch)*10,pos.z-Math.cos(yaw)*Math.cos(cameraPitch)*10];const view=lookAt(camera,target);const aimActive=aimHeld||aimToggle;const fov=binocularActive?.255:aimActive?.49:.91;const proj=perspective(fov,width/Math.max(1,height),.08,160);
+    const terrainY=sampleLocationHeight(loc.id,pos.x,pos.z);const eyeY=terrainY+(crouched?1.08:1.66)+jumpHeight;const camera=[pos.x,eyeY,pos.z];const cameraPitch=clamp(pitch,-1.12,.90);const target=[pos.x+Math.sin(yaw)*Math.cos(cameraPitch)*10,eyeY+Math.sin(cameraPitch)*10,pos.z-Math.cos(yaw)*Math.cos(cameraPitch)*10];const view=lookAt(camera,target);const aimActive=aimHeld||aimToggle;const fov=binocularActive?.255:aimActive?.49:.91;const proj=perspective(fov,width/Math.max(1,height),.08,160);
     binocularOverlay.classList.toggle('active',binocularActive);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.clearColor(.17,.20,.17,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.useProgram(p);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,albedoTexture.texture);gl.uniform1f(uniforms.textureReady,albedoTexture.ready?1:0);gl.uniformMatrix4fv(uniforms.projection,false,proj);gl.uniformMatrix4fv(uniforms.view,false,view);gl.uniform3f(uniforms.sun,.45,-1,.28);gl.uniform3f(uniforms.sunColor,1,.91,.75);const hour=Number(String(game.clock?.time||'14:00').split(':')[0])||14;const night=hour<6||hour>20;gl.uniform3f(uniforms.fog,night?.09:.12,night?.12:.16,night?.10:.13);gl.uniform1f(uniforms.fogNear,20);gl.uniform1f(uniforms.fogFar,82);gl.uniform1f(uniforms.time,now/1000);
+    gl.uniform3f(uniforms.flashlightPosition,camera[0],camera[1],camera[2]);gl.uniform3f(uniforms.flashlightDirection,Math.sin(yaw)*Math.cos(cameraPitch),Math.sin(cameraPitch),-Math.cos(yaw)*Math.cos(cameraPitch));gl.uniform1f(uniforms.flashlightOn,flashlightActive?1:0);
     draw(worldMesh,modelMatrix(0,0,0,0));
     for(const entry of lootMeshes){const phase=now*.0026+entry.phase,bob=Math.sin(phase)*.055,spin=now*entry.spin+entry.phase,scale=1+Math.sin(phase*1.3)*.035;draw(entry.mesh,modelMatrix(entry.pos.x,sampleLocationHeight(loc.id,entry.pos.x,entry.pos.z)+.12+bob,entry.pos.z,spin,scale));}
     // Full 3D NPC bodies use idle breathing, weight shifts and independent facing rather than flat PNG cards.
-    for(const entry of npcMeshes){if(enemyModel&&enemyEntry&&entry.npc.id===enemyEntry.npc.id)continue;const angle=npcFacingYaw(entry.pos,pos)+Math.sin(now*.00055+entry.phase)*.045;const idle=Math.sin(now*.0012+entry.phase)*.018;const npcY=sampleLocationHeight(loc.id,entry.pos.x,entry.pos.z)+idle;draw(npcShadowMesh,modelMatrix(entry.pos.x,sampleLocationHeight(loc.id,entry.pos.x,entry.pos.z),entry.pos.z,0));draw(entry.mesh,modelMatrix(entry.pos.x,npcY,entry.pos.z,angle));}
+    for(const entry of npcMeshes){if(enemyModel&&enemyEntry&&entry.npc.id===enemyEntry.npc.id)continue;const angle=entry.moving?entry.yaw+Math.sin(now*.006+entry.phase)*.025:npcFacingYaw(entry.pos,pos)+Math.sin(now*.00055+entry.phase)*.028;const idle=entry.moving?Math.abs(Math.sin(now*.006+entry.phase))*.025:Math.sin(now*.0012+entry.phase)*.006;const npcY=sampleLocationHeight(loc.id,entry.pos.x,entry.pos.z)+idle;draw(npcShadowMesh,modelMatrix(entry.pos.x,sampleLocationHeight(loc.id,entry.pos.x,entry.pos.z),entry.pos.z,0));draw(entry.mesh,modelMatrix(entry.pos.x,npcY,entry.pos.z,angle));}
     if(enemyModel){const ex=enemyEntry?.pos.x??(pos.x+Math.sin(yaw)*3.6),ez=enemyEntry?.pos.z??(pos.z-Math.cos(yaw)*3.6);const enemyYaw=npcFacingYaw({x:ex,z:ez},pos);draw(npcShadowMesh,modelMatrix(ex,sampleLocationHeight(loc.id,ex,ez),ez,0));draw(enemyModel.mesh,modelMatrix(ex,sampleLocationHeight(loc.id,ex,ez)+Math.sin(now*.003)*.012,ez,enemyYaw));}
     const shotElapsed=now-shotAt;if(shotMesh&&shotElapsed>=0&&shotElapsed<165)draw(shotMesh,modelMatrix(0,0,0,0));
-    const moving=Math.abs(forward)+Math.abs(strafe)>.02;const walkPhase=(now*((keyState.shift||touchSprint)?.014:.010))%(Math.PI*2);const bob=moving?Math.abs(Math.sin(walkPhase*2))*.052:Math.sin(now*.0018)*.012;const sway=moving?Math.sin(walkPhase)*.045:Math.sin(now*.0012)*.009;const recoil=Math.max(0,1-(now-recoilAt)/190);
+    const moving=Math.abs(forward)+Math.abs(strafe)>.02;const walkPhase=(now*((keyState.shift||touchSprint)?.014:.010))%(Math.PI*2);const bob=moving?Math.abs(Math.sin(walkPhase*2))*.009:0;const sway=moving?Math.sin(walkPhase)*.007:0;const recoil=Math.max(0,1-(now-recoilAt)/190);
     const reloadT=clamp((now-reloadAt)/1050,0,1),reloadPhase=(now-reloadAt<1050)?Math.sin(reloadT*Math.PI):0;const knifeT=clamp((now-meleeAt)/380,0,1),knifeThrust=(now-meleeAt<380)?Math.sin(knifeT*Math.PI)*.30:0;const punchT=clamp((now-punchAt)/430,0,1),punchThrust=(now-punchAt<430)?Math.sin(punchT*Math.PI)*.36:0;
     const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(cameraPitch),sp=Math.sin(cameraPitch);let right=[cy,0,sy],up=[-sy*sp,cp,cy*sp],back=[-sy*cp,-sp,cy*cp];
     const roll=reloadPhase*.24+(aimActive?-.06:0);const rolledRight=[right[0]*Math.cos(roll)+up[0]*Math.sin(roll),right[1]*Math.cos(roll)+up[1]*Math.sin(roll),right[2]*Math.cos(roll)+up[2]*Math.sin(roll)];const rolledUp=[up[0]*Math.cos(roll)-right[0]*Math.sin(roll),up[1]*Math.cos(roll)-right[1]*Math.sin(roll),up[2]*Math.cos(roll)-right[2]*Math.sin(roll)];right=rolledRight;up=rolledUp;
-    const viewScale=binocularActive?.47:aimActive?.49:.50;const handForward=-.35-(aimActive?.12:0)-recoil*.14-knifeThrust-punchThrust;const handLift=-.12+(aimActive?.25:0)+bob*(aimActive?.30:1)+reloadPhase*.29;const handOrigin=[camera[0]+right[0]*(.045+sway)+up[0]*handLift+back[0]*handForward,camera[1]+right[1]*(.045+sway)+up[1]*handLift+back[1]*handForward,camera[2]+right[2]*(.045+sway)+up[2]*handLift+back[2]*handForward];const handsMatrix=new Float32Array([right[0]*viewScale,right[1]*viewScale,right[2]*viewScale,0,up[0]*viewScale,up[1]*viewScale,up[2]*viewScale,0,back[0]*viewScale,back[1]*viewScale,back[2]*viewScale,0,handOrigin[0],handOrigin[1],handOrigin[2],1]);
+    const viewScale=binocularActive?.47:aimActive?.49:.50;const handForward=-.35-(aimActive?.12:0)-recoil*.085-knifeThrust-punchThrust;const handLift=-.12+(aimActive?.25:0)+bob*(aimActive?.30:1)+reloadPhase*.29;const handOrigin=[camera[0]+right[0]*(.045+sway)+up[0]*handLift+back[0]*handForward,camera[1]+right[1]*(.045+sway)+up[1]*handLift+back[1]*handForward,camera[2]+right[2]*(.045+sway)+up[2]*handLift+back[2]*handForward];const handsMatrix=new Float32Array([right[0]*viewScale,right[1]*viewScale,right[2]*viewScale,0,up[0]*viewScale,up[1]*viewScale,up[2]*viewScale,0,back[0]*viewScale,back[1]*viewScale,back[2]*viewScale,0,handOrigin[0],handOrigin[1],handOrigin[2],1]);
     const heldMesh=(punchT>0&&punchT<1)?fistsMesh:binocularActive?binocularMesh:firstPersonMesh;draw(heldMesh,handsMatrix);if(reloadAt>0&&now-reloadAt<1050&&['aksu','gaduka','pm','sawedoff','vm17'].includes(equippedId)){const magMatrix=new Float32Array(handsMatrix);const magT=clamp((now-reloadAt)/1050,0,1);const offsetX=-.34,offsetY=-.42+Math.sin(magT*Math.PI)*.30,offsetZ=-.02;magMatrix[12]+=right[0]*offsetX+up[0]*offsetY+back[0]*offsetZ;magMatrix[13]+=right[1]*offsetX+up[1]*offsetY+back[1]*offsetZ;magMatrix[14]+=right[2]*offsetX+up[2]*offsetY+back[2]*offsetZ;draw(reloadMagazineMesh,magMatrix);}aimReticle.classList.toggle('is-aimed',aimActive&&!binocularActive);aimReticle.classList.toggle('is-optic',binocularActive);
     hudElapsed+=dt;if(hudElapsed>.12){hudElapsed=0;updateHud();}
     saveElapsed+=dt;if(saveElapsed>8){saveElapsed=0;game.player.worldPositions[loc.id]={x:pos.x,z:pos.z,yaw};onCheckpoint();}

@@ -182,6 +182,7 @@ function render() {
           state.game.player.binocularsActive=active;persist();return true;
         },
         onAimChange:(active)=>{state.game.player.isAiming=active;},
+        onFlashlightToggle:(active)=>{state.game.player.flashlightActive=active;state.ui.flashlight=active;persist();},
         onPickup:(itemId)=>{
           const item=getItem(itemId);
           const result=addItem(state.game.inventory,itemId,1);
@@ -427,7 +428,7 @@ root.addEventListener('click', (event) => {
   if (action==='close-modal') { const previous=state.ui.modalReturn||null; state.ui.modal=state.ui.modal==='item-details'?'inventory-panel':previous; state.ui.modalReturn=null; state.ui.exploreSpotId=null; return render(); }
   if (action==='story-note-close') { state.ui.modal=null; persist(); return render(); }
   if (action==='close-dialogue') { state.game.dialogueNpcId=null; persist(); return render(); }
-  if (action==='flashlight-toggle') { state.ui.flashlight=!state.ui.flashlight; persist(); return render(); }
+  if (action==='flashlight-toggle') { state.ui.flashlight=!state.ui.flashlight; if(state.game?.player)state.game.player.flashlightActive=state.ui.flashlight; persist(); return render(); }
   if (action==='generate-stalker-name') {
     state.draft ||= {name:'',faction:'loner'};
     state.draft.name=generateStalkerName();
@@ -940,6 +941,6 @@ setInterval(()=>{
   updateClockDisplays();
 },15000);
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=3500').catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=3600').catch(()=>{}));
 }
 render();

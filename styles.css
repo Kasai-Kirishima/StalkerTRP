@@ -2093,3 +2093,9 @@ html { zoom: var(--ui-scale, 1); }
 .map-frame-large .map-pin span{font-size:12px;line-height:1}
 
 .three-action-buttons button.active{background:#53613a!important;border-color:#d0dc9b!important;box-shadow:0 0 0 2px #d0dc9b55,0 3px 12px #000b}
+
+/* v3.6 traversal, flashlight and reduced first-person camera motion */
+.three-hud-flashlight{padding:4px 6px;text-align:center;color:#a7ad8a;background:rgba(7,12,8,.78);border:1px solid rgba(154,171,111,.42);border-radius:3px;font:9px 'Share Tech Mono',monospace;letter-spacing:.06em}
+.three-hud-flashlight.active{color:#f0e3a7;border-color:#c3ad65;background:rgba(37,32,15,.88)}
+.three-touch-controls [data-3d='flashlight'].active,.three-touch-controls [data-3d='crouch'].active{background:#4a4b2a!important;border-color:#d3c47a!important}
+.three-touch-controls [data-3d='jump']{background:#33402c!important}

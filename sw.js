@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cordon-pda-v3500-pov-terrain-interiors';
+const CACHE_NAME = 'cordon-pda-v3600-physical-input-jump-flashlight';
 const APP_SHELL = [
   "./",
   "./index.html",

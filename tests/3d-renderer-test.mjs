@@ -3,10 +3,16 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { LOCATIONS } from '../src/data/catalog.js';
-import { createSceneLayout, classifyItemModel, buildPreviewGeometry, buildItemPreviewGeometry, selectAimedTarget, sampleTerrainHeight, npcFacingYaw, buildSceneCollisionData, sampleLocationHeight } from '../src/3d/renderer.js';
+import { createSceneLayout, classifyItemModel, buildPreviewGeometry, buildItemPreviewGeometry, selectAimedTarget, sampleTerrainHeight, npcFacingYaw, buildSceneCollisionData, sampleLocationHeight, movementKeyFromCode, inputKeyFromCode, selectNearbyNpc, stepJumpMotion } from '../src/3d/renderer.js';
 import { ITEMS } from '../src/data/catalog.js';
 
 const profiles=new Set();
+function assertFiniteMesh(mesh,label){
+  for(const [name,values] of [['vertices',mesh.vertices],['uvs',mesh.uvs],['colors',mesh.colors]]){
+    assert.ok(Array.isArray(values)&&values.length>0,`${label} ${name} must exist`);
+    assert.ok(values.every(Number.isFinite),`${label} ${name} must not contain NaN or Infinity`);
+  }
+}
 const aimPosition={x:0,z:0};
 const aimEntries=[{npc:{id:'front'},pos:{x:0,z:-8}},{npc:{id:'behind'},pos:{x:0,z:5}},{npc:{id:'side'},pos:{x:7,z:-4}}];
 assert.equal(selectAimedTarget(aimEntries,aimPosition,0)?.npc.id,'front','aiming must select the NPC in front of the player');
@@ -14,6 +20,21 @@ assert.equal(selectAimedTarget(aimEntries,aimPosition,Math.PI)?.npc.id,'behind',
 assert.equal(selectAimedTarget([{npc:{id:'off-axis'},pos:{x:0,z:-8}}],aimPosition,Math.PI/2),null,'aiming must not select targets outside the narrow firing cone');
 assert.ok(Math.abs(npcFacingYaw({x:0,z:-5},{x:0,z:0})-Math.PI)<1e-9,'NPC should face south toward a player directly north of it');
 assert.ok(Math.abs(npcFacingYaw({x:5,z:0},{x:0,z:0})-Math.PI/2)<1e-9,'NPC should face west toward a player directly west of it');
+assert.equal(movementKeyFromCode('KeyW'),'w','W movement must use physical keyboard codes independently of keyboard layout');
+assert.equal(movementKeyFromCode('KeyA'),'a','A movement must use physical keyboard codes');
+assert.equal(movementKeyFromCode('KeyS'),'s','S movement must use physical keyboard codes');
+assert.equal(movementKeyFromCode('KeyD'),'d','D movement must use physical keyboard codes');
+assert.equal(movementKeyFromCode('KeyQ'),null,'unmapped keys must not become movement');
+assert.equal(inputKeyFromCode('KeyE','у'),'e','interaction shortcut must work independently of keyboard layout');
+assert.equal(inputKeyFromCode('KeyL','д'),'l','flashlight shortcut must work independently of keyboard layout');
+assert.equal(inputKeyFromCode('Space',' '),'space','jump must use the physical space key');
+const nearbyEntries=[{npc:{id:'far'},pos:{x:3.9,z:0}},{npc:{id:'near'},pos:{x:1.4,z:0}}];
+assert.equal(selectNearbyNpc(nearbyEntries,{x:0,z:0},4.5)?.npc.id,'near','A should select the nearest nearby NPC for dialogue');
+assert.equal(selectNearbyNpc(nearbyEntries,{x:0,z:0},1.0),null,'NPC dialogue should require close proximity');
+let jump=stepJumpMotion(0,6.3,1/60);assert.ok(jump.height>0&&jump.velocity>0&&!jump.grounded,'jump should leave the ground with positive vertical velocity');
+for(let i=0;i<120;i++)jump=stepJumpMotion(jump.height,jump.velocity,1/60);
+assert.equal(jump.height,0,'jump should return to the ground');assert.equal(jump.grounded,true,'jump should report grounded after landing');
+
 const atlasPath=fileURLToPath(new URL('../assets/textures/cordon-materials.png',import.meta.url));
 const atlas=fs.readFileSync(atlasPath);
 assert.equal(atlas.toString('ascii',1,4),'PNG','Material atlas must be a valid PNG');
@@ -33,8 +54,8 @@ for(const location of LOCATIONS){
   profiles.add(layout.profile);
 }
 for(const required of ['village','checkpoint','farm','industrial','forest','roadside'])assert.ok(profiles.has(required),`Missing environment profile ${required}`);
-for(const item of ITEMS){assert.ok(['weapon','armor','artifact','medicine','ammo','food','supply'].includes(classifyItemModel(item.id)),`3D item model missing for ${item.id}`);const model=buildItemPreviewGeometry(item.id);assert.ok(model?.mesh?.vertices?.length>60,`3D geometry missing for ${item.id}`);assert.equal(model.mesh.uvs.length,model.mesh.vertices.length/3*2,`3D texture UV missing for ${item.id}`);}
-for(const location of LOCATIONS){const preview=buildPreviewGeometry(location.id);assert.ok(preview.world.vertices.length>1000,`Scene geometry missing for ${location.id}`);assert.equal(preview.world.uvs.length,preview.world.vertices.length/3*2,`Texture UVs missing for ${location.id}`);assert.ok(preview.player.vertices.length>100,`Player model missing for ${location.id}`);assert.ok(preview.firstPerson.vertices.length>100,`First-person arms and weapon mesh missing for ${location.id}`);assert.ok(preview.firstPerson.vertices.length<preview.player.vertices.length,`First-person view mesh should not be a full-body character for ${location.id}`);assert.ok(preview.groundSamples.length>=5,`Rolling terrain samples missing for ${location.id}`);assert.equal(preview.player.uvs.length,preview.player.vertices.length/3*2,`Player texture UVs missing for ${location.id}`);}
+for(const item of ITEMS){assert.ok(['weapon','armor','artifact','medicine','ammo','food','supply'].includes(classifyItemModel(item.id)),`3D item model missing for ${item.id}`);const model=buildItemPreviewGeometry(item.id);assert.ok(model?.mesh?.vertices?.length>60,`3D geometry missing for ${item.id}`);assert.equal(model.mesh.uvs.length,model.mesh.vertices.length/3*2,`3D texture UV missing for ${item.id}`);assertFiniteMesh(model.mesh,`item ${item.id}`);}
+for(const location of LOCATIONS){const preview=buildPreviewGeometry(location.id);assert.ok(preview.world.vertices.length>1000,`Scene geometry missing for ${location.id}`);assert.equal(preview.world.uvs.length,preview.world.vertices.length/3*2,`Texture UVs missing for ${location.id}`);assertFiniteMesh(preview.world,`world ${location.id}`);assert.ok(preview.player.vertices.length>100,`Player model missing for ${location.id}`);assert.ok(preview.firstPerson.vertices.length>100,`First-person arms and weapon mesh missing for ${location.id}`);assert.ok(preview.firstPerson.vertices.length<preview.player.vertices.length,`First-person view mesh should not be a full-body character for ${location.id}`);assertFiniteMesh(preview.player,`player ${location.id}`);assertFiniteMesh(preview.firstPerson,`first-person ${location.id}`);assert.ok(preview.groundSamples.length>=5,`Rolling terrain samples missing for ${location.id}`);assert.equal(preview.player.uvs.length,preview.player.vertices.length/3*2,`Player texture UVs missing for ${location.id}`);}
 // Character previews must retain enough mesh detail for layered sleeves, elbows and articulated gloves.
 const factionPreview=buildPreviewGeometry('rookie-village');
 assert.equal(factionPreview.playerPosition.x,-8,'rookie village spawn should keep a clear first-person sightline');
@@ -72,11 +93,21 @@ assert.ok(rendererSource.includes('buildReloadMagazine')&&rendererSource.include
 assert.ok(rendererSource.includes("weaponId==='pm'" )&&rendererSource.includes("weaponId==='gaduka'" )&&rendererSource.includes("weaponId==='sawedoff'||weaponId==='vm17'"),'each firearm family must have its own 3D first-person mesh');
 assert.ok(rendererSource.includes('const fov=binocularActive?.255:aimActive?.49:.91')&&rendererSource.includes('three-binocular-overlay'),'binoculars must use a real 3D model, optical zoom and a binocular mask');
 assert.ok(rendererSource.includes('data-3d=\"look-down\"')&&rendererSource.includes('pitch+lookVertical*dt*.82'),'mobile controls must allow lowering the camera pitch');
+assert.ok(rendererSource.includes('movementKeyFromCode(e.code)')&&rendererSource.includes('KeyW')&&rendererSource.includes('inputKeyFromCode(e.code,e.key)'),'movement and safe interaction shortcuts must be independent of keyboard layout');
+assert.ok(rendererSource.includes("if(k==='space'&&!e.repeat)jump()")&&rendererSource.includes('stepJumpMotion'),'jump must use vertical velocity and gravity');
+assert.ok(rendererSource.includes('const crouched=crouchToggle||keyState.control')&&rendererSource.includes('crouched?1.08:1.66'),'crouching must lower camera height and movement speed');
+assert.ok(rendererSource.includes('updateNpcMovement(dt,now)')&&rendererSource.includes('entry.destination'),'NPCs must have a local patrol');
+assert.ok(rendererSource.includes('uFlashlightPosition')&&rendererSource.includes('flashlightActive?1:0')&&rendererSource.includes("if(k==='l'&&!e.repeat)toggleFlashlight()"),'flashlight must affect scene lighting and respond to L');
+assert.ok(rendererSource.includes('SAFE_ACTION_CODE_MAP')&&rendererSource.includes("KeyL:'l'")&&rendererSource.includes("KeyE:'e'"),'flashlight and interaction shortcuts must use physical keyboard codes');
+assert.ok(rendererSource.includes("e.code==='KeyA'&&nearestNpc()")&&rendererSource.includes('if(!e.repeat)interact()')&&rendererSource.includes('selectNearbyNpc(npcMeshes,pos,4.5)'),'A should start conversation with the closest nearby NPC');
+assert.ok(rendererSource.includes('bob=moving?Math.abs(Math.sin(walkPhase*2))*.009:0')&&rendererSource.includes('sway=moving?Math.sin(walkPhase)*.007:0'),'camera shake should be reduced');
 assert.ok(rendererSource.includes('if(isKnife&&(!chosen||distance>2.15))')&&rendererSource.includes("mode:isKnife?'knife':'fire'")&&rendererSource.includes('knifeThrust')&&rendererSource.includes('punchThrust'),'knife strikes must be close-range and visually distinct from firearm shots');
 assert.ok(rendererSource.includes('three-hud-health')&&rendererSource.includes('three-hud-minimap'),'first-person HUD must show health and a minimap');
 assert.ok(rendererSource.includes('if(now-lastTravelAt>1200)'),'all zone exits, including Sidorovich bunker, must transition automatically without a loading screen');
 assert.ok(rendererSource.includes('restorePointerLock')&&rendererSource.includes('requestPointerLock({unadjustedMovement:true})'),'mouse look should be restored after an in-game rerender when pointer lock was active');
 const mainSource=fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8');assert.ok(mainSource.includes("const restorePointerLock = document.pointerLockElement?.id === 'stalker-3d-world';"),'main render should preserve the pointer-lock state across HUD updates');
+const swSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8');assert.ok(swSource.includes('cordon-pda-v3600-physical-input-jump-flashlight'),'service worker cache must be bumped for the new controls and renderer');
+assert.ok(mainSource.includes('onFlashlightToggle:(active)=>{state.game.player.flashlightActive=active;state.ui.flashlight=active;persist();}'),'flashlight state should persist with player state');
 const viewSource=fs.readFileSync(new URL('../src/ui/views.js',import.meta.url),'utf8');assert.ok(viewSource.includes('<span aria-hidden="true">⌖</span>')&&!viewSource.includes('map-pin-title'),'PDA map pins should show only an icon, without a visible label');
 const characterDetail=factionPreview.player.vertices.length;
 assert.ok(characterDetail>9000,'Player character mesh lost expected arm/hand detail');

@@ -217,7 +217,7 @@ function renderLocation(game, character, state) {
   const hiddenLocationAction='';
   const selectedSpot=spots.find(spot=>spot.id===game.player?.shelterSpotId);
   const currentArea=spots.find(spot=>spot.id===game.currentAreaId) || selectedSpot || null;
-  const locationSceneActions=!game.activeEncounter?`${btn('Осмотреться','explore-open','button tiny ghost')}${game.locationId==='sidorovich-bunker'?btn('Выйти в деревню','travel','button tiny ghost','data-id="rookie-village"'):''}`:'';
+  const locationSceneActions=`${btn('Осмотреться','explore-open','button tiny ghost')}${game.locationId==='sidorovich-bunker'?btn('Выйти в деревню','travel','button tiny ghost','data-id="rookie-village"'):''}`;
   const scene=ASSETS.areaBackgrounds?.[currentArea?.id] || ASSETS.locationBackgrounds?.[game.locationId] || '';
   const emission=game.emission||{};
   const nextEmission=Number(emission.nextAt||0);
@@ -239,10 +239,9 @@ function renderLocation(game, character, state) {
   const roomLight=game.locationLights?.[game.locationId]?1.22:1;
   const brightnessValue=Math.max(.42,daylight*weatherDim*interiorDim*roomLight*(state?.ui?.flashlight?1.25:1));
   const brightness=`brightness(${brightnessValue.toFixed(2)})`;
-  const gmText=game.activeEncounter
-    ? `${game.activeEncounter.name} перед тобой. Состояние: ${game.activeEncounter.hp}/${game.activeEncounter.maxHp}. Не теряй времени — опиши, что делаешь.`
-    : (currentArea?.description || game.currentDescription||location?.desc||'Оглядись. Кордон редко бывает по-настоящему тихим.');
-  const enemy=game.activeEncounter;
+  const gmText=currentArea?.description || game.currentDescription||location?.desc||'Оглядись. Кордон редко бывает по-настоящему тихим.';
+  // Legacy turn-based encounter panels are no longer part of the first-person scene.
+  const enemy=null;
   const enemyEmoji=enemy?.type==='blind-dog'?'🐕':enemy?.type==='flesh'?'🐖':enemy?.type==='military'||enemy?.type==='bandit'||enemy?.type==='stalker'?'🕴️':'☢';
   const enemyPortrait=enemy?.icon && ['military','bandit','stalker'].includes(enemy.type)?`<div class="enemy-portrait-frame"><small>ПОРТРЕТ</small><img class="enemy-portrait-art" src="${esc(enemy.icon)}" alt="Портрет: ${esc(enemy.name)}" loading="lazy"></div>`:'';
   const enemyWeapon=enemy?.weaponId?getItem(enemy.weaponId):null;
@@ -250,7 +249,7 @@ function renderLocation(game, character, state) {
   const enemyBody=enemy?.appearance?`<div class="enemy-body-frame"><img class="enemy-body-art" src="${esc(enemy.appearance)}" alt="Полная внешность: ${esc(enemy.name)}" loading="lazy">${enemyWeaponArt}</div>`:`<div class="enemy-body-frame enemy-fallback">${enemyEmoji}${enemyWeaponArt}</div>`;
   const enemyStage=enemy?`<div class="enemy-stage ${enemy.type}"><div class="enemy-art-pair">${enemyPortrait}${enemyBody}</div><div class="enemy-stage-info"><b>${esc(enemy.name)}</b>${enemy.faction?`<div class="enemy-faction-row">${factionInsignia(enemy.faction)}<span>${esc(FACTIONS.find(f=>f.id===enemy.faction)?.name||enemy.faction)}</span></div>`:''}<span>${enemy.hp}/${enemy.maxHp} здоровья</span><div class="bar-track"><i class="danger" style="width:${Math.max(0,enemy.hp/enemy.maxHp*100)}%"></i></div></div></div>`:'';
   const effect=game.combatEffect && Number(game.combatEffect.until||0)>=Number(game.clock.worldMinutes||0)?game.combatEffect.type:null;
-  const combatEffect=effect?`<div class="combat-scene-effect ${esc(effect)}" aria-hidden="true">${effect==='bolt'?'🔩':effect==='grenade'?'💣':effect==='reload'?'↻':effect==='med'?'✚':effect==='aim'?'⌖':effect==='dodge'?'↝':'✦'}</div>`:'';
+  const combatEffect='';
   const weapon=getBestWeapon(game.inventory,game);
   const magazine=weapon?.ammo?(game.weaponMagazines?.[weapon.id]??'—'):null;
   const reserve=weapon?.ammo?(game.ammoRounds?.[weapon.ammo]??0):null;
