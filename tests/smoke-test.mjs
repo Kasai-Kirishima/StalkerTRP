@@ -8,7 +8,6 @@ import { getMainStoryQuest, mainStoryAction, resolveMainStoryEncounter } from '.
 import { processPlayerAction } from '../src/systems/action-engine.js';
 import { generateDialogueReply, findRoute, matchLocationTarget, isRouteQuestion } from '../src/systems/dialogue-engine.js';
 import { rememberEntity, stemRussianWord, containsReferencePronoun, genderedSubject } from '../src/systems/russian-language.js';
-import { buildNpcAiPayload, requestNpcAiReply, isValidNpcAiEndpoint } from '../src/systems/npc-ai.js';
 import { renderMenu, renderCreate, renderLoadout, renderGame, renderModal, renderGameSettings } from '../src/ui/views.js';
 const fs = await import('node:fs');
 const pathModule = await import('node:path');
@@ -314,14 +313,14 @@ for (const faction of FACTIONS) {
 
 // Starter economy supports a practical multi-item kit and distinct leather jacket/cosukha art.
 assert.equal(START_BUDGET,5000,'starting budget should allow one practical faction kit without funding an advanced loadout');
-assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=4110"),'service worker registration URL should refresh with the release');
+assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=4230"),'service worker registration URL should refresh with the release');
 const mainModuleSource=fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 assert.ok(mainModuleSource.includes("import { mountStalker3D, disposeStalker3D } from './3d/renderer.js';"),'main module must import the 3D renderer functions it calls during the first render');
 const serviceWorkerSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8');
 assert.ok(serviceWorkerSource.includes('./assets/textures/cordon-materials.png'),'offline shell should cache the procedural material atlas');
 assert.ok(serviceWorkerSource.includes('./assets/textures/npc-appearance-atlas.png'),'offline shell should cache the full-body NPC appearance atlas');
 assert.ok(!serviceWorkerSource.includes('bundled-music')&&!serviceWorkerSource.includes('radio-stations')&&!serviceWorkerSource.includes('music-archive'),'music and radio modules must be completely removed from the offline shell');
-assert.ok(serviceWorkerSource.includes('cordon-pda-v4220-mobile-controls'),'service worker cache name should identify the first-person no-music release');
+assert.ok(serviceWorkerSource.includes('cordon-pda-v4230-local-dialogue-hands'),'service worker cache name should identify the first-person no-music release');
 const swUrl=new URL('../sw.js',import.meta.url);
 const precachePaths=[...serviceWorkerSource.matchAll(/\"(\.\/[^\"]+)\"/g)].map(match=>match[1]);
 assert.ok(precachePaths.length>=150,'the offline shell should include the expanded artwork bundle');
@@ -1258,45 +1257,16 @@ bunkerSceneGame.locationId='sidorovich-bunker';
 const bunkerExitHtml=renderGame({game:bunkerSceneGame,characters:[{id:'test',name:'Проверка',faction:'loner'}],activeCharacterId:'test',settings:{},ui:{tab:'location',pdaOpen:false}});
 assert.ok(!bunkerExitHtml.includes('Выйти в деревню'),'the bunker must not use a scene-exit button; the player walks back through the physical stairs');
 
-// NPC generative AI adapter: safe opt-in endpoint, compact world context and graceful fallback.
-assert.equal(isValidNpcAiEndpoint('https://example.test/npc-chat'),true);
-assert.equal(isValidNpcAiEndpoint('javascript:alert(1)'),false);
-assert.equal(isValidNpcAiEndpoint('https://user:pass@example.test'),false);
-const memoryGame=createGame({name:'Проверка памяти диалога',faction:'loner'},[],START_BUDGET);
-const memoryNpc={id:'memory-guide',name:'Проводник',role:'сталкер',faction:'loner',activity:'чиню старый радиоприёмник'};
-const firstMemoryReply=generateDialogueReply(memoryNpc,memoryGame,'Какая погода?').answer;
-const recalledReply=generateDialogueReply(memoryNpc,memoryGame,'Напомни, что ты говорил?').answer;
-assert.ok(recalledReply.includes(firstMemoryReply),'dialogue recall should use the previous answer');
-assert.ok(memoryGame.dialogueContexts['memory-guide'].recentReplies.length>=2,'dialogue should retain a short recent-reply history');
-const aiGame=createGame({name:'Тестовый сталкер',faction:'loner'},[],START_BUDGET);
-const aiNpc={id:'ai-guide',name:'Проводник',role:'сталкер-картограф',faction:'loner',group:'Одиночки',lines:{rumors:'На остановке сегодня тихо.'}};
-const aiPayload=buildNpcAiPayload({game:aiGame,npc:aiNpc,playerMessage:'Расскажи, что слышно'});
-assert.ok(aiPayload.system.includes('Не выдумывай игровые факты'));
-assert.equal(aiPayload.context.player.currentLocation,'Деревня новичков');
-assert.ok(aiPayload.context.nearbyLandmarks.some(place=>/остановка/i.test(place.name)),'NPC AI should receive nearby map landmarks instead of scene exits');
-assert.deepEqual(aiPayload.context.availableExits,[],'NPC AI must not be given scene-transition exits');
-assert.ok(aiPayload.context.npc.knownDialogue && aiPayload.context.npc.knownDialogue.rumors==='На остановке сегодня тихо.','AI context should include grounded NPC dialogue knowledge');
-assert.ok('worldState' in aiPayload.context,'AI context should include the current game world state');
-assert.ok(aiPayload.context.nearbyPeople.length>0,'NPC AI should know who is actually nearby');
-aiGame.ambientNpcs.push({id:'hidden-village-bandit',name:'Лишний бандит',role:'Бандит',faction:'bandit',location:'rookie-village'});
-const filteredNearbyPayload=buildNpcAiPayload({game:aiGame,npc:aiNpc,playerMessage:'Кто тут рядом?'});
-assert.ok(!filteredNearbyPayload.context.nearbyPeople.some(person=>person.id==='hidden-village-bandit'),'NPC AI must not claim hostile-faction characters are visibly present in a protected village');
-const wolfAiPayload=buildNpcAiPayload({game:aiGame,npc:NPCS.find(npc=>npc.id==='wolf'),playerMessage:'Расскажи о себе'});
-assert.equal(wolfAiPayload.context.npc.unique,true,'named story NPCs should be identified as unique');
-assert.ok(wolfAiPayload.system.includes('уникальный сюжетный NPC'),'unique NPC prompts should preserve authored biography and voice');
-assert.ok(aiPayload.system.includes('обычный, неуникальный сталкер'),'ordinary NPCs may vary their small talk while obeying world facts');
-const scopedAiGame={...aiGame,dialogueHistory:[{role:'player',npcId:'other-npc',text:'Чужой разговор'},{role:'player',npcId:'ai-guide',text:'Наш разговор'}]};
-const scopedPayload=buildNpcAiPayload({game:scopedAiGame,npc:aiNpc,playerMessage:'Продолжим'});
-assert.ok(!JSON.stringify(scopedPayload.messages).includes("Чужой разговор"),"generative NPC context must not leak another NPC's conversation");
-assert.ok(JSON.stringify(scopedPayload.messages).includes("Наш разговор"),"generative NPC context should keep the current NPC's conversation");
-let capturedAiRequest=null;
-const aiResponse=await requestNpcAiReply({endpoint:'https://example.test/npc-chat',game:aiGame,npc:aiNpc,playerMessage:'Что нового?',fetchImpl:async(url,options)=>{capturedAiRequest={url,options};return {ok:true,json:async()=>({reply:'Слышал, у остановки сегодня спокойно.'})};}});
-assert.equal(aiResponse.ok,true);
-assert.equal(aiResponse.reply,'Слышал, у остановки сегодня спокойно.');
-assert.equal(capturedAiRequest.url,'https://example.test/npc-chat');
-assert.ok(JSON.parse(capturedAiRequest.options.body).messages.length>=2);
-const aiFailed=await requestNpcAiReply({endpoint:'https://example.test/npc-chat',game:aiGame,npc:aiNpc,playerMessage:'Привет',fetchImpl:async()=>({ok:false,status:503})});
-assert.equal(aiFailed.ok,false,'an unavailable AI endpoint must leave the local dialogue fallback available');
+// v4.2.3: external AI proxy and all API-key configuration have been removed.
+const storageSource=fs.readFileSync(new URL('../src/core/storage.js',import.meta.url),'utf8');
+const settingsHtml=renderGameSettings({settings:{controlScheme:'auto',soundEnabled:true,soundVolume:.35,uiScale:1,reducedMotion:false}});
+assert.ok(!storageSource.includes('npcAiEndpoint:')&&storageSource.includes('delete settings.npcAiEndpoint'),'default settings must omit the endpoint and migrate it out of legacy saves');
+assert.ok(!settingsHtml.includes('AI-прокси')&&!settingsHtml.includes('LLM_API_KEY'),'settings must not expose an external AI/API-key field');
+assert.ok(!fs.existsSync(new URL('../src/systems/npc-ai.js',import.meta.url)),'external generative AI adapter must be deleted');
+assert.ok(!fs.existsSync(new URL('../server/npc-ai-proxy.mjs',import.meta.url)),'server-side API-key proxy must be deleted');
+assert.ok(!fs.existsSync(new URL('../.env.example',import.meta.url)),'.env template with API-key fields must be deleted');
+const mainNoApi=fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+assert.ok(!mainNoApi.includes('requestNpcAiReply')&&!mainNoApi.includes('LLM_API_KEY'),'game runtime must not make external generative AI requests');
 
 // Release 2.9.7: playable mobile layout and interconnected story/equipment systems.
 const mobileCss=fs.readFileSync(new URL('../styles.css',import.meta.url),'utf8');
@@ -1318,7 +1288,7 @@ assert.ok(mobileHtml.includes('action-composer'),'mobile game view must retain t
 const mobileRendererSource=fs.readFileSync(new URL('../src/3d/renderer.js',import.meta.url),'utf8');
 assert.match(mobileRendererSource,/three-joystick[\s\S]*?three-action-primary/,'mobile 3D view must include a visible touch joystick and a primary action cluster');
 assert.match(mobileRendererSource,/three-action-extra[\s\S]*?data-3d=\"fire\"/,'secondary touch actions must remain accessible from the expandable control tray');
-const mobileTouchCss=mobileCss.slice(mobileCss.lastIndexOf('v4.2.2'));
+const mobileTouchCss=mobileCss.slice(mobileCss.lastIndexOf('v4.2.3'));
 assert.match(mobileTouchCss,/min-width:\s*44px/,'mobile action targets must meet a 44px touch target');
 assert.match(mobileTouchCss,/three-action-extra\[hidden\]\s*\{\s*display:\s*none/,'collapsed mobile secondary actions must not cover the game view');
 

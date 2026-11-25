@@ -1,12 +1,11 @@
 {
   "name": "stalker-cordon-pda-prototype",
-  "version": "4.2.2",
+  "version": "4.2.3",
   "private": true,
   "type": "module",
-  "description": "STALKER Cordon browser RPG v4.2.2 with compact touch controls and one seamless global Cordon map and Cordon satellite ground texture with evolving daylight, drifting clouds, bedroll sleep point, versioned menu, offline first-person WebGL world and PC/mobile controls",
+  "description": "STALKER Cordon browser RPG v4.2.3 with local-only NPC dialogue, refined first-person hands, compact touch controls and one seamless global Cordon map and Cordon satellite ground texture with evolving daylight, drifting clouds, bedroll sleep point, versioned menu, offline first-person WebGL world and PC/mobile controls",
   "scripts": {
-    "test": "node tests/startup-test.mjs && node tests/smoke-test.mjs && node tests/3d-renderer-test.mjs",
-    "ai-proxy": "node server/npc-ai-proxy.mjs"
+    "test": "node tests/startup-test.mjs && node tests/smoke-test.mjs && node tests/3d-renderer-test.mjs"
   },
   "engines": {
     "node": ">=18"

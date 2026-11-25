@@ -5,7 +5,6 @@ export const DEFAULT_SETTINGS = {
   uiScale: 1,
   soundEnabled: true,
   soundVolume: 0.35,
-  npcAiEndpoint: '',
   controlScheme: 'auto'
 };
 
@@ -32,6 +31,7 @@ export function loadState() {
     const saved = JSON.parse(raw);
     const settings={ ...fallback.settings, ...(saved.settings || {}) };
     delete settings.removedPlayerTrackIds;
+    delete settings.npcAiEndpoint;
     const ui={ ...fallback.ui, ...(saved.ui || {}) };
     delete ui.music; delete ui.localMusicTracks;
     return {

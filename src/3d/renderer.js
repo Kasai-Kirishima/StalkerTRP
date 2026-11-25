@@ -1124,6 +1124,53 @@ function buildReloadMagazine(weaponId='aksu'){
   return b;
 }
 
+function addOpenFirstPersonHand(builder,hx,hy,hz,side,material,unarmored){
+  const nail=unarmored?[.69,.55,.46]:[.14,.15,.13];
+  const crease=unarmored?[.34,.23,.18]:[.055,.065,.055];
+  // A gently tapered wrist leads into a wider palm; overlapping ellipsoids avoid the old mitten-like block.
+  builder.sphere(hx,hy+.022,hz-.038,.055,.048,.051,material,18,22);
+  builder.beam([hx,hy+.040,hz-.040],[hx,hy+.006,hz-.012],.048,material,14,.054);
+  builder.sphere(hx,hy-.018,hz,.112,.079,.039,material,24,28);
+  builder.sphere(hx+side*.018,hy-.048,hz+.004,.071,.045,.033,material,20,24);
+  builder.sphere(hx-side*.050,hy-.027,hz+.004,.033,.043,.028,material,14,18);
+
+  // Four separated fingers: middle is longest, ring/index slightly shorter, little finger shortest.
+  // Each finger has three tapered sections and a subtle inward curl at the fingertip.
+  const fingerLengths=[.158,.178,.168,.145];
+  for(let finger=0;finger<4;finger++){
+    const offset=finger-1.5;
+    const spread=offset*.041;
+    const fan=offset*.009;
+    const length=fingerLengths[finger];
+    const p0=[hx+spread,hy-.070,hz+.011];
+    const p1=[hx+spread+fan*.32,hy-.126,hz+.022];
+    const p2=[hx+spread+fan*.78,hy-.070-length*.72,hz+.030];
+    const p3=[hx+spread+fan*.58,hy-.070-length,hz+.018];
+    const rootR=finger===3?.020:.022;
+    builder.sphere(p0[0],p0[1],p0[2],rootR,.023,.020,material,12,14);
+    builder.beam(p0,p1,rootR,material,12,rootR*.86);
+    builder.sphere(p1[0],p1[1],p1[2],.018,.019,.016,material,11,13);
+    builder.beam(p1,p2,.018,material,12,.015);
+    builder.sphere(p2[0],p2[1],p2[2],.015,.016,.014,material,10,12);
+    builder.beam(p2,p3,.015,material,12,.0115);
+    builder.sphere(p3[0],p3[1],p3[2],.012,.014,.011,material,10,12);
+    if(unarmored){
+      builder.sphere(p3[0],p3[1]+.006,p3[2]+.010,.0085,.009,.0035,nail,9,10);
+      builder.beam([p1[0]-.011,p1[1]-.002,p1[2]+.014],[p1[0]+.011,p1[1]-.002,p1[2]+.014],.0025,crease,5,.0025);
+    }
+  }
+
+  // Thumb pad, broad base and two angled joints facing the palm instead of pointing sideways.
+  const thumbBase=[hx-side*.069,hy-.030,hz+.026];
+  const thumbMid=[hx-side*.108,hy-.078,hz+.037];
+  const thumbTip=[hx-side*.129,hy-.133,hz+.025];
+  builder.sphere(thumbBase[0],thumbBase[1],thumbBase[2],.034,.041,.030,material,14,16);
+  builder.beam(thumbBase,thumbMid,.029,material,12,.024);
+  builder.sphere(thumbMid[0],thumbMid[1],thumbMid[2],.024,.026,.022,material,11,13);
+  builder.beam(thumbMid,thumbTip,.023,material,12,.016);
+  builder.sphere(thumbTip[0],thumbTip[1],thumbTip[2],.016,.018,.014,material,10,12);
+  if(unarmored)builder.sphere(thumbTip[0],thumbTip[1]+.006,thumbTip[2]+.009,.009,.010,.0035,nail,9,10);
+}
 function buildFirstPersonView(faction='loner',weaponId='aksu',armorId='leather'){
   const b=new MeshBuilder();
   const basePalette={loner:[.27,.30,.25],bandit:[.13,.145,.13],military:[.20,.27,.19]};
@@ -1137,17 +1184,18 @@ function buildFirstPersonView(faction='loner',weaponId='aksu',armorId='leather')
   const reinforced=['psz5','zarya','berill','debyt'].includes(armorId),longCoat=['kozanplash','biker','kozanka','kosyha'].includes(armorId);
   const glove=unarmored?skin:(armorId==='berill'?[.22,.24,.21]:[.075,.09,.075]),seam=[.42,.37,.27],dark=[.055,.065,.055],cuff=reinforced?[.18,.21,.17]:sleeve;
   // Paired forearms with visible elbow bends. Relaxed empty hands use a slightly slimmer silhouette.
-  const armScale=(weaponId==='empty'||!weaponId)?.82:1;
-  b.beam([-.76,-.88,-.12],[-.46,-.67,-.54],.19*armScale,sleeve,12,.155*armScale);
-  b.sphere(-.46,-.66,-.54,.17*armScale,.16*armScale,.17*armScale,sleeve,10,13);
-  b.beam([-.46,-.66,-.54],[-.18,-.48,-.94],.145*armScale,sleeve,11,.11*armScale);
-  b.beam([.77,-.88,-.10],[.58,-.67,-.48],.20*armScale,sleeve,12,.16*armScale);
-  b.sphere(.58,-.66,-.48,.18*armScale,.16*armScale,.17*armScale,sleeve,10,13);
-  b.beam([.58,-.66,-.48],[.38,-.46,-.84],.145*armScale,sleeve,11,.115*armScale);
+  const armScale=(weaponId==='empty'||!weaponId)?.74:1;
+  b.beam([-.76,-.88,-.12],[-.46,-.67,-.54],.17*armScale,sleeve,16,.135*armScale);
+  b.sphere(-.46,-.66,-.54,.135*armScale,.125*armScale,.135*armScale,sleeve,14,18);
+  b.beam([-.46,-.66,-.54],[-.18,-.48,-.94],.128*armScale,sleeve,14,.105*armScale);
+  b.beam([.77,-.88,-.10],[.58,-.67,-.48],.18*armScale,sleeve,16,.14*armScale);
+  b.sphere(.58,-.66,-.48,.14*armScale,.125*armScale,.135*armScale,sleeve,14,18);
+  b.beam([.58,-.66,-.48],[.38,-.46,-.84],.128*armScale,sleeve,14,.105*armScale);
   // Armor cuffs and pads are omitted for an unarmored player: bare forearms meet bare hands.
   if(!unarmored) for(const side of [-1,1]){
     const x=side<0?-.18:.38, y=side<0?-.48:-.46, z=side<0?-.94:-.84;
-    b.cylinder(x,y,z,.125,.13,cuff,12,.115);
+    const cuffStart=side<0?[-.225,-.51,-.875]:[.425,-.49,-.775];
+    b.beam(cuffStart,[x,y,z],.105,cuff,10,.098);
     b.beam([side*.48,-.64,-.53],[side*.62,-.65,-.52],.025,seam,6,.022);
     b.box(side*.62,-.65,-.54,.22,.20,.08,reinforced?[.28,.31,.25]:[.20,.22,.18]);
     b.beam([x-.08,y-.04,z-.04],[x+.08,y-.04,z-.04],.012,seam,5,.01);
@@ -1155,15 +1203,16 @@ function buildFirstPersonView(faction='loner',weaponId='aksu',armorId='leather')
   // Visible grip details are generated only for a held item. Empty-hands gets its own relaxed open pose below.
   if(weaponId!=='empty'&&weaponId) for(const side of [-1,1]){
     const gx=side<0?-.18:.38,gy=side<0?-.49:-.47,gz=side<0?-1.02:-.94;
-    b.sphere(gx,gy,gz,.145,.11,.16,glove,10,13);
+    b.sphere(gx,gy,gz,.112,.082,.075,glove,11,14);
     for(let finger=0;finger<4;finger++){
-      const fx=gx+(finger-1.5)*.055;
-      b.beam([fx,gy-.035,gz-.08],[fx+side*.006,gy-.10,gz-.20],.028,glove,7,.018);
-      if(unarmored){b.box(fx+side*.006,gy-.10,gz-.205,.024,.012,.018,[.62,.46,.38]);}
-      else {b.sphere(fx,gy+.055,gz-.04,.034,.025,.035,reinforced?[.20,.22,.18]:[.14,.15,.12],7,9);}
+      const fx=gx+(finger-1.5)*.045;
+      const root=[fx,gy-.018,gz-.035],joint=[fx+side*.008,gy-.065,gz-.095],tip=[fx+side*.012,gy-.105,gz-.145];
+      b.beam(root,joint,.023,glove,8,.018);b.sphere(joint[0],joint[1],joint[2],.018,.019,.018,glove,7,9);
+      b.beam(joint,tip,.018,glove,8,.012);b.sphere(tip[0],tip[1],tip[2],.012,.015,.012,glove,7,9);
+      if(unarmored)b.sphere(tip[0],tip[1]+.004,tip[2]-.008,.009,.012,.004,[.62,.46,.38],7,9);
     }
-    b.beam([gx+side*.10,gy,gz-.02],[gx+side*.17,gy-.07,gz-.13],.035,glove,7,.022);
-    b.sphere(gx+side*.17,gy-.07,gz-.13,.04,.04,.05,glove,7,9);
+    b.beam([gx+side*.07,gy+.015,gz+.015],[gx+side*.13,gy-.04,gz-.055],.032,glove,8,.024);
+    b.sphere(gx+side*.13,gy-.04,gz-.055,.025,.027,.024,glove,8,10);
   }
   if(weaponId==='binoculars'){
     for(const x of [-.12,.12]){
@@ -1176,29 +1225,11 @@ function buildFirstPersonView(faction='loner',weaponId='aksu',armorId='leather')
   }else if(weaponId==='fists'){
     addFirstPersonWeapon(b,'fists',faction);
   }else if(weaponId==='empty'||!weaponId){
-    // Neutral, relaxed open hands. Fingers are separated and slightly curled, not clenched.
-    for(const side of [-1,1]){
-      // Palms sit just ahead of the wrists so they remain visible below the forearms.
-      const hx=side<0?-.17:.38,hy=side<0?-.66:-.64,hz=side<0?-.80:-.70;
-      b.sphere(hx,hy,hz,.125,.085,.115,glove,11,14);
-      for(let finger=0;finger<4;finger++){
-        const spread=(finger-1.5)*.060;
-        const fx=hx+spread;
-        const fan=(finger-1.5)*.012;
-        const midX=fx+fan;
-        const tipX=fx+fan*1.45;
-        const midY=hy-.095+Math.abs(finger-1.5)*.008;
-        const tipY=hy-.185+Math.abs(finger-1.5)*.016;
-        const midZ=hz-.015;
-        const tipZ=hz-.055+Math.abs(finger-1.5)*.012;
-        b.beam([fx,hy-.005,hz-.025],[midX,midY,midZ],.031,glove,8,.020);
-        b.beam([midX,midY,midZ],[tipX,tipY,tipZ],.025,glove,8,.016);
-        if(unarmored)b.box(tipX,tipY-.006,tipZ-.006,.024,.010,.018,[.62,.46,.38]);
-      }
-      const thumbX=hx-side*.145;
-      b.beam([hx-side*.075,hy-.005,hz+.005],[thumbX,hy-.085,hz-.035],.036,glove,8,.022);
-      b.sphere(thumbX,hy-.085,hz-.035,.038,.038,.045,glove,8,10);
-    }
+    // Relaxed open hands, with connected wrists, articulated fingers and an inward-facing thumb.
+    b.beam([-.18,-.48,-.94],[-.17,-.535,-.765],.073,glove,14,.060);
+    b.beam([.38,-.46,-.84],[.38,-.515,-.665],.073,glove,14,.060);
+    addOpenFirstPersonHand(b,-.17,-.57,-.72,-1,glove,unarmored);
+    addOpenFirstPersonHand(b,.38,-.55,-.62,1,glove,unarmored);
   }else if(weaponId==='knife'){
     b.box(.24,-.42,-.74,.14,.13,.30,dark);
     b.beam([.24,-.35,-.83],[.24,-.25,-1.43],.072,[.50,.52,.46],7,.006);
@@ -1689,7 +1720,7 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onLocation
     const reloadT=clamp((now-reloadAt)/1050,0,1),reloadPhase=(now-reloadAt<1050)?Math.sin(reloadT*Math.PI):0;const knifeT=clamp((now-meleeAt)/380,0,1),knifeThrust=(now-meleeAt<380)?Math.sin(knifeT*Math.PI)*.30:0;const punchT=clamp((now-punchAt)/430,0,1),punchThrust=(now-punchAt<430)?Math.sin(punchT*Math.PI)*.36:0;
     const cy=Math.cos(yaw),sy=Math.sin(yaw),cp=Math.cos(cameraPitch),sp=Math.sin(cameraPitch);let right=[cy,0,sy],up=[-sy*sp,cp,cy*sp],back=[-sy*cp,-sp,cy*cp];
     const roll=reloadPhase*.24+(aimActive?-.06:0);const rolledRight=[right[0]*Math.cos(roll)+up[0]*Math.sin(roll),right[1]*Math.cos(roll)+up[1]*Math.sin(roll),right[2]*Math.cos(roll)+up[2]*Math.sin(roll)];const rolledUp=[up[0]*Math.cos(roll)-right[0]*Math.sin(roll),up[1]*Math.cos(roll)-right[1]*Math.sin(roll),up[2]*Math.cos(roll)-right[2]*Math.sin(roll)];right=rolledRight;up=rolledUp;
-    const viewScale=binocularActive?.47:aimActive?.49:.50;const handForward=-.35-(aimActive?.12:0)-recoil*.085-knifeThrust-punchThrust;const handLift=-.12+(aimActive?.25:0)+bob*(aimActive?.30:1)+reloadPhase*.29;const handOrigin=[camera[0]+right[0]*(.045+sway)+up[0]*handLift+back[0]*handForward,camera[1]+right[1]*(.045+sway)+up[1]*handLift+back[1]*handForward,camera[2]+right[2]*(.045+sway)+up[2]*handLift+back[2]*handForward];const handsMatrix=new Float32Array([right[0]*viewScale,right[1]*viewScale,right[2]*viewScale,0,up[0]*viewScale,up[1]*viewScale,up[2]*viewScale,0,back[0]*viewScale,back[1]*viewScale,back[2]*viewScale,0,handOrigin[0],handOrigin[1],handOrigin[2],1]);
+    const viewScale=binocularActive?.47:aimActive?.49:.50;const handForward=-.35-(aimActive?.12:0)-recoil*.085-knifeThrust-punchThrust;const idleHandLift=equippedId==='empty'?.08:-.12;const handLift=idleHandLift+(aimActive?.25:0)+bob*(aimActive?.30:1)+reloadPhase*.29;const handOrigin=[camera[0]+right[0]*(.045+sway)+up[0]*handLift+back[0]*handForward,camera[1]+right[1]*(.045+sway)+up[1]*handLift+back[1]*handForward,camera[2]+right[2]*(.045+sway)+up[2]*handLift+back[2]*handForward];const handsMatrix=new Float32Array([right[0]*viewScale,right[1]*viewScale,right[2]*viewScale,0,up[0]*viewScale,up[1]*viewScale,up[2]*viewScale,0,back[0]*viewScale,back[1]*viewScale,back[2]*viewScale,0,handOrigin[0],handOrigin[1],handOrigin[2],1]);
     const heldMesh=(punchT>0&&punchT<1)?fistsMesh:binocularActive?binocularMesh:firstPersonMesh;draw(heldMesh,handsMatrix);if(reloadAt>0&&now-reloadAt<1050&&['aksu','gaduka','pm','sawedoff','vm17'].includes(equippedId)){const magMatrix=new Float32Array(handsMatrix);const magT=clamp((now-reloadAt)/1050,0,1);const offsetX=-.34,offsetY=-.42+Math.sin(magT*Math.PI)*.30,offsetZ=-.02;magMatrix[12]+=right[0]*offsetX+up[0]*offsetY+back[0]*offsetZ;magMatrix[13]+=right[1]*offsetX+up[1]*offsetY+back[1]*offsetZ;magMatrix[14]+=right[2]*offsetX+up[2]*offsetY+back[2]*offsetZ;draw(reloadMagazineMesh,magMatrix);}aimReticle.classList.toggle('is-aimed',aimActive&&!binocularActive);aimReticle.classList.toggle('is-optic',binocularActive);
     hudElapsed+=dt;if(hudElapsed>.12){hudElapsed=0;updateHud();}
     saveElapsed+=dt;if(saveElapsed>8){saveElapsed=0;game.player.cordonPosition={x:pos.x,z:pos.z,yaw};onCheckpoint();}

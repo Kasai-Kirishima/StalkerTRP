@@ -1,4 +1,4 @@
-# 3D development screenshots — historical renders plus v4.2.1 QA
+# 3D development screenshots — historical renders plus v4.2.3 QA
 
 PNG files in this folder are offline QA renders and asset previews, not screenshots captured from a running browser session. A Chromium WebGL context could not be created in the QA container, so live WebGL rendering was not visually verified here.
 
@@ -12,4 +12,4 @@ PNG files in this folder are offline QA renders and asset previews, not screensh
 
 The current runtime draws NPC appearances as camera-facing transparent sprites in the 3D scene, with player-facing rotation and ground shadows. They are not rigged 3D character meshes and do not yet have skeletal walk cycles.
 
-- `qa-v421/empty-hands-bare.png` and `qa-v421/empty-hands-armored.png` — off-screen VTK renders of the new neutral open-hand pose with bare forearms and with equipped armor/gloves. These inspect the generated hand geometry, not live browser gameplay.
+- `qa-v423-empty-hands-bare.png` and `qa-v423-empty-hands-gloved.png` — off-screen VTK renders of the revised open-hand pose. The pass narrows the empty-hand forearms, improves the wrist transition, enlarges and smooths the palm, and separates the finger joints. These inspect generated geometry, not live browser gameplay.

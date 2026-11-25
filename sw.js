@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cordon-pda-v4220-mobile-controls';
+const CACHE_NAME = 'cordon-pda-v4230-local-dialogue-hands';
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -162,7 +162,6 @@ const APP_SHELL = [
   "./src/systems/inventory.js",
   "./src/systems/equipment-condition.js",
   "./src/systems/main-story.js",
-  "./src/systems/npc-ai.js",
   "./src/systems/russian-language.js",
   "./src/systems/sound.js",
   "./src/systems/world.js",

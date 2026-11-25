@@ -8,8 +8,6 @@ import { buyFromTrader, sellToTrader } from './systems/world.js';
 import { processPlayerAction } from './systems/action-engine.js';
 import { getGameDateTime } from './systems/game-clock.js';
 import { createSoundEngine } from './systems/sound.js';
-import { requestNpcAiReply, isValidNpcAiEndpoint } from './systems/npc-ai.js';
-import { isRouteQuestion } from './systems/dialogue-engine.js';
 import { mainStoryAction } from './systems/main-story.js';
 import { toggleArtifactBelt, removeArtifactFromBelt, repairItemCondition, ensureConditionState } from './systems/equipment-condition.js';
 import { mountStalker3D, disposeStalker3D } from './3d/renderer.js';
@@ -19,6 +17,7 @@ let state = loadState();
 state.screen = 'menu';
 state.settings.weaponHudSide ||= 'right';
 state.settings.controlScheme ||= 'auto';
+delete state.settings.npcAiEndpoint;
 state.ui = { ...(state.ui||{}), tab:'location', pdaOpen:false, modal:null, notification:'', tradeNpcId:null, mapLocationId:null, encyclopediaCategory:state.ui?.encyclopediaCategory||'locations', helpTopic:state.ui?.helpTopic||'basics' };
 let previousScreen = 'menu';
 let toastTimer = null;
@@ -735,7 +734,6 @@ root.addEventListener('input', (event) => {
   if (setting==='reducedMotion') { state.settings.reducedMotion=event.target.checked; persist(); document.body.classList.toggle('reduced-motion', !!state.settings.reducedMotion); }
   if (setting==='uiScale') { state.settings.uiScale=Number(event.target.value)||1; document.documentElement.style.setProperty('--ui-scale',state.settings.uiScale); persist(); }
   if (setting==='soundVolume') { state.settings.soundVolume=Math.max(0,Math.min(1,Number(event.target.value)||0)); persist(); }
-  if (setting==='npcAiEndpoint') { state.settings.npcAiEndpoint=String(event.target.value||'').trim(); persist(); }
 });
 
 root.addEventListener('change', async (event) => {
@@ -754,7 +752,6 @@ root.addEventListener('change', async (event) => {
   }
   if (setting==='soundEnabled') { state.settings.soundEnabled=event.target.checked; persist(); if(event.target.checked)soundEngine.play('success'); }
   if (setting==='soundVolume') { state.settings.soundVolume=Math.max(0,Math.min(1,Number(event.target.value)||0)); persist(); }
-  if (setting==='npcAiEndpoint') { state.settings.npcAiEndpoint=String(event.target.value||'').trim(); persist(); }
   if (setting==='controlScheme') { state.settings.controlScheme=['auto','pc','mobile'].includes(event.target.value)?event.target.value:'auto'; persist(); render(); toast('Схема управления обновлена.'); return; }
   if (event.target.id==='avatar-upload' && event.target.files?.[0]) {
     try {
@@ -781,6 +778,7 @@ root.addEventListener('change', async (event) => {
     try {
       const imported=await importSave(event.target.files[0]);
       state={...createInitialState(),...imported,screen:'menu',ui:{tab:'location',modal:null,notification:''}};
+      if (state.settings) delete state.settings.npcAiEndpoint;
       persist(); render(); toast('Сохранение импортировано.');
     } catch (error) { toast(error.message || 'Не удалось импортировать сохранение.','warning'); }
   }
@@ -818,8 +816,7 @@ root.addEventListener('drop',(event)=>{
 });
 root.addEventListener('dragend',()=>{draggedLootItem=null;root.querySelectorAll('.drop-ready').forEach(node=>node.classList.remove('drop-ready'));});
 
-let npcAiTurnSerial=0;
-root.addEventListener('submit', async (event) => {
+root.addEventListener('submit', (event) => {
   if (event.target.id==='npc-dialogue-form') {
     event.preventDefault();
     const npcId=state.game?.dialogueNpcId;
@@ -836,41 +833,6 @@ root.addEventListener('submit', async (event) => {
     }
     persist(); render(); toast(result.message,result.ok?'info':'warning');
 
-    // External generation is optional. Keep local gameplay actions and route facts authoritative.
-    const endpoint=String(state.settings.npcAiEndpoint||'').trim();
-    const isTransactional=/(торгов|купить|продать|обмен|бартер|работ|задан|квест|поруч|принять|сдать|перемест|открой|включи|обыщи|забери|перезаряд)/i.test(text);
-    if (result.ok && endpoint && isValidNpcAiEndpoint(endpoint) && !isTransactional && !isRouteQuestion(text)) {
-      const npc=NPCS.find(entry=>entry.id===npcId)
-        || (gameAtSubmit.ambientNpcs||[]).find(entry=>entry.id===npcId)
-        || (gameAtSubmit.randomTraders||[]).find(entry=>entry.id===npcId)
-        || (gameAtSubmit.squads||[]).find(entry=>entry.id===npcId);
-      if (npc) {
-        const turn=++npcAiTurnSerial;
-        gameAtSubmit.dialogueAiPending=true;
-        render();
-        const aiGame={...gameAtSubmit,dialogueHistory:(gameAtSubmit.dialogueHistory||[]).slice(0,-2)};
-        const aiResult=await requestNpcAiReply({endpoint,game:aiGame,npc,playerMessage:text});
-        if (turn===npcAiTurnSerial && state.game===gameAtSubmit) {
-          gameAtSubmit.dialogueAiPending=false;
-          if (aiResult.ok && gameAtSubmit.dialogueNpcId===npcId) {
-            const history=gameAtSubmit.dialogueHistory||[];
-            for (let index=history.length-1;index>=0;index--) {
-              if (history[index].role==='npc') { history[index].text=aiResult.reply; break; }
-            }
-            gameAtSubmit.dialogueReply=aiResult.reply;
-            if (gameAtSubmit.dialogueContexts?.[npcId]) gameAtSubmit.dialogueContexts[npcId].lastNpcText=aiResult.reply;
-            if (Array.isArray(gameAtSubmit.log) && gameAtSubmit.log.length) {
-              const last=gameAtSubmit.log.at(-1);
-              if (last?.text?.startsWith(`${npc.name}:`)) last.text=`${npc.name}: ${aiResult.reply}`;
-            }
-            persist(); render();
-          } else {
-            persist(); render();
-            if (aiResult.reason!=='endpoint-invalid') toast('Внешний ИИ не ответил — оставлен локальный ответ NPC.','warning');
-          }
-        }
-      }
-    }
     return;
   }
   if (event.target.id==='character-form') {
@@ -940,6 +902,6 @@ setInterval(()=>{
   updateClockDisplays();
 },15000);
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=4110').catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=4230').catch(()=>{}));
 }
 render();

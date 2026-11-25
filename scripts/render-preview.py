@@ -76,7 +76,7 @@ elif mode == 'first-person':
         npcpos = entry['pos']; ren.AddActor(mesh_actor(entry['mesh'], (npcpos['x'], 0, npcpos['z']), 0.0))
     for entry in scene['loot']:
         lootpos = entry['pos']; ren.AddActor(mesh_actor(entry['mesh'], (lootpos['x'], .03, lootpos['z']), 0.0))
-    viewmodel = mesh_actor(scene['firstPerson'], (eye[0], eye[1] - .12, eye[2] - .35), 0); viewmodel.SetScale(.50, .50, .50); ren.AddActor(viewmodel)
+    viewmodel = mesh_actor(scene['firstPerson'], (eye[0], eye[1] + scene.get('viewmodelOffsetY', -.12), eye[2] - .35), 0); viewmodel.SetScale(.50, .50, .50); ren.AddActor(viewmodel)
 else:
     if scene.get('terrain'): ren.AddActor(mesh_actor(scene['terrain'], selected_texture=map_texture))
     if scene.get('props'): ren.AddActor(mesh_actor(scene['props']))
