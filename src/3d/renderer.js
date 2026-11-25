@@ -179,6 +179,18 @@ class MeshBuilder {
       this.quad(p0,q0,q1,p1,col);this.tri([x,y0,z],p0,p1,col);this.tri([x,y1,z],q1,q0,col);
     }
   }
+  cylinderAxis(x,y,z,r,depth,col,yaw=0,segments=16){
+    // Car axle follows local Z; the circular end face is therefore vertical.
+    const ax=Math.sin(yaw),az=Math.cos(yaw),ux=Math.cos(yaw),uz=-Math.sin(yaw),half=depth/2;
+    const point=(a,side)=>[x+ax*side*half+ux*Math.cos(a)*r,y+Math.sin(a)*r,z+az*side*half+uz*Math.cos(a)*r];
+    for(let i=0;i<segments;i++){
+      const a=i*2*Math.PI/segments,b=(i+1)*2*Math.PI/segments;
+      const p0=point(a,-1),p1=point(b,-1),q0=point(a,1),q1=point(b,1);
+      this.quad(p0,p1,q1,q0,col);
+      this.tri([x-ax*half,y,z-az*half],p1,p0,col);
+      this.tri([x+ax*half,y,z+az*half],q0,q1,col);
+    }
+  }
   beam(a,b,r,col,segments=8,r2=r){
     const dx=b[0]-a[0],dy=b[1]-a[1],dz=b[2]-a[2],len=Math.hypot(dx,dy,dz)||1;
     const ux=dx/len,uy=dy/len,uz=dz/len;
@@ -287,6 +299,28 @@ export function sampleLocationHeight(locationId,x,z){
     if(Math.abs(x)<2.25&&z>=7.2&&z<=20.5){const t=clamp((z-7.2)/13.3,0,1);return mix(-4.76,base,t);}
   }
   return base;
+}
+
+const BUNKER_SURFACE_ANCHOR='rookie-village';
+export function globalLocationCenter(locationId){
+  const location=LOCATIONS.find(entry=>entry.id===locationId)||LOCATIONS[0];
+  const anchor=locationId==='sidorovich-bunker'?(LOCATIONS.find(entry=>entry.id===BUNKER_SURFACE_ANCHOR)||location):location;
+  return cordonMapToWorld(anchor.x??50,anchor.y??50);
+}
+export function sampleGlobalTerrainHeight(x,z){
+  const mapX=x/15.36+50,mapY=z/30.72+50;
+  const surface=rawCordonTerrainHeight(mapX,mapY);
+  const bunker=globalLocationCenter('rookie-village'),dx=x-bunker.x,dz=z-bunker.z;
+  if(Math.abs(dx)<9.35&&Math.abs(dz)<7.2)return surface-4.76;
+  if(Math.abs(dx)<2.25&&dz>=7.2&&dz<=20.5){const t=clamp((dz-7.2)/13.3,0,1);return mix(surface-4.76,surface,t);}
+  return surface;
+}
+export function locateGlobalLocation(x,z){
+  const bunker=globalLocationCenter('rookie-village'),dx=x-bunker.x,dz=z-bunker.z;
+  if(Math.abs(dx)<9.35&&Math.abs(dz)<7.2||Math.abs(dx)<2.25&&dz>=7.2&&dz<=20.5&&sampleGlobalTerrainHeight(x,z)<rawCordonTerrainHeight(x/15.36+50,z/30.72+50)-.8)return 'sidorovich-bunker';
+  let nearest=LOCATIONS.filter(entry=>entry.id!=='sidorovich-bunker')[0],best=Infinity;
+  for(const entry of LOCATIONS){if(entry.id==='sidorovich-bunker')continue;const center=cordonMapToWorld(entry.x,entry.y),distance=(center.x-x)**2+(center.z-z)**2;if(distance<best){best=distance;nearest=entry;}}
+  return nearest?.id||'rookie-village';
 }
 
 function setQuadUv(builder,uvs){
@@ -416,6 +450,18 @@ function addHouse(b,x,z,s=1,variant=0){
   for(const hy of [.42,1.88])b.box(x+.38*s,hy*s,z-2.66*s,.055*s,.18*s,.035*s,[.13,.14,.12]);
   b.sphere(x+1.25*s,1.15*s,z-2.67*s,.045*s,.045*s,.035*s,[.66,.54,.30],6,8);
   b.box(x+.85*s,.13*s,z-3.15*s,1.6*s,.25*s,1.1*s,[.31,.29,.23]);
+  // Interior plan: front room, rear room and a compact side room, connected by door gaps.
+  b.box(x-1.41*s,1.40*s,z+.34*s,3.30*s,2.35*s,.13*s,wall);
+  b.box(x+2.25*s,1.40*s,z+.34*s,1.58*s,2.35*s,.13*s,wall);
+  b.box(x-1.22*s,1.32*s,z+1.42*s,.13*s,2.18*s,1.78*s,wall);
+  // Furniture is deliberately kept below window height and away from the doorways.
+  b.box(x-2.15*s,.62*s,z+1.38*s,1.25*s,.12*s,.76*s,[.31,.25,.17]);
+  for(let legX of [-.48,.48])for(let legZ of [-.27,.27])b.box(x-2.15*s+legX*s,.34*s,z+1.38*s+legZ*s,.09*s,.56*s,.09*s,[.22,.18,.13]);
+  b.box(x+2.18*s,.92*s,z+1.38*s,.92*s,1.35*s,.50*s,[.22,.22,.18]);
+  for(let shelfY of [.55,1.02,1.48])b.box(x+2.18*s,shelfY*s,z+1.09*s,.98*s,.07*s,.58*s,[.37,.31,.21]);
+  b.box(x-2.22*s,.82*s,z-.92*s,.88*s,.13*s,1.62*s,[.29,.25,.19]);
+  b.box(x-2.22*s,1.25*s,z-.92*s,.83*s,.73*s,.10*s,[.19,.20,.17]);
+  b.cylinder(x+2.12*s,.42*s,z-.82*s,.22*s,.55*s,[.23,.24,.21],10,.20*s);
   for(let i=0;i<3;i++)b.beam([x+1.4*s+i*.45*s,2.75*s,z-2.4*s],[x+1.4*s+i*.45*s,3.45*s,z-2.4*s],.035*s,[.26,.23,.18]);
   for(const sx of [-1,1]){b.box(x+sx*3.05*s,1.68*s,z-2.49*s,.17*s,3.24*s,.15*s,[.25,.23,.19]);b.box(x+sx*3.05*s,.28*s,z-2.52*s,.34*s,.30*s,.20*s,[.21,.20,.17]);}
   // exterior meter, cable, faded patch and rain downpipe
@@ -467,7 +513,7 @@ function addCar(b,x,z,yaw=0,broken=false){
   // windows
   b.box(x-.25,1.5,z-.89,2.05,.52,.035,[.08,.14,.16],yaw);b.box(x-.25,1.5,z+.89,2.05,.52,.035,[.08,.14,.16],yaw);
   b.box(x-1.34,1.48,z,.04,.54,1.65,[.12,.15,.15],yaw);b.box(x+.84,1.48,z,.04,.54,1.65,[.12,.15,.15],yaw);
-  for(let xx of [-1.48,1.48])for(let zz of [-1,1]){const wx=x+xx*Math.cos(yaw)+zz*Math.sin(yaw),wz=z-xx*Math.sin(yaw)+zz*Math.cos(yaw);b.cylinder(wx,.42,wz,.47,.22,[.07,.075,.07],14,.47);b.cylinder(wx,.42,wz,.18,.23,[.33,.31,.26],12,.18);}
+  for(let xx of [-1.48,1.48])for(let zz of [-1,1]){const wx=x+xx*Math.cos(yaw)+zz*Math.sin(yaw),wz=z-xx*Math.sin(yaw)+zz*Math.cos(yaw);b.cylinderAxis(wx,.42,wz,.47,.34,[.07,.075,.07],yaw,18);b.cylinderAxis(wx,.42,wz,.18,.36,[.33,.31,.26],yaw,14);}
   b.box(x-2.26,.85,z-.62,.12,.28,.18,[.72,.65,.42],yaw);b.box(x-2.26,.85,z+.62,.12,.28,.18,[.72,.65,.42],yaw);
   // bumpers, grille, mirrors, door seams, wipers and faded plate
   b.box(x-2.28,.55,z,.18,.16,1.92,[.16,.17,.15],yaw);b.box(x+2.27,.55,z,.16,.14,1.92,[.17,.17,.15],yaw);
@@ -477,7 +523,7 @@ function addCar(b,x,z,yaw=0,broken=false){
   b.box(x-2.34,.52,z,.16,.14,.55,[.36,.34,.27],yaw);
   if(broken){b.box(x+.2,1.98,z+.08,1.2,.04,1.5,[.11,.12,.11],yaw);b.sphere(x-.5,1.25,z,.35,.18,.34,[.16,.14,.12]);b.box(x-1.8,1.3,z+.55,.35,.06,.12,[.29,.25,.18],yaw);}
 }
-function addTire(b,x,z,yaw=0){b.cylinder(x,.08,z,.54,.28,[.07,.075,.07],16,.54);b.cylinder(x,.08,z,.25,.3,[.32,.31,.27],12,.25);}
+function addTire(b,x,z,yaw=0){b.cylinderAxis(x,.54,z,.54,.32,[.07,.075,.07],yaw,18);b.cylinderAxis(x,.54,z,.25,.34,[.32,.31,.27],yaw,14);}
 function addUtilityTruck(b,x,z,variant='military'){
   const paint=variant==='military'?[.20,.25,.18]:[.28,.27,.21],dark=[.075,.082,.074],metal=[.28,.29,.25];
   // Long ladder frame, engine bay and separate cab / cargo bed.
@@ -503,8 +549,11 @@ function addUtilityTruck(b,x,z,variant='military'){
   b.cylinder(x-.92,1.18,z+1.02,.075,.70,dark,10,.06);
   // Six rubber wheels with metal hubs and raised lugs.
   for(const wx of [x-2.10,x+.55,x+2.30])for(const side of [-1,1]){
-    const wz=z+side*1.30;b.beam([wx,.48,wz-.19],[wx,.48,wz+.19],.48,dark,16,.48);b.beam([wx,.48,wz-side*.205],[wx,.48,wz-side*.235],.22,metal,12,.22);
-    for(let k=0;k<8;k++){const a=k*Math.PI/4;b.box(wx+Math.cos(a)*.39,.48+Math.sin(a)*.39,wz+side*.20,.085,.055,.055,dark);}
+    const wz=z+side*1.30;
+    b.cylinderAxis(wx,.48,wz,.48,.42,dark,0,20);
+    b.cylinderAxis(wx,.48,wz+side*.22,.235,.045,metal,0,16);
+    b.cylinderAxis(wx,.48,wz+side*.25,.105,.05,[.16,.17,.15],0,12);
+    for(let k=0;k<10;k++){const a=k*Math.PI/5;b.box(wx+Math.cos(a)*.405,.48+Math.sin(a)*.405,wz+side*.19,.10,.065,.075,dark);}
   }
   // Weathered door seams, steps and a faded unit marking.
   b.beam([x-2.30,.78,z-1.25],[x-.78,.78,z-1.25],.018,[.45,.40,.29],5,.018);
@@ -613,6 +662,40 @@ function addLocationSet(b,locId,rng,heightAt=sampleTerrainHeight){
   }
 }
 function addBoxWall(b,x,z,h=2.5){b.box(x,h/2,z,3.1,h,.9,[.37,.37,.32]);b.box(x,h+.08,z,3.2,.14,1,[.22,.23,.21]);}
+
+function addGlobalMapGround(builder,stepsX=192,stepsZ=384){
+  const width=1536,depth=3072,cellX=width/stepsX,cellZ=depth/stepsZ,bunker=globalLocationCenter('rookie-village');
+  for(let iz=0;iz<stepsZ;iz++)for(let ix=0;ix<stepsX;ix++){
+    const x0=-768+ix*cellX,x1=x0+cellX,z0=-1536+iz*cellZ,z1=z0+cellZ,cx=(x0+x1)*.5,cz=(z0+z1)*.5,dx=cx-bunker.x,dz=cz-bunker.z;
+    const inRoom=Math.abs(dx)<9.55&&Math.abs(dz)<7.4,inStairs=Math.abs(dx)<2.45&&dz>7.0&&dz<24.5;
+    if(inRoom||inStairs)continue;
+    const h00=sampleGlobalTerrainHeight(x0,z0),h10=sampleGlobalTerrainHeight(x1,z0),h11=sampleGlobalTerrainHeight(x1,z1),h01=sampleGlobalTerrainHeight(x0,z1);
+    const mapUv=(x,z)=>[clamp((x+768)/1536,0,1),clamp((z+1536)/3072,0,1)];
+    builder.quad([x0,h00,z0],[x0,h01,z1],[x1,h11,z1],[x1,h10,z0],[1,1,1]);
+    setQuadUv(builder,[mapUv(x0,z0),mapUv(x0,z1),mapUv(x1,z1),mapUv(x1,z0)]);
+  }
+}
+function addGlobalCordonRoadNetwork(builder){
+  for(const path of CORDON_ROAD_PATHS){
+    const points=path.points.map(([x,y])=>{const point=cordonMapToWorld(x,y);return [point.x,point.z];});
+    addRoad(builder,points,path.width,sampleGlobalTerrainHeight);
+  }
+}
+function translateBuilderRaw(raw,dx,dy,dz){
+  for(let i=0;i<raw.vertices.length;i+=3){raw.vertices[i]+=dx;raw.vertices[i+1]+=dy;raw.vertices[i+2]+=dz;}
+  return raw;
+}
+export function buildGlobalWorldGeometry({terrainStepsX=192,terrainStepsZ=384}={}){
+  const terrain=new MeshBuilder(),roads=new MeshBuilder();
+  addGlobalMapGround(terrain,terrainStepsX,terrainStepsZ);addGlobalCordonRoadNetwork(roads);
+  const regions=LOCATIONS.map(location=>{
+    const anchor=globalLocationCenter(location.id),base=location.id==='sidorovich-bunker'?0:rawCordonTerrainHeight(location.x,location.y);
+    const heightAt=(x,z)=>sampleLocationHeight(location.id,x,z),builder=new MeshBuilder();
+    addLocationSet(builder,location.id,seeded(hash(location.id)),heightAt);
+    return {id:location.id,center:anchor,base,raw:clipRawMeshToCordonBounds(builder.toRaw(),anchor,0)};
+  });
+  return {terrain:terrain.toRaw(),roads:roads.toRaw(),regions,bounds:CORDON_WORLD_BOUNDS,map:'cordon-clean.webp'};
+}
 
 function addHeldWeapon(b,weaponId='aksu',faction='loner'){
   const metal=[.12,.14,.13],dark=[.055,.065,.06],wood=faction==='military'?[.22,.25,.18]:[.25,.19,.13],gun=[.58,1.14,-.46];
@@ -1120,23 +1203,9 @@ function buildMutant(kind='blind-dog',seed=1){
   return b;
 }
 
-function addExitLayout(builder,neighbors,locationId='',heightAt=sampleTerrainHeight){
-  const exits=[];const dirs=[[0,-34],[34,0],[0,34],[-34,0]];
-  if(locationId==='sidorovich-bunker'){const x=0,z=20.5,y=heightAt(x,z);exits.push({id:neighbors[0]||'rookie-village',x,z});builder.box(x,y+.07,z,2.0,.14,2.0,[.34,.34,.29]);builder.cylinder(x,y+.17,z,.12,.35,[.31,.40,.24],8,.10);builder.sphere(x,y+.49,z,.13,.13,.13,[.55,.66,.35],7,9);return exits;}
-  neighbors.forEach((id,index)=>{
-    if(locationId==='rookie-village'&&id==='sidorovich-bunker'){const x=0,z=24,y=heightAt(x,z);exits.push({id,x,z});builder.box(x,y+.11,z,2.1,.12,2.1,[.36,.36,.30]);builder.cylinder(x,y+.22,z,.12,.34,[.31,.40,.24],8,.10);builder.sphere(x,y+.54,z,.13,.13,.13,[.55,.66,.35],7,9);return;}
-    const base=dirs[index%4];const spread=Math.floor(index/4)*5;const x=base[0]+(base[0]===0?(index%2?1:-1)*spread:0),z=base[1]+(base[1]===0?(index%2?1:-1)*spread:0);
-    exits.push({id,x,z});
-    // worn concrete route marker and small lamps; intentionally no floating location labels
-    const y=heightAt(x,z);builder.box(x,y+.08,z,2.2,.16,2.2,[.34,.34,.29]);builder.cylinder(x,y+.18,z,.12,.38,[.31,.40,.24],8,.10);
-    builder.sphere(x,y+.56,z,.13,.13,.13,[.55,.66,.35],7,9);
-    builder.box(x,y+.42,z,1.4,.05,.24,[.20,.21,.18]);
-  });
-  return exits;
-}
 export function createSceneLayout(locationId='rookie-village',neighbors=[]){
   const location=LOCATIONS.find(entry=>entry.id===locationId)||LOCATIONS.find(entry=>entry.id==='rookie-village');
-  return {id:location.id,name:location.name,neighbors:[...neighbors],profile:['rookie-village','sidorovich-bunker'].includes(locationId)?'village':['north-checkpoint','south-checkpoint','bridge-checkpoint'].includes(locationId)?'checkpoint':['farmstead','pig-farm'].includes(locationId)?'farm':locationId==='atp'?'industrial':['forest-camp','anomaly-dump'].includes(locationId)?'forest':['elevator'].includes(locationId)?'industrial':'roadside'};
+  return {id:location.id,name:'Кордон · единый мир',neighbors:[],profile:['rookie-village','sidorovich-bunker'].includes(locationId)?'village':['north-checkpoint','south-checkpoint','bridge-checkpoint'].includes(locationId)?'checkpoint':['farmstead','pig-farm'].includes(locationId)?'farm':locationId==='atp'?'industrial':['forest-camp','anomaly-dump'].includes(locationId)?'forest':['elevator'].includes(locationId)?'industrial':'roadside'};
 }
 
 export function buildCloudLayer(){
@@ -1162,7 +1231,7 @@ export function buildPreviewGeometry(locationId='rookie-village'){
   const surfaceHeight=(x,z)=>sampleMapSurfaceHeight(loc.id,x,z);
   const bunkerVoid=loc.id==='sidorovich-bunker'?(x,z)=>Math.abs(x)<9.55&&Math.abs(z)<7.35:null;
   const terrain=new MeshBuilder();addMapGround(terrain,loc,surfaceHeight,rng,112,bunkerVoid);
-  const props=new MeshBuilder();addCordonRoadNetwork(props,loc,surfaceHeight);addLocationSet(props,loc.id,rng,heightAt);addExitLayout(props,loc.neighbors||[],loc.id,heightAt);
+  const props=new MeshBuilder();addCordonRoadNetwork(props,loc,surfaceHeight);addLocationSet(props,loc.id,rng,heightAt);
   const terrainRaw=terrain.toRaw(),propsRaw=props.toRaw();
   const worldRaw={vertices:[...terrainRaw.vertices,...propsRaw.vertices],normals:[...terrainRaw.normals,...propsRaw.normals],colors:[...terrainRaw.colors,...propsRaw.colors],uvs:[...terrainRaw.uvs,...propsRaw.uvs]};
   const sampleNpcs=[{id:'preview-loner',faction:'loner'},{id:'preview-bandit',faction:'bandit'},{id:'preview-military',faction:'military'}].map((npc,index)=>({id:npc.id,faction:npc.faction,pos:{x:-7+index*7,z:-6-(index%2)*3},mesh:buildHumanoid(npc.faction,'npc',hash(npc.id),false).toRaw()}));
@@ -1170,7 +1239,7 @@ export function buildPreviewGeometry(locationId='rookie-village'){
   const firstPerson=buildFirstPersonView('loner','aksu').toRaw();
   const groundSamples=[[-28,-20],[-10,-10],[0,0],[18,12],[25,-18],[9,25]].map(([x,z])=>({x,z,height:heightAt(x,z)}));
   const loot=(loc.loot||[]).slice(0,4).map((id,index)=>({id,pos:{x:-6+index*4,z:5+index%2*1.6},mesh:buildItemModel(id,hash(id)).toRaw()}));
-  return {layout:createSceneLayout(loc.id,loc.neighbors||[]),world:worldRaw,terrain:terrainRaw,props:propsRaw,player,firstPerson,groundSamples,playerPosition:{x:-8,z:26,yaw:0},npcs:sampleNpcs,loot};
+  return {layout:createSceneLayout(loc.id,[]),world:worldRaw,terrain:terrainRaw,props:propsRaw,player,firstPerson,groundSamples,playerPosition:{x:-8,z:26,yaw:0},npcs:sampleNpcs,loot};
 }
 
 export function selectAimedTarget(entries,position,yaw,maxDistance=24,minAlignment=.90,pitch=0){
@@ -1207,6 +1276,9 @@ function createAlbedoTexture(gl){const texture=gl.createTexture();gl.bindTexture
 const NPC_APPEARANCE_TILES={loner:[0,1,2,3,4,14,15],bandit:[5,6,7,8,9],military:[10,11,12,13]};
 function npcAppearanceTile(npc){const faction=NPC_APPEARANCE_TILES[npc?.faction]?npc.faction:'loner';const variants=NPC_APPEARANCE_TILES[faction];return variants[hash(npc?.id||npc?.name||faction)%variants.length];}
 export function npcFacingYaw(npcPos,playerPos){return Math.atan2(npcPos.x-playerPos.x,npcPos.z-playerPos.z);}
+export function npcMovementYaw(dx,dz){return Math.atan2(-dx,-dz);}
+export function vehicleWheelAxis(yaw=0){return {x:Math.sin(yaw),y:0,z:Math.cos(yaw)};}
+export function vehicleWheelRadial(yaw=0,angle=0){return {x:Math.cos(yaw)*Math.cos(angle),y:Math.sin(angle),z:-Math.sin(yaw)*Math.cos(angle)};}
 function createNpcAtlasTexture(gl){
   const texture=gl.createTexture();gl.bindTexture(gl.TEXTURE_2D,texture);
   gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,1,1,0,gl.RGBA,gl.UNSIGNED_BYTE,new Uint8Array([0,0,0,0]));
@@ -1248,8 +1320,9 @@ export function buildSceneCollisionData(locationId){
     for(const [a,b] of gaps){const left=Math.max(cursor,x-half),right=Math.min(a,x+half);if(right>left)seg(left,front,right,front);cursor=Math.max(cursor,b);}
     if(cursor<x+half)seg(cursor,front,x+half,front);
   };
+  const houseInterior=(x,z,scale=1)=>{seg(x-3.06*scale,z+.34*scale,x+.24*scale,z+.34*scale);seg(x+1.46*scale,z+.34*scale,x+3.06*scale,z+.34*scale);seg(x-1.22*scale,z+.34*scale,x-1.22*scale,z+1.42*scale);};
   if(locationId==='rookie-village'){
-    rect(-14,-7,6.8*1.05,5.2*1.05,[[.85*1.05,1.12*1.05]]);rect(11,-13,6.8*.82,5.2*.82,[[.85*.82,1.12*.82]]);
+    rect(-14,-7,6.8*1.05,5.2*1.05,[[.85*1.05,1.12*1.05]]);houseInterior(-14,-7,1.05);rect(11,-13,6.8*.82,5.2*.82,[[.85*.82,1.12*.82]]);houseInterior(11,-13,.82);
     rect(0,15,5.2*.9,4.4*.9,[[.325*.9,2.72*.9]]);rect(22,16,5.2*.75,4.4*.75,[[.325*.75,2.72*.75]]);
     // Fence segments and large props also block the player rather than acting as decoration only.
     seg(-25,-18,-7,-18);seg(5,21,25,21);seg(-22,19,-22,-6);
@@ -1263,7 +1336,7 @@ export function buildSceneCollisionData(locationId){
     // Stairs are walkable; rails prevent falling off the descending ramp.
     seg(-2.27,8,-2.27,20.2);seg(2.27,8,2.27,20.2);
   }else if(locationId==='farmstead'||locationId==='pig-farm'){
-    rect(-13,-8,6.8*1.12,5.2*1.12,[[.85*1.12,1.12*1.12]]);rect(12,-11,5.2*1.08,4.4*1.08,[[.325*1.08,2.72*1.08]]);rect(12,8,5.2*.74,4.4*.74,[[.325*.74,2.72*.74]]);solids.push({x:-4,z:15,r:2.5},{x:20,z:-1,r:.8},{x:-19,z:-2,r:2.1});
+    rect(-13,-8,6.8*1.12,5.2*1.12,[[.85*1.12,1.12*1.12]]);houseInterior(-13,-8,1.12);rect(12,-11,5.2*1.08,4.4*1.08,[[.325*1.08,2.72*1.08]]);rect(12,8,5.2*.74,4.4*.74,[[.325*.74,2.72*.74]]);solids.push({x:-4,z:15,r:2.5},{x:20,z:-1,r:.8},{x:-19,z:-2,r:2.1});
   }else if(locationId==='atp'){
     rect(-9,-12,13*1.02,9*1.02,[[-3.5*1.02,3.6*1.02],[0,3.6*1.02],[3.5*1.02,3.6*1.02]]);
     rect(15,-8,13*.72,9*.72,[[-3.5*.72,3.6*.72],[0,3.6*.72],[3.5*.72,3.6*.72]]);
@@ -1279,6 +1352,15 @@ export function buildSceneCollisionData(locationId){
   }
   return {walls,solids};
 }
+export function buildGlobalCollisionData(){
+  const walls=[],solids=[];
+  for(const location of LOCATIONS){
+    const center=globalLocationCenter(location.id),local=buildSceneCollisionData(location.id);
+    for(const wall of local.walls)walls.push({a:{x:wall.a.x+center.x,z:wall.a.z+center.z},b:{x:wall.b.x+center.x,z:wall.b.z+center.z}});
+    for(const solid of local.solids)solids.push({x:solid.x+center.x,z:solid.z+center.z,r:solid.r});
+  }
+  return {walls,solids};
+}
 function pointSegmentDistance(px,pz,a,b){
   const dx=b.x-a.x,dz=b.z-a.z,len=dx*dx+dz*dz||1;
   const t=clamp(((px-a.x)*dx+(pz-a.z)*dz)/len,0,1);
@@ -1290,6 +1372,35 @@ const SAFE_ACTION_CODE_MAP={Space:'space',ShiftLeft:'shift',ShiftRight:'shift',C
 export function movementKeyFromCode(code){return MOVEMENT_CODE_MAP[code]||null;}
 export function inputKeyFromCode(code,key=''){return movementKeyFromCode(code)||SAFE_ACTION_CODE_MAP[code]||String(key||'').toLowerCase();}
 export function selectNearbyNpc(entries,player,maxDistance=4.5){let best=null,bestDistance=maxDistance;for(const entry of entries||[]){const d=Math.hypot(entry.pos.x-player.x,entry.pos.z-player.z);if(d<bestDistance){best=entry;bestDistance=d;}}return best;}
+export const CORDON_WORLD_BOUNDS=Object.freeze({minX:-768,maxX:768,minZ:-1536,maxZ:1536});
+export function clampCordonPosition(point,margin=2){
+  const safeMargin=clamp(Number(margin)||0,0,48);
+  return {
+    x:clamp(Number(point?.x)||0,CORDON_WORLD_BOUNDS.minX+safeMargin,CORDON_WORLD_BOUNDS.maxX-safeMargin),
+    z:clamp(Number(point?.z)||0,CORDON_WORLD_BOUNDS.minZ+safeMargin,CORDON_WORLD_BOUNDS.maxZ-safeMargin)
+  };
+}
+export function isInsideCordonBounds(point,margin=0){
+  const safeMargin=Math.max(0,Number(margin)||0),x=Number(point?.x),z=Number(point?.z);
+  return Number.isFinite(x)&&Number.isFinite(z)&&x>=CORDON_WORLD_BOUNDS.minX+safeMargin&&x<=CORDON_WORLD_BOUNDS.maxX-safeMargin&&z>=CORDON_WORLD_BOUNDS.minZ+safeMargin&&z<=CORDON_WORLD_BOUNDS.maxZ-safeMargin;
+}
+export function clipRawMeshToCordonBounds(raw,center,margin=0){
+  const clipped={vertices:[],normals:[],colors:[],uvs:[]};
+  for(let i=0;i<raw.vertices.length;i+=9){
+    let inside=true;
+    for(let j=0;j<9;j+=3){
+      const point={x:raw.vertices[i+j]+center.x,z:raw.vertices[i+j+2]+center.z};
+      if(!isInsideCordonBounds(point,margin)){inside=false;break;}
+    }
+    if(!inside)continue;
+    clipped.vertices.push(...raw.vertices.slice(i,i+9));
+    const vertexStart=(i/3)*3,uvStart=(i/3)*2;
+    clipped.normals.push(...raw.normals.slice(vertexStart,vertexStart+9));
+    clipped.colors.push(...raw.colors.slice(vertexStart,vertexStart+9));
+    clipped.uvs.push(...raw.uvs.slice(uvStart,uvStart+6));
+  }
+  return clipped;
+}
 export function stepJumpMotion(height,velocity,dt,gravity=18){
   let nextHeight=Math.max(0,Number(height)||0),nextVelocity=Number(velocity)||0;
   if(nextHeight<=0&&nextVelocity<=0)return {height:0,velocity:0,grounded:true};
@@ -1302,7 +1413,7 @@ export function stepJumpMotion(height,velocity,dt,gravity=18){
 let activeRenderer=null;
 export function disposeStalker3D(){if(activeRenderer){activeRenderer.destroy();activeRenderer=null;}}
 
-export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=()=>{},onFire=()=>{},onPickup=()=>false,onNotify=()=>{},onCheckpoint=()=>{},onReload=()=>({ok:false}),onPunch=()=>({ok:false}),onBinoculars=()=>true,onAimChange=()=>{},onFlashlightToggle=()=>{},onSleep=()=>{},reducedMotion=false,controlsMode='auto',restorePointerLock=false}={}){
+export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onLocationChange=()=>{},onFire=()=>{},onPickup=()=>false,onNotify=()=>{},onCheckpoint=()=>{},onReload=()=>({ok:false}),onPunch=()=>({ok:false}),onBinoculars=()=>true,onAimChange=()=>{},onFlashlightToggle=()=>{},onSleep=()=>{},onFlee=()=>({ok:false}),reducedMotion=false,controlsMode='auto',restorePointerLock=false}={}){
   disposeStalker3D();
   if(!canvas||!game) return null;
   canvas.tabIndex=0;canvas.style.touchAction='none';
@@ -1314,42 +1425,62 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
   const attrib={pos:gl.getAttribLocation(p,'aPosition'),normal:gl.getAttribLocation(p,'aNormal'),color:gl.getAttribLocation(p,'aColor'),uv:gl.getAttribLocation(p,'aUv')};
   const uniforms={projection:gl.getUniformLocation(p,'uProjection'),view:gl.getUniformLocation(p,'uView'),model:gl.getUniformLocation(p,'uModel'),normal:gl.getUniformLocation(p,'uNormal'),sun:gl.getUniformLocation(p,'uSunDirection'),sunColor:gl.getUniformLocation(p,'uSunColor'),fog:gl.getUniformLocation(p,'uFogColor'),fogNear:gl.getUniformLocation(p,'uFogNear'),fogFar:gl.getUniformLocation(p,'uFogFar'),time:gl.getUniformLocation(p,'uTime'),albedo:gl.getUniformLocation(p,'uAlbedo'),characterAtlas:gl.getUniformLocation(p,'uCharacterAtlas'),textureReady:gl.getUniformLocation(p,'uTextureReady'),mapMode:gl.getUniformLocation(p,'uMapMode'),spritePass:gl.getUniformLocation(p,'uSpritePass'),flashlightPosition:gl.getUniformLocation(p,'uFlashlightPosition'),flashlightDirection:gl.getUniformLocation(p,'uFlashlightDirection'),flashlightOn:gl.getUniformLocation(p,'uFlashlightOn')};
   const albedoTexture=createAlbedoTexture(gl);const cordonMapTexture=createCordonMapTexture(gl);const npcShadowMesh=buildNpcGroundShadow().toMesh(gl);gl.useProgram(p);gl.uniform1i(uniforms.albedo,0);gl.uniform1i(uniforms.characterAtlas,1);
-  const loc=LOCATIONS.find(entry=>entry.id===game.locationId)||LOCATIONS[0];const layout=createSceneLayout(loc.id,loc.neighbors||[]);const rng=seeded(hash(loc.id));
-  const sceneHeight=(x,z)=>sampleLocationHeight(loc.id,x,z);
-  const surfaceHeight=(x,z)=>sampleMapSurfaceHeight(loc.id,x,z);
-  const bunkerVoid=loc.id==='sidorovich-bunker'?(x,z)=>Math.abs(x)<9.55&&Math.abs(z)<7.35:null;
-  const terrainBuilder=new MeshBuilder();addMapGround(terrainBuilder,loc,surfaceHeight,rng,112,bunkerVoid);const terrainMesh=terrainBuilder.toMesh(gl);
-  const staticBuilder=new MeshBuilder();addCordonRoadNetwork(staticBuilder,loc,surfaceHeight);addLocationSet(staticBuilder,loc.id,rng,sceneHeight);const exits=addExitLayout(staticBuilder,loc.neighbors||[],loc.id,sceneHeight);const worldMesh=staticBuilder.toMesh(gl);const cloudMesh=buildCloudLayer().toMesh(gl);
+  let loc=LOCATIONS.find(entry=>entry.id===game.locationId)||LOCATIONS.find(entry=>entry.id==='rookie-village');
+  const layout=createSceneLayout(loc.id,[]);
+  const globalWorld=buildGlobalWorldGeometry({terrainStepsX:192,terrainStepsZ:384});
+  const meshFromRaw=raw=>{const builder=new MeshBuilder();builder.vertices=raw.vertices;builder.normals=raw.normals;builder.colors=raw.colors;builder.uvs=raw.uvs;return builder.toMesh(gl);};
+  const terrainMesh=meshFromRaw(globalWorld.terrain),roadMesh=meshFromRaw(globalWorld.roads);
+  const regionMeshes=globalWorld.regions.map(region=>({...region,mesh:meshFromRaw(region.raw)}));
+  const cloudMesh=buildCloudLayer().toMesh(gl);
   const playerFaction=game.player?.faction||'loner';
   const equippedId=game.equippedWeaponId||game.equipmentSlots?.pistol||game.equipmentSlots?.primary1||game.equipmentSlots?.primary2||'aksu';
   const playerArmorId=game.player?.armorId||game.equipmentSlots?.armor||'none';
   const firstPersonMesh=buildFirstPersonView(playerFaction,equippedId,playerArmorId).toMesh(gl);const binocularMesh=buildFirstPersonView(playerFaction,'binoculars',playerArmorId).toMesh(gl);const fistsMesh=buildFirstPersonView(playerFaction,'fists',playerArmorId).toMesh(gl);const reloadMagazineMesh=buildReloadMagazine(equippedId).toMesh(gl);
   const npcMeshes=npcs.filter(n=>!n.captured||game.currentAreaId==='atp-first-floor-prisoners').map((npc,index)=>{
-    const rr=seeded(hash(npc.id));const angle=(index*2.399+rr()*.5),radius=7+(index%4)*3.6;const pos=loc.id==='sidorovich-bunker'&&npc.id==='sidorovich'?{x:0,z:-2.0}:{x:Math.cos(angle)*radius,z:Math.sin(angle)*radius-5};
+    const rr=seeded(hash(npc.id));const angle=(index*2.399+rr()*.5),radius=5+(index%5)*2.1;
+    const npcLoc=LOCATIONS.some(entry=>entry.id===npc.location)?npc.location:'rookie-village';
+    const center=globalLocationCenter(npcLoc);
+    const local=(npc.id==='sidorovich'||npcLoc==='sidorovich-bunker')?{x:0,z:-2.0}:{x:Math.cos(angle)*radius,z:Math.sin(angle)*radius-5};
+    const pos=clampCordonPosition({x:center.x+local.x,z:center.z+local.z},6);
     const faction=npc.faction||'loner';
-    return {npc,pos,home:{x:pos.x,z:pos.z},destination:null,nextWander:performance.now()+rr()*2600,yaw:npcFacingYaw(pos,{x:0,z:0}),phase:rr()*6.28,moving:false,mesh:buildHumanoid(faction,'npc',hash(npc.id),npc.weaponId||true,0).toMesh(gl)};
+    return {npc,locationId:npcLoc,pos,home:{x:pos.x,z:pos.z},destination:null,nextWander:performance.now()+rr()*2600,yaw:npcFacingYaw(pos,{x:pos.x,z:pos.z-1}),phase:rr()*6.28,moving:false,mesh:buildHumanoid(faction,'npc',hash(npc.id),npc.weaponId||true,0).toMesh(gl)};
   });
   const collected=game.player.worldLootCollected ||= {};
-  const collectedHere=new Set(collected[loc.id]||[]);
-  const lootMeshes=(loc.loot||[]).slice(0,7).map((id,index)=>({id,key:`${id}:${index}`,pos:{x:-7+(index%4)*4.6,z:5+Math.floor(index/4)*3.2},mesh:buildItemModel(id,hash(id)+index).toMesh(gl),phase:seeded(hash(id)+index)()*Math.PI*2,spin:.00025+index*.000045})).filter(entry=>!collectedHere.has(entry.key));
+  const lootMeshes=LOCATIONS.flatMap(location=>{
+    const center=globalLocationCenter(location.id),taken=new Set(collected[location.id]||[]);
+    return (location.loot||[]).slice(0,7).map((id,index)=>{
+      const local=location.id==='sidorovich-bunker'?{x:-4+(index%4)*2.5,z:-2+Math.floor(index/4)*3.0}:{x:-7+(index%4)*4.6,z:5+Math.floor(index/4)*3.2};
+      const key=`${id}:${index}`;
+      return {id,key,locationId:location.id,pos:{x:center.x+local.x,z:center.z+local.z},mesh:buildItemModel(id,hash(id)+index).toMesh(gl),phase:seeded(hash(id)+index)()*Math.PI*2,spin:.00025+index*.000045,scale:.19,collected:taken.has(key),isDropped:false};
+    }).filter(entry=>!entry.collected&&isInsideCordonBounds(entry.pos,1));
+  });
+  for(const drop of game.player.droppedItems||[]){
+    if(!Number.isFinite(drop.x)||!Number.isFinite(drop.z)||!ITEMS.some(item=>item.id===drop.id)||!isInsideCordonBounds({x:drop.x,z:drop.z},1))continue;
+    lootMeshes.push({id:drop.id,uid:drop.uid,qty:drop.qty||1,locationId:drop.locationId||loc.id,pos:{x:drop.x,z:drop.z},mesh:buildItemModel(drop.id,hash(drop.uid||drop.id)).toMesh(gl),phase:seeded(hash(drop.uid||drop.id))()*Math.PI*2,spin:.00018,scale:.17,isDropped:true});
+  }
   let enemyModel=null;
   if(game.activeEncounter){const e=game.activeEncounter;const isMutant=['blind-dog','flesh','boar'].includes(e.type);enemyModel={mesh:isMutant?buildMutant(e.type,hash(e.name)).toMesh(gl):buildHumanoid(e.faction||'bandit','enemy',hash(e.name),e.weaponId||'aksu',0).toMesh(gl),spriteMesh:null,faction:e.faction||'bandit',type:e.type};}
   game.player.worldPositions ||= {};
-  let pos=game.player.worldPositions[loc.id]|| (loc.id==='rookie-village'?{x:-8,z:26,yaw:0}:loc.id==='sidorovich-bunker'?{x:0,z:18.5,yaw:0}:{x:0,z:26,yaw:0});
-  if(!Number.isFinite(pos.x)||!Number.isFinite(pos.z))pos=loc.id==='rookie-village'?{x:-8,z:26,yaw:0}:loc.id==='sidorovich-bunker'?{x:0,z:18.5,yaw:0}:{x:0,z:26,yaw:0};
-  // Migrate the previous central spawn, which could start inside the village obstacle.
-  if(loc.id==='rookie-village'&&Math.abs(pos.x)<.01&&pos.z>23&&Math.abs(Number(pos.yaw)||0)<.01){pos={x:-8,z:26,yaw:0};game.player.worldPositions[loc.id]=pos;}
+  const legacyStart=game.player.worldPositions[loc.id]||(loc.id==='rookie-village'?{x:-8,z:26,yaw:0}:loc.id==='sidorovich-bunker'?{x:0,z:18.5,yaw:0}:{x:0,z:26,yaw:0});
+  const legacyCenter=globalLocationCenter(loc.id);
+  let pos=game.player.cordonPosition&&Number.isFinite(game.player.cordonPosition.x)&&Number.isFinite(game.player.cordonPosition.z)
+    ?{...game.player.cordonPosition}
+    :{x:legacyCenter.x+legacyStart.x,z:legacyCenter.z+legacyStart.z,yaw:Number(legacyStart.yaw)||0};
+  if(loc.id==='rookie-village'&&!game.player.cordonPosition&&Math.abs(legacyStart.x)<.01&&legacyStart.z>23&&Math.abs(Number(legacyStart.yaw)||0)<.01){pos={x:legacyCenter.x-8,z:legacyCenter.z+26,yaw:0};}
+  pos={...pos,...clampCordonPosition(pos,3)};
   let yaw=Number.isFinite(pos.yaw)?pos.yaw:0,pitch=.10;
+  game.player.cordonPosition={x:pos.x,z:pos.z,yaw};
+  const villageCenter=globalLocationCenter('rookie-village'),bedrollWorld={x:villageCenter.x-5,z:villageCenter.z+4};
   const combatNpcId=game.activeEncounter?.npcId||game.combatTargetNpcId||null;
   let enemyEntry=npcMeshes.find(entry=>entry.npc.id===combatNpcId)||null;
   if(!enemyEntry&&game.activeEncounter){const ep=game.activeEncounter.worldPos||(game.activeEncounter.worldPos={x:pos.x+Math.sin(yaw)*3.6,z:pos.z-Math.cos(yaw)*3.6});enemyEntry={npc:null,pos:{x:ep.x,z:ep.z}};}
   let shotMesh=null,shotAt=Number(game.player.last3dShotAt)||0,recoilAt=0;
   const shotTargetId=game.player.last3dShotTargetId||combatNpcId;
   const shotTarget=npcMeshes.find(entry=>entry.npc.id===shotTargetId);
-  if(shotTarget&&game.player.last3dShotLoc===loc.id&&shotAt>0){
+  if(shotTarget&&shotAt>0){
     const fx=new MeshBuilder();
-    const start=[pos.x+Math.sin(yaw)*.48,sampleLocationHeight(loc.id,pos.x,pos.z)+1.38,pos.z-Math.cos(yaw)*.48];
-    const end=[shotTarget.pos.x,1.42,shotTarget.pos.z];
+    const start=[pos.x+Math.sin(yaw)*.48,sampleGlobalTerrainHeight(pos.x,pos.z)+1.38,pos.z-Math.cos(yaw)*.48];
+    const end=[shotTarget.pos.x,sampleGlobalTerrainHeight(shotTarget.pos.x,shotTarget.pos.z)+1.15,shotTarget.pos.z];
     fx.beam(start,end,.035,[.92,.58,.18],7,.006);fx.sphere(start[0],start[1],start[2],.11,.07,.11,[1,.72,.27],7,9);
     shotMesh=fx.toMesh(gl);
   }
@@ -1357,15 +1488,18 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
   let keyState={},touchMove={x:0,y:0},lookPointer=null,isPointerLocked=false,mouseDown=false,mouseButton=0,destroyed=false;
   let aimHeld=false,aimToggle=false,binocularActive=!!game.player?.binocularsActive,lookVertical=0,lookVerticalPointer=null;
   let jumpHeight=0,jumpVelocity=0,lastJumpAt=-10000,crouchToggle=!!game.player?.isCrouching,flashlightActive=!!game.player?.flashlightActive;
-  let reloadAt=-10000,meleeAt=-10000,punchAt=-10000,lastTravelAt=-10000,hudElapsed=0;
-  const collisionData=buildSceneCollisionData(loc.id);
+  let reloadAt=-10000,meleeAt=-10000,punchAt=-10000,hudElapsed=0;
+  const collisionData=buildGlobalCollisionData();
   function isBlocked(x,z,ignoreNpcId=null,from=null){
-    if(Math.abs(x)>64||Math.abs(z)>64)return true;
+    // The playable surface ends exactly at the satellite-map boundary. A narrow
+    // invisible margin prevents walking into the unrendered area beyond the map.
+    if(x<CORDON_WORLD_BOUNDS.minX+3||x>CORDON_WORLD_BOUNDS.maxX-3||z<CORDON_WORLD_BOUNDS.minZ+3||z>CORDON_WORLD_BOUNDS.maxZ-3)return true;
     if(collisionData.walls.some(wall=>pointSegmentDistance(x,z,wall.a,wall.b)<.43))return true;
     if(collisionData.solids.some(solid=>Math.hypot(x-solid.x,z-solid.z)<solid.r+.34))return true;
-    if(npcMeshes.some(entry=>entry.npc.id!==ignoreNpcId&&Math.hypot(x-entry.pos.x,z-entry.pos.z)<.66))return true;
-    if(enemyEntry&&Math.hypot(x-enemyEntry.pos.x,z-enemyEntry.pos.z)<.66)return true;
-    const currentY=sampleLocationHeight(loc.id,from?.x??pos.x,from?.z??pos.z),nextY=sampleLocationHeight(loc.id,x,z);
+    const combatNpcId=game.activeEncounter?.npcId||null;
+    if(npcMeshes.some(entry=>entry.npc.id!==ignoreNpcId&&entry.npc.id!==combatNpcId&&Math.hypot(x-entry.pos.x,z-entry.pos.z)<.66))return true;
+    // The current threat must not become an invisible wall: the player can move past it.
+    const currentY=sampleGlobalTerrainHeight(from?.x??pos.x,from?.z??pos.z),nextY=sampleGlobalTerrainHeight(x,z);
     if(Math.abs(nextY-currentY)>.72)return true;
     return false;
   }
@@ -1379,31 +1513,30 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
   const hud=document.createElement('div');hud.className='three-hud';hud.innerHTML='<div class="three-hud-minimap"><canvas width="144" height="144" aria-label="Мини-карта"></canvas><i></i></div><div class="three-hud-health"><div class="three-hud-health-track"><i></i></div><span>100</span></div><div class="three-hud-flashlight">ФОНАРЬ · ВЫКЛ</div>';
   canvas.parentElement.appendChild(hud);
   const mapCanvas=hud.querySelector('canvas'),mapCtx=mapCanvas.getContext('2d'),healthFill=hud.querySelector('.three-hud-health-track i'),healthText=hud.querySelector('.three-hud-health span'),flashlightText=hud.querySelector('.three-hud-flashlight');
+  const fleeButton=document.createElement('button');fleeButton.type='button';fleeButton.className='three-flee-button';fleeButton.textContent='СБЕЖАТЬ';fleeButton.hidden=!game.activeEncounter;fleeButton.setAttribute('aria-label','Прервать столкновение и уйти от угрозы');
+  fleeButton.addEventListener('click',event=>{event.preventDefault();event.stopPropagation();onFlee();});canvas.parentElement.appendChild(fleeButton);
   const binocularOverlay=document.createElement('div');binocularOverlay.className='three-binocular-overlay';binocularOverlay.setAttribute('aria-hidden','true');binocularOverlay.innerHTML='<svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"><path fill="#040604" fill-rule="evenodd" d="M0 0H100V100H0Z M18 50a21 29 0 1 0 42 0a21 29 0 1 0 -42 0 M40 50a21 29 0 1 0 42 0a21 29 0 1 0 -42 0"/><ellipse cx="39" cy="50" rx="21" ry="29" fill="none" stroke="#87916d" stroke-width=".7"/><ellipse cx="61" cy="50" rx="21" ry="29" fill="none" stroke="#87916d" stroke-width=".7"/><path d="M49 50H51" stroke="#aab58a" stroke-width="1.2"/></svg>';canvas.parentElement.appendChild(binocularOverlay);
   function resize(){const rect=canvas.getBoundingClientRect();if(!rect.width||!rect.height)return;width=rect.width;height=rect.height;dpr=Math.min(window.devicePixelRatio||1,1.6);canvas.width=Math.max(1,Math.round(width*dpr));canvas.height=Math.max(1,Math.round(height*dpr));gl.viewport(0,0,canvas.width,canvas.height);}
   const resizeObserver=new ResizeObserver(resize);resizeObserver.observe(canvas);resize();
   function nearestNpc(){return selectNearbyNpc(npcMeshes,pos,4.5);}
   function nearestLoot(){let best=null,bd=1e9;for(const entry of lootMeshes){const d=Math.hypot(entry.pos.x-pos.x,entry.pos.z-pos.z);if(d<bd){best=entry;bd=d;}}return best&&bd<3.4?best:null;}
-  function nearestExit(){let best=null,bd=1e9;for(const exit of exits){const d=Math.hypot(exit.x-pos.x,exit.z-pos.z);if(d<bd){best=exit;bd=d;}}return best&&bd<5.5?best:null;}
   function updateNpcMovement(dt,now){
     for(const entry of npcMeshes){
       if(!entry.destination||now>=entry.nextWander){
         const angle=Math.sin(entry.phase+now*.00017)*Math.PI+(entry.phase%1)*1.4;
         const radius=1.2+((Math.floor(entry.phase*1000)%4)+1)*.42;
-        entry.destination={x:entry.home.x+Math.cos(angle)*radius,z:entry.home.z+Math.sin(angle)*radius};
+        entry.destination=clampCordonPosition({x:entry.home.x+Math.cos(angle)*radius,z:entry.home.z+Math.sin(angle)*radius},6);
         entry.nextWander=now+2600+(entry.phase%1)*3100;
       }
       const dx=entry.destination.x-entry.pos.x,dz=entry.destination.z-entry.pos.z,d=Math.hypot(dx,dz);
       entry.moving=d>.20;
       if(!entry.moving){entry.destination=null;continue;}
       const step=Math.min(d,.48*dt),nx=entry.pos.x+dx/d*step,nz=entry.pos.z+dz/d*step;
-      if(!isBlocked(nx,entry.pos.z,entry.npc.id,entry.pos)&&!isBlocked(entry.pos.x,nz,entry.npc.id,entry.pos)){entry.pos.x=nx;entry.pos.z=nz;entry.yaw=Math.atan2(dx,dz);}
+      if(!isBlocked(nx,entry.pos.z,entry.npc.id,entry.pos)&&!isBlocked(entry.pos.x,nz,entry.npc.id,entry.pos)){entry.pos.x=nx;entry.pos.z=nz;entry.yaw=npcMovementYaw(dx,dz);}
       else {entry.destination=null;entry.nextWander=now+300;}
     }
   }
-  function arrivalForExit(exit){return {from:loc.id,edge:{x:exit.x,z:exit.z},yaw};}
-  function travel(exit){if(!exit)return false;lastTravelAt=performance.now();const result=onTravel(exit.id,arrivalForExit(exit));return result;}
-  function interact(){const target=nearestNpc();if(target){onInteract(target.npc.id);return;}const loot=nearestLoot();if(loot){const ok=onPickup(loot.id);if(ok){game.player.worldLootCollected[loc.id] ||= [];game.player.worldLootCollected[loc.id].push(loot.key);gl.deleteBuffer(loot.mesh.buffer);lootMeshes.splice(lootMeshes.indexOf(loot),1);onCheckpoint();}return;}const exit=nearestExit();if(exit){travel(exit);return;}onNotify('Рядом никого нет. Подойди ближе к сталкеру, предмету или выходу.');}
+  function interact(){const target=nearestNpc();if(target){onInteract(target.npc.id);return;}const loot=nearestLoot();if(loot){const ok=onPickup(loot.id,loot.qty||1,loot.uid||null);if(ok){if(!loot.isDropped){game.player.worldLootCollected[loot.locationId] ||= [];game.player.worldLootCollected[loot.locationId].push(loot.key);}gl.deleteBuffer(loot.mesh.buffer);lootMeshes.splice(lootMeshes.indexOf(loot),1);onCheckpoint();}return;}onNotify('Рядом никого нет. Подойди ближе к сталкеру или предмету.');}
   function aimedNpc(maxDistance,minAlignment){return selectAimedTarget(npcMeshes,pos,yaw,maxDistance,minAlignment,pitch);}
   function fire(){
     if(performance.now()-fireCooldown<340)return;
@@ -1417,8 +1550,8 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
     if(!isKnife&&(chosen||game.activeEncounter)){
       game.player.last3dShotAt=fireCooldown;game.player.last3dShotTargetId=game.activeEncounter?.npcId||chosen?.npc.id||null;game.player.last3dShotLoc=loc.id;
       if(shotMesh)gl.deleteBuffer(shotMesh.buffer);
-      const tracer=new MeshBuilder(),start=[pos.x+Math.sin(yaw)*.54,sampleLocationHeight(loc.id,pos.x,pos.z)+1.34,pos.z-Math.cos(yaw)*.54];
-      const end=chosen?[chosen.pos.x,sampleLocationHeight(loc.id,chosen.pos.x,chosen.pos.z)+1.15,chosen.pos.z]:[start[0]+Math.sin(yaw)*11, start[1]-.4,start[2]-Math.cos(yaw)*11];
+      const tracer=new MeshBuilder(),start=[pos.x+Math.sin(yaw)*.54,sampleGlobalTerrainHeight(pos.x,pos.z)+1.34,pos.z-Math.cos(yaw)*.54];
+      const end=chosen?[chosen.pos.x,sampleGlobalTerrainHeight(chosen.pos.x,chosen.pos.z)+1.15,chosen.pos.z]:[start[0]+Math.sin(yaw)*11, start[1]-.4,start[2]-Math.cos(yaw)*11];
       tracer.beam(start,end,.027,[.92,.58,.18],7,.004);tracer.sphere(start[0],start[1],start[2],.09,.065,.09,[1,.72,.27],7,9);shotMesh=tracer.toMesh(gl);shotAt=fireCooldown;
     }
     onFire(chosen?.npc||null,{weaponId:equippedId,distance,mode:isKnife?'knife':'fire',position:{x:pos.x,z:pos.z,yaw},targetPosition:chosen?.npc?chosen.pos:chosen?.pos||null});
@@ -1437,7 +1570,7 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
     const k=inputKeyFromCode(e.code,e.key);
     if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright','space','shift','control','e','f','q','r','b','c','l'].includes(k))e.preventDefault();
     keyState[k]=true;
-    if(k==='e'&&!e.repeat)interact();if(k==='space'&&!e.repeat)jump();if(k==='l'&&!e.repeat)toggleFlashlight();if(k==='z'&&!e.repeat){if(Math.hypot(pos.x+5,pos.z-4)<3.2)onSleep();else onNotify('Место для сна находится у деревенского костра.');}
+    if(k==='e'&&!e.repeat)interact();if(k==='space'&&!e.repeat)jump();if(k==='l'&&!e.repeat)toggleFlashlight();if(k==='z'&&!e.repeat){if(Math.hypot(pos.x-bedrollWorld.x,pos.z-bedrollWorld.z)<3.2)onSleep();else onNotify('Место для сна находится у деревенского костра.');}
     if(k==='c'&&!e.repeat)punch();
     if(k==='f'&&!e.repeat)fire();if(k==='q'&&!e.repeat)toggleAim();if(k==='r'&&!e.repeat)reload();if(k==='b'&&!e.repeat)toggleBinoculars();
   }
@@ -1472,14 +1605,16 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
   // Keep mouse-look active when the game rerenders its HUD after an action. The render is synchronous with the player's click/keypress.
   if(restorePointerLock&&canvas.requestPointerLock){try{const request=canvas.requestPointerLock({unadjustedMovement:true});request?.catch?.(()=>onNotify('Захват мыши не восстановился: перетащи мышь по сцене для обзора.'));}catch{try{canvas.requestPointerLock();}catch{onNotify('Используй перетаскивание мышью по сцене для обзора.');}}}
   function updateHud(){
+    fleeButton.hidden=!game.activeEncounter;
     const maxHp=Math.max(1,Number(game.player?.maxHp)||100),hp=clamp(Number(game.player?.hp??maxHp),0,maxHp),pct=hp/maxHp*100;
     healthFill.style.width=`${pct}%`;healthFill.style.background=pct<25?'#b64e3d':pct<55?'#b8a34b':'#9aa85e';healthText.textContent=String(Math.round(hp));
     flashlightText.textContent=flashlightActive?'ФОНАРЬ · ВКЛ':'ФОНАРЬ · ВЫКЛ';flashlightText.classList.toggle('active',flashlightActive);
     const c=mapCtx,w=mapCanvas.width,h=mapCanvas.height,cx=w/2,cy=h/2,scale=1.42;c.clearRect(0,0,w,h);c.save();c.beginPath();c.arc(cx,cy,68,0,Math.PI*2);c.clip();c.fillStyle='#172117';c.fillRect(0,0,w,h);
     c.strokeStyle='#82916b55';c.lineWidth=1;for(let radius of [20,42,64]){c.beginPath();c.arc(cx,cy,radius,0,Math.PI*2);c.stroke();}c.strokeStyle='#84926b44';c.beginPath();c.moveTo(cx,0);c.lineTo(cx,h);c.moveTo(0,cy);c.lineTo(w,cy);c.stroke();
     const ca=Math.cos(yaw),sa=Math.sin(yaw);const mapPoint=(x,z)=>{const dx=x-pos.x,dz=z-pos.z;return {x:cx+(dx*ca+dz*sa)*scale,y:cy+(dx*sa-dz*ca)*scale};};
-    c.fillStyle='#c4b06c';for(const exit of exits){const q=mapPoint(exit.x,exit.z);c.beginPath();c.arc(q.x,q.y,3,0,Math.PI*2);c.fill();}
     for(const entry of npcMeshes){const q=mapPoint(entry.pos.x,entry.pos.z);c.fillStyle=entry.npc.faction==='military'?'#d0b66e':entry.npc.faction==='bandit'?'#bd7459':'#91a47a';c.beginPath();c.arc(q.x,q.y,2.4,0,Math.PI*2);c.fill();}
+    for(const entry of lootMeshes){const q=mapPoint(entry.pos.x,entry.pos.z);if(q.x>cx-66&&q.x<cx+66&&q.y>cy-66&&q.y<cy+66){c.fillStyle=entry.isDropped?'#e6d7a0':'#b8c28b';c.fillRect(q.x-1.5,q.y-1.5,3,3);}}
+    const navTarget=LOCATIONS.find(entry=>entry.id===game.player.navigationTargetId);if(navTarget){const targetPos=cordonMapToWorld(navTarget.x,navTarget.y),q=mapPoint(targetPos.x,targetPos.z);if(q.x>cx-66&&q.x<cx+66&&q.y>cy-66&&q.y<cy+66){c.strokeStyle='#e9c45f';c.lineWidth=2;c.beginPath();c.arc(q.x,q.y,5,0,Math.PI*2);c.stroke();}}
     c.save();c.translate(cx,cy);c.rotate(0);c.fillStyle='#edf0c9';c.beginPath();c.moveTo(0,-9);c.lineTo(6,7);c.lineTo(0,4);c.lineTo(-6,7);c.closePath();c.fill();c.restore();c.restore();
   }
   function draw(mesh,model,textureState=albedoTexture,mapMode=false){gl.bindBuffer(gl.ARRAY_BUFFER,mesh.buffer);const stride=11*4;gl.enableVertexAttribArray(attrib.pos);gl.vertexAttribPointer(attrib.pos,3,gl.FLOAT,false,stride,0);gl.enableVertexAttribArray(attrib.normal);gl.vertexAttribPointer(attrib.normal,3,gl.FLOAT,false,stride,12);gl.enableVertexAttribArray(attrib.color);gl.vertexAttribPointer(attrib.color,3,gl.FLOAT,false,stride,24);gl.enableVertexAttribArray(attrib.uv);gl.vertexAttribPointer(attrib.uv,2,gl.FLOAT,false,stride,36);gl.uniformMatrix4fv(uniforms.model,false,model);gl.uniformMatrix3fv(uniforms.normal,false,normalMatrix(model));gl.uniform1f(uniforms.spritePass,0);gl.uniform1f(uniforms.mapMode,mapMode?1:0);gl.uniform1f(uniforms.textureReady,textureState.ready?1:0);gl.disable(gl.BLEND);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,textureState.texture);gl.drawArrays(gl.TRIANGLES,0,mesh.count);}
@@ -1491,20 +1626,29 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
     if(Math.abs(forward)+Math.abs(strafe)>.01){
       const nx=pos.x+dx,nz=pos.z+dz;let moved=0;
       if(!isBlocked(nx,pos.z)){pos.x=nx;moved+=Math.abs(dx);}if(!isBlocked(pos.x,nz)){pos.z=nz;moved+=Math.abs(dz);}
-      if(moved>0){pos.yaw=yaw;game.player.worldPositions[loc.id]={x:pos.x,z:pos.z,yaw};game.distanceTravelled=(game.distanceTravelled||0)+moved*.001;}
+      if(moved>0){pos.yaw=yaw;game.player.cordonPosition={x:pos.x,z:pos.z,yaw};game.distanceTravelled=(game.distanceTravelled||0)+moved*.001;}
+    }
+    if(game.activeEncounter){
+      const threat=game.activeEncounter.worldPos||enemyEntry?.pos;
+      if(threat&&Math.hypot(pos.x-threat.x,pos.z-threat.z)>18){
+        game.activeEncounter=null;game.combatTargetNpcId=null;game.player.last3dShotTargetId=null;game.player.isAiming=false;game.player.aimed=false;
+        onNotify('Ты достаточно далеко отошёл от угрозы. Столкновение завершено.');onCheckpoint();
+      }
     }
     if(lookVertical) pitch=clamp(pitch+lookVertical*dt*.82,-1.12,.90);
     const jumpState=stepJumpMotion(jumpHeight,jumpVelocity,dt);jumpHeight=jumpState.height;jumpVelocity=jumpState.velocity;
-    // Adjacent zones connect at their physical edge markers; crossing a marker streams straight into the next scene.
-    if(now-lastTravelAt>1200){const crossing=exits.find(exit=>Math.hypot(exit.x-pos.x,exit.z-pos.z)<1.85);if(crossing){const result=travel(crossing);if(result===false||result?.ok===false){const dx0=pos.x-crossing.x,dz0=pos.z-crossing.z,l0=Math.hypot(dx0,dz0)||1;pos.x=crossing.x+dx0/l0*2.4;pos.z=crossing.z+dz0/l0*2.4;game.player.worldPositions[loc.id]={x:pos.x,z:pos.z,yaw};if(result?.message)onNotify(result.message);}}}
-    const terrainY=sampleLocationHeight(loc.id,pos.x,pos.z);const eyeY=terrainY+(crouched?1.08:1.66)+jumpHeight;const camera=[pos.x,eyeY,pos.z];const cameraPitch=clamp(pitch,-1.12,.90);const target=[pos.x+Math.sin(yaw)*Math.cos(cameraPitch)*10,eyeY+Math.sin(cameraPitch)*10,pos.z-Math.cos(yaw)*Math.cos(cameraPitch)*10];const view=lookAt(camera,target);const aimActive=aimHeld||aimToggle;const fov=binocularActive?.255:aimActive?.49:.91;const proj=perspective(fov,width/Math.max(1,height),.08,160);
+    // The entire Cordon is one continuous world: zone IDs only update quest/dialogue context.
+    const currentLocationId=locateGlobalLocation(pos.x,pos.z);
+    if(currentLocationId!==loc.id){loc=LOCATIONS.find(entry=>entry.id===currentLocationId)||loc;game.locationId=loc.id;game.currentAreaId=null;onLocationChange(loc.id);}
+    if(game.player.navigationTargetId){const reached=LOCATIONS.find(entry=>entry.id===game.player.navigationTargetId);if(reached){const targetPos=cordonMapToWorld(reached.x,reached.y);if(Math.hypot(targetPos.x-pos.x,targetPos.z-pos.z)<14){game.player.navigationTargetId=null;onNotify(`Ты добрался до ориентира «${reached.name}».`);}}}
+    const terrainY=sampleGlobalTerrainHeight(pos.x,pos.z);const eyeY=terrainY+(crouched?1.08:1.66)+jumpHeight;const camera=[pos.x,eyeY,pos.z];const cameraPitch=clamp(pitch,-1.12,.90);const target=[pos.x+Math.sin(yaw)*Math.cos(cameraPitch)*10,eyeY+Math.sin(cameraPitch)*10,pos.z-Math.cos(yaw)*Math.cos(cameraPitch)*10];const view=lookAt(camera,target);const aimActive=aimHeld||aimToggle;const fov=binocularActive?.255:aimActive?.49:.91;const proj=perspective(fov,width/Math.max(1,height),.08,160);
     binocularOverlay.classList.toggle('active',binocularActive);gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);gl.clearColor(.17,.20,.17,1);gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);gl.useProgram(p);gl.activeTexture(gl.TEXTURE0);gl.bindTexture(gl.TEXTURE_2D,albedoTexture.texture);gl.uniform1f(uniforms.textureReady,albedoTexture.ready?1:0);gl.uniform1f(uniforms.mapMode,0);gl.uniformMatrix4fv(uniforms.projection,false,proj);gl.uniformMatrix4fv(uniforms.view,false,view);const light=daylightFor(game.clock);const sunY=mix(-.12,-.92,light.daylight);gl.uniform3f(uniforms.sun,.45,sunY,.28);gl.uniform3f(uniforms.sunColor,mix(.42,1,light.daylight),mix(.48,.93,light.daylight),mix(.62,.78,light.daylight));const night=light.daylight<.12;const dusk=light.twilight;gl.uniform3f(uniforms.fog,mix(.035,.12,light.daylight)+dusk*.055,mix(.045,.16,light.daylight)+dusk*.035,mix(.065,.13,light.daylight));gl.uniform1f(uniforms.fogNear,20);gl.uniform1f(uniforms.fogFar,82);gl.uniform1f(uniforms.time,now/1000);
     gl.uniform3f(uniforms.flashlightPosition,camera[0],camera[1],camera[2]);gl.uniform3f(uniforms.flashlightDirection,Math.sin(yaw)*Math.cos(cameraPitch),Math.sin(cameraPitch),-Math.cos(yaw)*Math.cos(cameraPitch));gl.uniform1f(uniforms.flashlightOn,flashlightActive?1:0);
-    draw(terrainMesh,modelMatrix(0,0,0,0),cordonMapTexture,true);draw(worldMesh,modelMatrix(0,0,0,0));const cloudDrift=Math.sin(now*.000018)*5;draw(cloudMesh,modelMatrix(cloudDrift,0,0,0));
-    for(const entry of lootMeshes){const phase=now*.0026+entry.phase,bob=Math.sin(phase)*.055,spin=now*entry.spin+entry.phase,scale=1+Math.sin(phase*1.3)*.035;draw(entry.mesh,modelMatrix(entry.pos.x,sampleLocationHeight(loc.id,entry.pos.x,entry.pos.z)+.12+bob,entry.pos.z,spin,scale));}
+    draw(terrainMesh,modelMatrix(0,0,0,0),cordonMapTexture,true);draw(roadMesh,modelMatrix(0,0,0,0));for(const region of regionMeshes){if(Math.hypot(region.center.x-pos.x,region.center.z-pos.z)<245)draw(region.mesh,modelMatrix(region.center.x,region.base,region.center.z));}const cloudDrift=Math.sin(now*.000018)*5;draw(cloudMesh,modelMatrix(pos.x+cloudDrift,sampleGlobalTerrainHeight(pos.x,pos.z)+18,pos.z));
+    for(const entry of lootMeshes){if(Math.hypot(entry.pos.x-pos.x,entry.pos.z-pos.z)>78)continue;const phase=now*.0026+entry.phase,bob=Math.sin(phase)*.035,spin=now*entry.spin+entry.phase;draw(entry.mesh,modelMatrix(entry.pos.x,sampleGlobalTerrainHeight(entry.pos.x,entry.pos.z)+.035+bob,entry.pos.z,spin,(entry.scale||.245)+Math.sin(phase*1.3)*.003));}
     // Full 3D NPC bodies use idle breathing, weight shifts and independent facing rather than flat PNG cards.
-    for(const entry of npcMeshes){if(enemyModel&&enemyEntry&&entry.npc.id===enemyEntry.npc.id)continue;const angle=entry.moving?entry.yaw+Math.sin(now*.006+entry.phase)*.025:npcFacingYaw(entry.pos,pos)+Math.sin(now*.00055+entry.phase)*.028;const idle=entry.moving?Math.abs(Math.sin(now*.006+entry.phase))*.025:Math.sin(now*.0012+entry.phase)*.006;const npcY=sampleLocationHeight(loc.id,entry.pos.x,entry.pos.z)+idle;draw(npcShadowMesh,modelMatrix(entry.pos.x,sampleLocationHeight(loc.id,entry.pos.x,entry.pos.z),entry.pos.z,0));draw(entry.mesh,modelMatrix(entry.pos.x,npcY,entry.pos.z,angle));}
-    if(enemyModel){const ex=enemyEntry?.pos.x??(pos.x+Math.sin(yaw)*3.6),ez=enemyEntry?.pos.z??(pos.z-Math.cos(yaw)*3.6);const enemyYaw=npcFacingYaw({x:ex,z:ez},pos);draw(npcShadowMesh,modelMatrix(ex,sampleLocationHeight(loc.id,ex,ez),ez,0));draw(enemyModel.mesh,modelMatrix(ex,sampleLocationHeight(loc.id,ex,ez)+Math.sin(now*.003)*.012,ez,enemyYaw));}
+    for(const entry of npcMeshes){if(Math.hypot(entry.pos.x-pos.x,entry.pos.z-pos.z)>125)continue;if(game.activeEncounter&&enemyModel&&enemyEntry&&entry.npc.id===enemyEntry.npc.id)continue;const angle=entry.moving?entry.yaw+Math.sin(now*.006+entry.phase)*.025:npcFacingYaw(entry.pos,pos)+Math.sin(now*.00055+entry.phase)*.028;const idle=entry.moving?Math.abs(Math.sin(now*.006+entry.phase))*.025:Math.sin(now*.0012+entry.phase)*.006;const npcY=sampleGlobalTerrainHeight(entry.pos.x,entry.pos.z)+idle;draw(npcShadowMesh,modelMatrix(entry.pos.x,sampleGlobalTerrainHeight(entry.pos.x,entry.pos.z),entry.pos.z,0));draw(entry.mesh,modelMatrix(entry.pos.x,npcY,entry.pos.z,angle));}
+    if(game.activeEncounter&&enemyModel){const ex=enemyEntry?.pos.x??(pos.x+Math.sin(yaw)*3.6),ez=enemyEntry?.pos.z??(pos.z-Math.cos(yaw)*3.6);const enemyYaw=npcFacingYaw({x:ex,z:ez},pos);draw(npcShadowMesh,modelMatrix(ex,sampleGlobalTerrainHeight(ex,ez),ez,0));draw(enemyModel.mesh,modelMatrix(ex,sampleGlobalTerrainHeight(ex,ez)+Math.sin(now*.003)*.012,ez,enemyYaw));}
     const shotElapsed=now-shotAt;if(shotMesh&&shotElapsed>=0&&shotElapsed<165)draw(shotMesh,modelMatrix(0,0,0,0));
     const moving=Math.abs(forward)+Math.abs(strafe)>.02;const walkPhase=(now*((keyState.shift||touchSprint)?.014:.010))%(Math.PI*2);const bob=moving?Math.abs(Math.sin(walkPhase*2))*.009:0;const sway=moving?Math.sin(walkPhase)*.007:0;const recoil=Math.max(0,1-(now-recoilAt)/190);
     const reloadT=clamp((now-reloadAt)/1050,0,1),reloadPhase=(now-reloadAt<1050)?Math.sin(reloadT*Math.PI):0;const knifeT=clamp((now-meleeAt)/380,0,1),knifeThrust=(now-meleeAt<380)?Math.sin(knifeT*Math.PI)*.30:0;const punchT=clamp((now-punchAt)/430,0,1),punchThrust=(now-punchAt<430)?Math.sin(punchT*Math.PI)*.36:0;
@@ -1513,9 +1657,9 @@ export function mountStalker3D(canvas,{game,npcs=[],onInteract=()=>{},onTravel=(
     const viewScale=binocularActive?.47:aimActive?.49:.50;const handForward=-.35-(aimActive?.12:0)-recoil*.085-knifeThrust-punchThrust;const handLift=-.12+(aimActive?.25:0)+bob*(aimActive?.30:1)+reloadPhase*.29;const handOrigin=[camera[0]+right[0]*(.045+sway)+up[0]*handLift+back[0]*handForward,camera[1]+right[1]*(.045+sway)+up[1]*handLift+back[1]*handForward,camera[2]+right[2]*(.045+sway)+up[2]*handLift+back[2]*handForward];const handsMatrix=new Float32Array([right[0]*viewScale,right[1]*viewScale,right[2]*viewScale,0,up[0]*viewScale,up[1]*viewScale,up[2]*viewScale,0,back[0]*viewScale,back[1]*viewScale,back[2]*viewScale,0,handOrigin[0],handOrigin[1],handOrigin[2],1]);
     const heldMesh=(punchT>0&&punchT<1)?fistsMesh:binocularActive?binocularMesh:firstPersonMesh;draw(heldMesh,handsMatrix);if(reloadAt>0&&now-reloadAt<1050&&['aksu','gaduka','pm','sawedoff','vm17'].includes(equippedId)){const magMatrix=new Float32Array(handsMatrix);const magT=clamp((now-reloadAt)/1050,0,1);const offsetX=-.34,offsetY=-.42+Math.sin(magT*Math.PI)*.30,offsetZ=-.02;magMatrix[12]+=right[0]*offsetX+up[0]*offsetY+back[0]*offsetZ;magMatrix[13]+=right[1]*offsetX+up[1]*offsetY+back[1]*offsetZ;magMatrix[14]+=right[2]*offsetX+up[2]*offsetY+back[2]*offsetZ;draw(reloadMagazineMesh,magMatrix);}aimReticle.classList.toggle('is-aimed',aimActive&&!binocularActive);aimReticle.classList.toggle('is-optic',binocularActive);
     hudElapsed+=dt;if(hudElapsed>.12){hudElapsed=0;updateHud();}
-    saveElapsed+=dt;if(saveElapsed>8){saveElapsed=0;game.player.worldPositions[loc.id]={x:pos.x,z:pos.z,yaw};onCheckpoint();}
+    saveElapsed+=dt;if(saveElapsed>8){saveElapsed=0;game.player.cordonPosition={x:pos.x,z:pos.z,yaw};onCheckpoint();}
   }
   raf=requestAnimationFrame(frame);
-  function destroy(){if(destroyed)return;destroyed=true;cancelAnimationFrame(raf);resizeObserver.disconnect();canvas.removeEventListener('pointerdown',pointerdown);canvas.removeEventListener('contextmenu',contextMenu);window.removeEventListener('pointermove',pointermove);window.removeEventListener('pointerup',pointerup);window.removeEventListener('pointercancel',pointerup);window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);document.removeEventListener('pointerlockchange',pointerlock);document.removeEventListener('pointerlockerror',pointerlockerror);window.removeEventListener('mousemove',mousemove);touch.removeEventListener('pointerdown',onTouchAction);joy.removeEventListener('pointerdown',joystickDown);touch.remove();hud.remove();binocularOverlay.remove();canvas.parentElement?.classList.remove('has-3d-world');aimReticle.remove();for(const mesh of [terrainMesh,worldMesh,cloudMesh,firstPersonMesh,binocularMesh,fistsMesh,reloadMagazineMesh,npcShadowMesh,...npcMeshes.flatMap(e=>[e.mesh]),...lootMeshes.map(e=>e.mesh),enemyModel?.mesh,shotMesh].filter(Boolean))gl.deleteBuffer(mesh.buffer);gl.deleteTexture(albedoTexture.texture);gl.deleteTexture(cordonMapTexture.texture);gl.deleteProgram(p);if(document.pointerLockElement===canvas)document.exitPointerLock();}
-  activeRenderer={destroy,layout};return activeRenderer;
+  function destroy(){if(destroyed)return;destroyed=true;cancelAnimationFrame(raf);resizeObserver.disconnect();canvas.removeEventListener('pointerdown',pointerdown);canvas.removeEventListener('contextmenu',contextMenu);window.removeEventListener('pointermove',pointermove);window.removeEventListener('pointerup',pointerup);window.removeEventListener('pointercancel',pointerup);window.removeEventListener('keydown',keydown);window.removeEventListener('keyup',keyup);document.removeEventListener('pointerlockchange',pointerlock);document.removeEventListener('pointerlockerror',pointerlockerror);window.removeEventListener('mousemove',mousemove);touch.removeEventListener('pointerdown',onTouchAction);joy.removeEventListener('pointerdown',joystickDown);touch.remove();hud.remove();fleeButton.remove();binocularOverlay.remove();canvas.parentElement?.classList.remove('has-3d-world');aimReticle.remove();for(const mesh of [terrainMesh,roadMesh,cloudMesh,firstPersonMesh,binocularMesh,fistsMesh,reloadMagazineMesh,npcShadowMesh,...regionMeshes.map(e=>e.mesh),...npcMeshes.flatMap(e=>[e.mesh]),...lootMeshes.map(e=>e.mesh),enemyModel?.mesh,shotMesh].filter(Boolean))gl.deleteBuffer(mesh.buffer);gl.deleteTexture(albedoTexture.texture);gl.deleteTexture(cordonMapTexture.texture);gl.deleteProgram(p);if(document.pointerLockElement===canvas)document.exitPointerLock();}
+  activeRenderer={destroy,layout,globalWorld};return activeRenderer;
 }

@@ -52,6 +52,66 @@ export function transferItem(source, destination, id, qty = 1, destinationIsPlay
   return { ok:true, qty:amount };
 }
 
+
+const AMMO_CAPACITY = { shells:8, ammo545:30, ammo9x18:12, ammo9x19:12 };
+let dropSequence = 0;
+
+/** Drop one inventory unit at the player's current continuous-world position. */
+export function dropItemToWorld(game, id) {
+  const item = getItem(id);
+  const stack = game?.inventory?.find(entry => entry.id === id);
+  if (!item || !stack || stack.qty <= 0) return { ok:false, reason:'Предмет отсутствует в рюкзаке.' };
+  if (!game.player) return { ok:false, reason:'Не удалось определить персонажа.' };
+  const position = game.player.cordonPosition || { x:0, z:0, yaw:0 };
+  const yaw = Number.isFinite(position.yaw) ? position.yaw : 0;
+  const ammoRounds = AMMO_CAPACITY[id] ? Math.min(AMMO_CAPACITY[id], Math.max(0, Number(game.ammoRounds?.[id] ?? countItem(game.inventory,id)*AMMO_CAPACITY[id]))) : 0;
+  const bolts = id === 'boltpack' ? Math.min(10, Math.max(0, Number(game.boltsRemaining ?? 10))) : 0;
+  const dropped = {
+    uid:`drop-${Date.now()}-${(++dropSequence).toString(36)}`, id, qty:1,
+    x:Number(position.x) + Math.sin(yaw) * .9,
+    z:Number(position.z) - Math.cos(yaw) * .9,
+    locationId:game.locationId || 'rookie-village',
+    droppedAt:game.clock?.worldMinutes || 0,
+    ...(ammoRounds ? { ammoRounds } : {}),
+    ...(bolts ? { bolts } : {})
+  };
+  if (!removeItem(game.inventory, id, 1)) return { ok:false, reason:'Не удалось выбросить предмет.' };
+  game.player.droppedItems ||= [];
+  game.player.droppedItems.push(dropped);
+  if (AMMO_CAPACITY[id]) { game.ammoRounds ||= {}; game.ammoRounds[id] = Math.max(0, Number(game.ammoRounds[id] ?? ammoRounds) - ammoRounds); }
+  if (id === 'boltpack') game.boltsRemaining = Math.max(0, Number(game.boltsRemaining ?? bolts) - bolts);
+  const stillHasItem = countItem(game.inventory, id) > 0;
+  if (!stillHasItem) {
+    const slots = game.equipmentSlots;
+    if (slots) {
+      for (const key of ['primary1','primary2','pistol','knife','binoculars','bolt','armor','mask']) if (slots[key] === id) slots[key] = null;
+      if (Array.isArray(slots.quick)) slots.quick = slots.quick.map(value => value === id ? null : value);
+    }
+    if (game.player.armorId === id) { game.player.armorId = null; game.player.armor = 0; }
+    if (game.player.maskId === id) game.player.maskId = null;
+    if (game.equippedWeaponId === id) game.equippedWeaponId = null;
+    if (Array.isArray(game.artifactBelt)) game.artifactBelt = game.artifactBelt.map(value => value === id ? null : value);
+  } else if (Array.isArray(game.artifactBelt)) {
+    let available = countItem(game.inventory, id);
+    game.artifactBelt = game.artifactBelt.map(value => { if (value !== id) return value; if (available > 0) { available--; return value; } return null; });
+  }
+  return { ok:true, dropped, item };
+}
+
+/** Restore a previously dropped world item to the player's backpack. */
+export function pickupDroppedItem(game, uid) {
+  const drops = game?.player?.droppedItems;
+  const index = Array.isArray(drops) ? drops.findIndex(entry => entry.uid === uid) : -1;
+  if (index < 0) return { ok:false, reason:'Предмет уже подобрали или он больше не найден.' };
+  const dropped = drops[index];
+  const result = addItem(game.inventory, dropped.id, dropped.qty || 1);
+  if (!result.ok) return result;
+  if (dropped.ammoRounds) { game.ammoRounds ||= {}; game.ammoRounds[dropped.id] = Math.max(0, Number(game.ammoRounds[dropped.id] || 0)) + dropped.ammoRounds; }
+  if (dropped.bolts) game.boltsRemaining = Math.max(0, Number(game.boltsRemaining || 0)) + dropped.bolts;
+  drops.splice(index, 1);
+  return { ok:true, item:getItem(dropped.id), qty:dropped.qty || 1 };
+}
+
 export function countItem(inventory, id) {
   return inventory.find(entry => entry.id === id)?.qty || 0;
 }

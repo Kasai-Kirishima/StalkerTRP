@@ -1,4 +1,4 @@
-import { LOCATIONS, NPCS } from '../data/catalog.js';
+import { LOCATIONS, NPCS, ITEMS } from '../data/catalog.js';
 const UNIQUE_NPC_IDS = new Set(NPCS.map(entry=>entry.id));
 
 // Procedural dialogue lexicon for local, context-aware NPC conversations.
@@ -6,6 +6,12 @@ const UNIQUE_NPC_IDS = new Set(NPCS.map(entry=>entry.id));
 const normalize = value => String(value || '').toLowerCase().replaceAll('ё','е')
   .replace(/[«»„“”"']/g,' ').replace(/[^а-яa-z0-9 -]/g,' ')
   .replace(/\s+/g,' ').trim();
+const phraseMatches = (text,key) => {
+  // Very short words such as «пока» must be matched as whole words, not as
+  // accidental fragments inside «покажи» or another longer word.
+  if (key.length <= 4) return new RegExp(`(^|\\s)${key.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}($|\\s)`).test(text);
+  return text.includes(key);
+};
 const pick = list => list[Math.floor(Math.random()*list.length)];
 const stablePick = (list, seed='') => {
   if (!Array.isArray(list) || !list.length) return '';
@@ -37,8 +43,16 @@ const INTENTS = [
   {id:'thanks', keys:['спасибо','благодар','выручил','выручили','респект','красава','ценю помощь','премного благодарен','признателен','спасиб']},
   {id:'farewell', keys:['пока','прощай','увидимся','до встречи','бывай','счастливо','удачи','до скорого','я пошел','мне пора','свалить','отбываю']},
   {id:'identity', keys:['кто ты','кто ты такой','кто ты вообще','как тебя зовут','расскажи о себе','расскажи немного о себе','можешь рассказать о себе','что можешь рассказать о себе','твое имя','ты кто','представься','как звать','кто такой','кто такая','с кем говорю','как к тебе обращаться','а ты кто такой','а ты кто такая','кто будешь','представься сталкер','назови свое имя','как тебя кличут','что ты за человек','ты местный или пришлый','ты откуда будешь']},
-  {id:'direction', keys:['как пройти','путь','дорог','направлен','маршрут','далеко ли','как добраться','как попасть','где находится','в какой стороне','покажи дорогу','как дойти','как доехать','через что идти','какой дорогой','как выйти к','как попасть на','как попасть в','как попасть к','как пройти на','как пройти в','как пройти к','как дойти до','как добраться до','покажи путь','покажи маршрут','куда ведет','куда ведёт','в какую сторону','где вход','где выход','как отсюда выбраться','как отсюда попасть','сколько идти до','есть ли переход','где тропа','где дорога','пройти до','путь до','путь на','путь в','дорога до','дорога на','дорога в','как выйти на','как выйти к','как выйти в']},
+  {id:'quest_status', keys:['мои задания','мои поручения','какие у меня задания','какие у меня активные задания','активные задания','что с моими заданиями','есть ли у меня задания','какие квесты я взял','какие задания активны','какие задания есть','список заданий','текущие задания','текущий квест','статус задания','прогресс задания','как продвигается задание','что осталось сделать по заданию','что за поручение у меня','какие дела висят','что я должен выполнить','награда за задание','где посмотреть задания']},
   {id:'work', keys:['работ','задан','квест','поруч','подработ','есть дело','помощ','заказ','подкинешь работенку','что по делам','найдется занятие','нужен человек']},
+  {id:'direction', keys:['как пройти','путь','дорог','направлен','маршрут','далеко ли','как добраться','как попасть','где находится','в какой стороне','покажи дорогу','как дойти','как доехать','через что идти','какой дорогой','как выйти к','как попасть на','как попасть в','как попасть к','как пройти на','как пройти в','как пройти к','как дойти до','как добраться до','покажи путь','покажи маршрут','куда ведет','куда ведёт','в какую сторону','где вход','где выход','как отсюда выбраться','как отсюда попасть','сколько идти до','есть ли переход','где тропа','где дорога','пройти до','путь до','путь на','путь в','дорога до','дорога на','дорога в','как выйти на','как выйти к','как выйти в']},
+  {id:'repair', keys:['ремонт','почин','починить','починка','исправить полом','износ','состояние брони','состояние снаряжения','кто чинит','кто ремонтирует','где ремонтируют','можно починить','сколько стоит ремонт','починить противогаз','починить броню','ремонт экипировки']},
+  {id:'artifact_info', keys:['какие артефакты бывают','что за артефакты','виды артефактов','расскажи про артефакт','расскажи об артефактах','для чего артефакт','что делает медуза','что делает грави','что делает ломоть мяса','каменный цветок','медуза','ломоть мяса','артефакт стоит','цена артефакта','оценить артефакт','продать артефакт','как хранить артефакт']},
+  {id:'rest', keys:['где поспать','где можно спать','можно поспать','место для сна','как отдохнуть','где отдохнуть','переночевать','ночлег','спальное место','кровать','спальный мешок','сон','поспать','восстановить силы','усталость','отдых на кордоне']},
+  {id:'radio', keys:['радио','рация','связь','частота','поймать сигнал','сообщение по рации','что слышно по рации','что передают по рации','связаться с','передать сообщение','сигнал пда','пда пищит','почему пда','электронный журнал']},
+  {id:'inventory', keys:['что у меня в рюкзаке','что лежит в рюкзаке','мой инвентарь','сколько у меня вещей','сколько места осталось','вес рюкзака','перегружен ли я','что я несу','какие у меня припасы','мои вещи','снаряжение при мне']},
+  {id:'local_services', keys:['кто может помочь','к кому обратиться','кто здесь ремонтник','где техник','где торговец','где медик','кто лечит','кто продает','кто продаёт','кто скупает','где купить припасы','к кому по ремонту','кто отвечает за склад','где найти проводника']},
+  {id:'encyclopedia', keys:['энциклопедия','досье в пда','записи в пда','полевые записи','что записано о','что известно о','мои заметки','новые сведения','записать сведения','как пополнять энциклопедию']},
   {id:'trade', keys:['торгов','купить','продать','цена','товар','сколько стоит','патрон','оружие','снаряж','обмен','сколько денег','что продаешь','что есть в наличии']},
   {id:'mutants', keys:['мутант','мутанты','мутантов','мутантами','зверьё','собак','псевд','плот','кровосос','кабан','чудовищ','псина','звер','стая','твар','монстр','слепые псы','мясоед','что ты знаешь о мутантах','какие мутанты бывают']},
   {id:'anomaly', keys:['аномал','аномалии','аномалий','аномалиями','радиац','воронк','артефакт','медуз','грави','ломот','детектор','болт','электра','жарка','пружина','пузырь','поляна','что ты знаешь об аномалиях','что знаешь про аномалии','какие бывают аномалии']},
@@ -130,6 +144,24 @@ const REPLIES = {
   emissions:{
     default:['Выброс — мощная волна, после которой снаружи становится опасно. Услышишь предупреждение — ищи закрытое помещение и не оставайся на открытом участке.','Сирены обычно предупреждают заранее. Надёжное укрытие важнее лишнего ящика с добычей. Проверь, чтобы дверь и стены были целыми.','После выброса не спеши выходить: дождись, пока сигнал стихнет, проверь дозиметр и только потом продолжай путь.','Некоторые считают, что выброс меняет аномальные поля. Я бы не проверял это на себе — пережди волну в укрытии и только потом осматривай местность.']
   },
+  repair:{
+    maslov:['Я занимаюсь ремонтом. Приноси изношенное снаряжение — осмотрю состояние и назову цену до начала работы.','Проверяю защиту, крепления и механизмы. Если вещь ещё можно восстановить, скажу, сколько это будет стоить.','Не обещаю чудес: сильно повреждённую вещь иногда проще заменить. Но сначала покажи её — оценю.'],
+    default:['За ремонтом иди к Маслову. Его мастерская находится в подвале старого дома в деревне новичков. Он работает с бронёй, оружием и противогазами.','Не каждый торговец умеет чинить снаряжение. На Кордоне этим занимается техник Маслов — спроси его в деревне.','Перед вылазкой проверь износ экипировки. Маслов сможет оценить повреждения и назвать стоимость ремонта.']
+  },
+  quest_status:{
+    sidorovich:['У меня поручения простые: принеси нужную вещь или проверь сведения. Сначала посмотрим, что у тебя уже записано в КПК.'],
+    wolf:['Главное — не хвататься за всё сразу. Выполни обещанное и возвращайся с докладом, тогда и награда будет.'],
+    default:['Задания и их состояние отмечаются в журнале КПК. Не теряй записи: там видны цель, прогресс и награда.','Сначала уточни условия у того, кто дал поручение. Если задача активна, журнал КПК подскажет, что осталось сделать.']
+  },
+  artifact_info:{
+    sidorovich:['Артефакты отличаются происхождением и свойствами. Название и описание смотри в КПК, а цену продажи я назову в окне обмена.','Не верь слухам о чудесных свойствах. Сначала изучи описание находки и проверь, что именно она даёт.'],
+    default:['У артефактов разные свойства: одни связаны с радиацией, другие с аномальными полями. Изучи запись в КПК и не носи неизвестную находку бездумно.','Артефакт — не просто блестящая вещь. Происхождение, эффект и возможный риск лучше сверить с энциклопедией.','Собирай сведения о находках: где обнаружена, как называется и что о ней известно. Тогда слухи постепенно превратятся в записи.']
+  },
+  rest:{default:['Для отдыха ищи оборудованное место в лагере или безопасное помещение. Перед сном проверь, что рядом нет активной угрозы.','На Кордоне есть места, где можно устроить ночлег. У костра можно передохнуть, но спать лучше в отмеченном месте отдыха.','Если вымотался, не продолжай путь на одном упрямстве. Найди кровать или спальное место и восстанови силы.']},
+  radio:{default:['Радиосвязь на Кордоне нестабильная: рельеф и старые здания глушат сигнал. Не каждое сообщение удаётся разобрать с первого раза.','По рации передают короткие предупреждения и слухи. Проверяй важные сведения по карте и у людей на месте.','Если КПК подал сигнал, открой журнал сообщений. Там могут быть новые записи, заметки или сведения о задании.']},
+  inventory:{default:['Состав рюкзака удобнее проверить в КПК: там видны количество, вес и состояние вещей. Не набирай лишнего — оставь место для находок.','Разложи расходники по быстрым слотам, а редкие вещи убери в личный ящик. Перед выходом проверь еду, воду и медикаменты.','Не помню содержимое твоего рюкзака наизусть. Открой инвентарь КПК — там всё посчитано точнее.']},
+  local_services:{default:['На Кордоне есть несколько полезных людей: Сидорович торгует в бункере, Маслов чинит снаряжение в подвале старого дома, Шнурок ведёт обмен на АТП. За заданиями обращайся к тем, кто их предлагает.','Смотря что нужно. Торговля — к Сидоровичу или Шнурку, ремонт — к Маслову, местные поручения — к Волку и другим знакомым сталкерам.','Не стой в очереди не по адресу: сначала выясни, кто занимается нужным делом, потом договаривайся о цене или условиях.']},
+  encyclopedia:{default:['Энциклопедия КПК пополняется по мере обнаружения новых мест, предметов, аномалий и мутантов. Открывай записи после находок — в них появляются подробности.','Часть сведений известна заранее, остальное открывается после наблюдений и разговоров. Смотри разделы мест, существ, аномалий и предметов.','Не всё, что говорят у костра, попадёт в энциклопедию. Подтверждённые находки и собственные наблюдения ценнее слухов.']},
   activity:{default:['Сейчас занимаюсь своими делами. Не всё, что делаешь в Зоне, стоит обсуждать с каждым встречным.']},
   direction:{default:['Открой карту КПК: там отмечены переходы и примерное время пути. Не каждый видимый участок соединён прямой дорогой.','Сначала сверяйся с картой и спрашивай у местных. На Кордоне легко пройти мимо нужного поворота.','Могу подсказать только известные тропы. Неизведанные места лучше сначала отметить на карте.']},
   trade:{default:['Можем обменяться. Нажми «Обмен» — покажу, что у меня осталось.','Деньги не главное, но за хорошие вещи я попрошу честную цену. Открывай торговое окно.','Есть кое-что в рюкзаке. Посмотри ассортимент, может, договоримся.','Покупаю полезное и продаю лишнее. Только цену не сбивай без причины.','Могу уступить пару вещей, если сам предложишь что-то стоящее. Нажми «Обмен».','Товар у меня не бесконечный. Что продам — то придётся искать заново.']},
@@ -237,8 +269,20 @@ function resolveIntent(text, lastIntent) {
   const openRouteQuestion=/(?:куда\s+(?:мне\s+)?(?:идти|двигаться|пойти)|какой\s+путь|как\s+отсюда\s+выбраться|где\s+я(?:\s+(?:сейчас\s+)?(?:нахожусь|стою|тут|здесь))?|какие\s+(?:здесь\s+)?переходы|ближайший\s+(?:выход|переход)|подскажи\s+(?:мне\s+)?(?:дорогу|путь|маршрут)|покажи\s+(?:мне\s+)?(?:путь|дорогу|маршрут)|(?:мне\s+)?(?:нужно|надо)\s+(?:пройти|добраться|попасть|дойти)\s+(?:к|до|в|на)|есть\s+ли\s+(?:здесь\s+)?(?:выход|переход)|как\s+пройти(?:\s+дальше)?)/.test(text);
   const ambiguousPlaceCue=/(?:блокпост|кпп|тоннел|туннел|лагер)/.test(text);
   if (routeCue && (locationTarget || openRouteQuestion || ambiguousPlaceCue)) return 'direction';
-  const found=INTENTS.find(intent=>intent.keys.some(key=>text.includes(key)));
+  const matchedIntents=INTENTS.flatMap(intent=>intent.keys.filter(key=>phraseMatches(text,key)).map(key=>({intent,key})));
+  const focusedPriority={repair:10,quest_status:10,artifact_info:10,rest:10,radio:10,inventory:10,local_services:10,encyclopedia:10};
+  const found=matchedIntents.sort((a,b)=>(focusedPriority[b.intent.id]||0)-(focusedPriority[a.intent.id]||0)||b.key.length-a.key.length)[0]?.intent;
   if(found) return found.id;
+  // Semantic fallbacks catch natural phrasing that is not in the phrase lexicon.
+  if (/(рюкзак|инвентар|мои вещи|припасы)/.test(text) && /(что|сколько|какие|есть|покажи|посмотреть|лежит|несу)/.test(text)) return 'inventory';
+  if (/(ремонт|почин|полом|износ)/.test(text) && /(где|кто|можно|нужно|надо|сколько|почин|ремонт)/.test(text)) return 'repair';
+  if (/(задан|квест|поручен)/.test(text) && /(мои|актив|статус|прогресс|какие|сколько|что осталось|выполнить)/.test(text)) return 'quest_status';
+  const asksOpinion=/(что|как|почему|расскаж|дума|счит|мнен|опас|видел|знаеш|знаешь)/.test(text);
+  if(asksOpinion && /(мутант|слеп|псевдо|плот|кровосос|кабан|звер|твар)/.test(text)) return 'thoughts_mutants';
+  if(asksOpinion && /(аномал|воронк|карусел|трамплин|артефакт|радиац)/.test(text)) return 'thoughts_anomalies';
+  if(asksOpinion && /(группиров|фракц|бандит|военн|одиноч|долг|свобод)/.test(text)) return 'thoughts_faction';
+  if(asksOpinion && /(жизн|смысл|надежд|будущ|держатс)/.test(text)) return 'thoughts_life';
+  if(/(погод|дожд|снег|туман|ветер|ночь|темно|светает|рассвет|закат)/.test(text)) return 'zone_situation';
   if(/^(а это|а он|а она|а оно|а что дальше|а дальше|и что дальше|что потом|а насчет этого|а по поводу этого|и как быть|и что теперь)/.test(text) && lastIntent) return 'followup';
   return 'general';
 }
@@ -384,7 +428,7 @@ function ambiguousRouteDestination(rawText) {
   if (!group) return null;
   const names=group.ids.map(id=>LOCATIONS.find(place=>place.id===id)).filter(Boolean).map(place=>`«${place.name}»`);
   if (!names.length) return null;
-  return `Уточни, какой именно ${group.label} ты имеешь в виду: ${names.join(', ')}. На карте есть несколько таких мест, не хочу отправить тебя не туда. Назови точку — распишу проверенный маршрут по переходам.`;
+  return `Уточни, какой именно ${group.label} ты имеешь в виду: ${names.join(', ')}. На карте есть несколько таких мест, не хочу отправить тебя не туда. Назови точку — распишу путь по общей дороге и заметным ориентирам.`;
 }
 
 function buildRouteAdvice(npc,game,rawText) {
@@ -392,39 +436,65 @@ function buildRouteAdvice(npc,game,rawText) {
   if (!current) return 'Не могу определить твою текущую точку. Открой карту КПК и проверь отмеченное местоположение.';
   const target=matchLocationTarget(rawText,game.locationId);
   const faction=game.player?.faction||'loner';
-  if (faction==='bandit' && target && ['rookie-village','sidorovich-bunker'].includes(target.id) && !(current.id==='sidorovich-bunker' && target.id==='rookie-village')) {
-    return 'В деревню новичков бандитам вход закрыт. Местные держат оборону и не пропускают нашу братию. Ищи другой маршрут — на карте КПК эта территория для тебя недоступна.';
-  }
+  if (faction==='bandit' && target && ['rookie-village','sidorovich-bunker'].includes(target.id) && !(current.id==='sidorovich-bunker' && target.id==='rookie-village')) return 'Деревня новичков закрыта для нашей группировки. Там местные держат периметр; не стану отмечать маршрут туда.';
   if (!target) {
     const clarification=ambiguousRouteDestination(rawText);
     if (clarification) return clarification;
-    const neighbours=(current.neighbors||[]).filter(id=>!(faction==='bandit'&&['rookie-village','sidorovich-bunker'].includes(id)&&current.id!=='sidorovich-bunker')).map(id=>LOCATIONS.find(place=>place.id===id)).filter(Boolean);
-    if (!neighbours.length) return `Текущая точка — «${current.name}», но на карте не отмечено ни одного выхода. Проверь КПК или сообщи о проблеме проводнику.`;
-    const choices=neighbours.map(place=>`${place.name} — ${routeDirection(current,place)}`).join('; ');
-    return `Твоё текущее местоположение — «${current.name}». Отсюда отмечены переходы: ${choices}. Назови конечную точку, например «${neighbours[0].name}», и я распишу весь маршрут по шагам.`;
+    const nearby=(current.neighbors||[]).map(id=>LOCATIONS.find(place=>place.id===id)).filter(Boolean).sort((a,b)=>Math.hypot(a.x-current.x,a.y-current.y)-Math.hypot(b.x-current.x,b.y-current.y)).slice(0,4).map(place=>`«${place.name}»`);
+    return `Ты сейчас в районе «${current.name}». Ближайшие ориентиры: ${nearby.join(', ')||'дорога и лесные тропы'}. Кордон — одна непрерывная местность, иди туда пешком по общей карте: без загрузок и телепортаций. Назови конкретную точку — подскажу направление и примерное время.`;
   }
-  if (target.id===current.id) return `Текущая точка — «${current.name}». Ты уже на месте; осмотрись вокруг и проверь ориентиры.`;
-  const path=findRoute(current.id,target.id,faction);
-  if (!path.length) return `На моей карте нет связного маршрута между точками «${current.name}» и «${target.name}». Не буду отправлять тебя наугад — проверь карту КПК и спроси проводника.`;
-  const places=path.map(id=>LOCATIONS.find(place=>place.id===id)).filter(Boolean);
-  const routeNames=places.map(place=>place.name).join(' → ');
-  const totalMinutes=places.slice(1).reduce((sum,place,index)=>sum+routeLegMinutes(places[index],place),0);
+  if (target.id===current.id) return `Ты уже у ориентира «${current.name}». Осмотрись — нужное место должно быть поблизости.`;
+  const route=findRoute(current.id,target.id,faction);
+  if(!route.length) return `Не могу подтвердить безопасный пеший путь от «${current.name}» к «${target.name}». Сверься с картой и не иди вслепую.`;
+  const dx=(Number(target.x)-Number(current.x))*15.36;
+  const dz=(Number(target.y)-Number(current.y))*30.72;
+  const distance=Math.round(Math.hypot(dx,dz));
+  const bearing=Math.atan2(dx,-dz)*180/Math.PI;
+  const directions=['север','северо-восток','восток','юго-восток','юг','юго-запад','запад','северо-запад'];
+  const direction=directions[(Math.round(((bearing+360)%360)/45))%8];
+  const pathPlaces=route.map(id=>LOCATIONS.find(place=>place.id===id)).filter(Boolean);
+  const minutes=Math.max(5,route.slice(1).reduce((sum,id,index)=>sum+routeLegMinutes(pathPlaces[index],LOCATIONS.find(place=>place.id===id)),0));
+  const intermediate=pathPlaces.slice(1);
+  const steps=intermediate.map((place,index)=>`Шаг ${index+1}: держи ориентир «${place.name}» (${routeDirection(pathPlaces[index],place)})`).join('. ');
   const warnings=[];
-  const hostilePlaces=places.slice(1).filter(place=>(place.territory==='military' && faction!=='military') || (place.territory==='bandit' && faction==='military'));
-  if (hostilePlaces.length) {
-    const groups=[...new Set(hostilePlaces.map(place=>place.territory==='military'?'военные':'бандиты'))];
-    warnings.push(`на участках ${hostilePlaces.map(place=>`«${place.name}»`).join(', ')} ${groups.join(' и ')} могут вступить в конфликт с твоей группировкой`);
-  }
-  if (places.slice(1).some(place=>place.id==='atp') && faction==='loner') warnings.push('при входе на АТП с одиночки требуют 500 Купонов');
-  const radiation=places.slice(1).filter(place=>place.hazards?.includes('radiation'));
-  if (radiation.length) warnings.push(`на участках «${radiation.map(place=>place.name).join('», «')}» повышен радиационный риск`);
-  const gravity=places.slice(1).filter(place=>place.hazards?.includes('gravity'));
-  if (gravity.length) warnings.push(`на участках «${gravity.map(place=>place.name).join('», «')}» есть гравитационные аномалии`);
-  const intro=npc?.faction==='bandit'?'Смотри, фраер, маршрут такой:':npc?.faction==='military'?'По карте проход следующий:':'Слушай внимательно, маршрут такой:';
-  const routeSteps=places.slice(1).map((next,index)=>`Шаг ${index+1}: от точки «${places[index].name}» двигайся к «${next.name}» (${routeDirection(places[index],next)}).`).join(' ');
-  const routeText=path.length===2?`Прямой переход: ${routeNames}.`:`Рекомендованная цепочка переходов с учётом известных угроз: ${routeNames}.`;
-  const caution=warnings.length?` Учти: ${warnings.join('; ')}.`:' По известным данным, на этом маршруте нет отмеченных фракционных ограничений или аномальных рисков.';
-  return `${intro} ${routeText} ${routeSteps} Весь путь — примерно ${totalMinutes} минут пешком без задержек.${caution} Сверяйся с картой КПК на каждом переходе.`;
+  if (target.territory && target.territory!==faction && ((target.territory==='military'&&faction!=='military')||(target.territory==='bandit'&&faction==='military'))) warnings.push(`в районе «${target.name}» чужая территория — там могут вступить в конфликт с незваными гостями`);
+  if (target.id==='atp'&&faction==='loner') warnings.push('на АТП действует плата за вход для одиночек — 500 Купонов');
+  if (target.hazards?.includes('radiation')) warnings.push('рядом отмечен радиационный риск');
+  if (target.hazards?.includes('gravity')) warnings.push('рядом есть гравитационные аномалии');
+  const voice=npc?.faction==='military'?'По карте докладываю:':npc?.faction==='bandit'?'Слушай сюда:':'Смотри по карте:';
+  const caution=warnings.length?` Учти: ${warnings.join('; ')}.`:' Сверяйся с мини-картой и не срезай через неизвестные участки.';
+  return `${voice} «${target.name}» примерно в ${distance} метрах к ${direction} от «${current.name}». В пути ориентировочно ${minutes} минут пешком. ${steps}. Это ориентиры на одной непрерывной карте — без загрузок, телепортаций или смены сцены по дороге.${caution}`;
+}
+
+function questStatusReply(game,npc) {
+  const quests=(game?.quests||[]).filter(quest=>['active','ready'].includes(quest.status));
+  const active=quests.filter(quest=>quest.status==='active');
+  const ready=quests.filter(quest=>quest.status==='ready');
+  const format=quest=>`${quest.title||quest.name||'Поручение'}${Number.isFinite(Number(quest.progress))&&Number(quest.progress)>0?` · прогресс ${quest.progress}`:''}`;
+  if (ready.length) return `Есть завершённые задачи, о которых нужно доложить: ${ready.slice(0,3).map(format).join('; ')}. Вернись к заказчику, чтобы получить награду.`;
+  if (active.length) return `Сейчас у тебя активны: ${active.slice(0,3).map(format).join('; ')}. Подробные условия и отметки смотри в журнале КПК.`;
+  const available=(game?.quests||[]).filter(quest=>quest.status==='available');
+  if (available.length) return `Активных поручений пока нет. В журнале КПК доступны записи: ${available.slice(0,3).map(format).join('; ')}. Поговори с заказчиками, чтобы узнать условия.`;
+  return `${npc?.name||'Сталкер'} пожимает плечами: «Похоже, сейчас у тебя нет открытых поручений. Спроси местных — может, кому-то нужна помощь».`;
+}
+
+function artifactDetailReply(text,npc) {
+  const artifacts=(ITEMS||[]).filter(item=>item.cat==='Артефакты');
+  const match=artifacts.find(item=>normalize(item.name).split(' ').some(word=>word.length>3&&text.includes(word)))
+    || (text.includes('медуз')?artifacts.find(item=>item.id==='medusa'):null)
+    || (text.includes('грави')?artifacts.find(item=>item.id==='gravi'):null)
+    || (text.includes('ломот')?artifacts.find(item=>item.id==='meat_chunk'):null)
+    || (text.includes('камен')?artifacts.find(item=>item.id==='stone-flower'):null);
+  if (!match) return '';
+  return `${match.name}: ${match.desc} ${npc?.id==='sidorovich'?`Базовая стоимость в справочнике — ${match.price} Купонов, фактическую цену сделки смотри в окне обмена.`:'Точную оценку лучше уточнить у торговца; не полагайся только на слухи.'}`;
+}
+
+function inventoryDetailReply(game) {
+  const entries=(game?.inventory||[]).filter(entry=>Number(entry.qty)>0).slice(0,8);
+  if (!entries.length) return 'Похоже, рюкзак почти пуст. Проверь инвентарь КПК — там отображается точное содержимое и свободное место.';
+  const names=entries.map(entry=>{const item=ITEMS.find(value=>value.id===entry.id);return `${item?.name||entry.id} ×${entry.qty}`;});
+  const more=(game?.inventory||[]).filter(entry=>Number(entry.qty)>0).length-entries.length;
+  return `В рюкзаке сейчас: ${names.join(', ')}${more>0?` и ещё ${more} позиций`:''}. Полный список, вес и свободное место смотри в инвентаре КПК.`;
 }
 
 export function generateDialogueReply(npc, game, rawText) {
@@ -432,33 +502,73 @@ export function generateDialogueReply(npc, game, rawText) {
   game.dialogueContexts ||= {};
   game.dialogueContext=game.dialogueContexts[npc.id] ||= {};
   const context=game.dialogueContext;
+  const thanks=/(спасибо|благодар|выручил|респект|красава)/.test(text);
+  const insult=/(заткнись|дурак|тупой|урод|мраз|пошел ты|пошёл ты)/.test(text);
+  context.rapport=Math.max(-4,Math.min(4,(Number(context.rapport)||0)+(thanks?1:insult?-1:0)));
+  context.recentTopics=Array.isArray(context.recentTopics)?context.recentTopics:[];
+  context.recentReplies=Array.isArray(context.recentReplies)?context.recentReplies:[];
+  const recallQuestion=/(что ты говорил|что ты сказал|повтори|напомни|о чем мы говорили|о чем был разговор|что я спрашивал)/.test(text);
   const intent=resolveIntent(text,context.lastIntent);
   const isFollowup=intent==='followup';
   let replyIntent=intent;
   if(isFollowup) replyIntent=context.lastIntent||'rumor';
+  const currentLocation=LOCATIONS.find(place=>place.id===game.locationId);
+  const clockLabel=game.clock?.worldMinutes!=null?`${Math.floor((game.clock.worldMinutes%1440)/60).toString().padStart(2,'0')}:${Math.floor(game.clock.worldMinutes%60).toString().padStart(2,'0')}`:'неизвестное время';
+  const weatherQuestion=/(погод|дожд|снег|туман|ветер|ночь|темно|светает|рассвет|закат)/.test(text);
+  const statusQuestion=/(как дела|как сам|как себя чувству|что с тобой|как пожива|как проходит день)/.test(text);
   const pool=replyIntent==='general'?REPLIES.unrecognized:(REPLIES[replyIntent]||REPLIES.rumor);
   const factionVariants=replyIntent==='general' && npc.faction==='bandit'?BANDIT_REPLIES.unrecognized:(npc.faction==='bandit'?BANDIT_REPLIES[replyIntent]:null);
   const variants=factionVariants||pool[npc.id]||pool[npc.faction]||pool.default||REPLIES.rumor.default;
-  const freshVariants=variants.filter(line=>line!==context.lastNpcText);
+  const freshVariants=variants.filter(line=>line!==context.lastNpcText&&!context.recentReplies.includes(line));
   const isGenericNpc=Boolean(npc?.ambient||npc?.random||!UNIQUE_NPC_IDS.has(npc?.id));
   const authoredLine=npc?.lines?.[replyIntent] || (replyIntent==='rumor'?npc?.lines?.rumors:null) || (replyIntent==='backstory'?npc?.biography:null);
-  // Ordinary locals vary their small-talk; named story NPCs keep authored, stable lines.
-  let answer=authoredLine || (isGenericNpc
-    ? pick(freshVariants.length?freshVariants:variants)
-    : stablePick(freshVariants.length?freshVariants:variants,`${npc?.id}:${replyIntent}`));
-  if(replyIntent==='activity') answer=`Сейчас ${npc.activity||npc.personalTask||'занимаюсь своими делами'}. ${isGenericNpc?stablePick(['День сегодня обычный, пока без неожиданностей.','Дела идут своим чередом.','Надеюсь, до вечера без лишней суеты.'],`${npc?.id}:activity`):'Стараюсь не отвлекаться от дела.'}`;
+  // Rotate authored variants for named characters too. The old stable pick made
+  // the same NPC repeat the same sentence every time a topic was reopened.
+  const available=freshVariants.length?freshVariants:(variants.filter(line=>line!==context.lastNpcText).length?variants.filter(line=>line!==context.lastNpcText):variants);
+  const variantSeed=String(npc?.id||'npc')+':'+replyIntent;
+  let variantHash=0; for (const char of variantSeed) variantHash=(variantHash*31+char.charCodeAt(0))>>>0;
+  let answer=authoredLine || available[(variantHash+(Number(context.turns)||0))%available.length] || pick(variants);
+  if(recallQuestion) answer=context.lastNpcText?`Я тебе говорил: ${context.lastNpcText}`:'Мы ещё не успели обсудить что-то конкретное. Спроси, что тебя интересует.';
+  else if(weatherQuestion) answer=`Сейчас ${game.weather?.name||game.weather||'пасмурно'}, игровое время ${clockLabel}. ${currentLocation?.name||'На Кордоне'}: ${currentLocation?.desc||'обстановка меняется, лучше смотреть по сторонам'}`;
+  else if(statusQuestion) answer=context.rapport>=2?'Да нормально, спасибо, что спросил. Здесь редко кто интересуется чужими делами.':context.rapport<=-2?'Смотря кто спрашивает. Давай без лишних любезностей — чего хотел?':`${npc.activity||npc.personalTask||'занимаюсь своими делами'}. Пока держусь, как и все здесь.`;
+  else if(replyIntent==='greeting') answer=context.rapport>=2?`О, снова ты. Рад видеть, ${game.player?.name||'сталкер'}. Что нового?`:context.rapport<=-2?'Опять ты. Говори, чего надо.':stablePick(['Здорово. Что хотел узнать?','Привет. На Кордоне сегодня тихо не бывает, но слушаю.','Здравствуй. Есть дело или просто поговорить?'],`${npc?.id}:greeting:${context.turns||0}`);
+  else if(replyIntent==='thanks') answer=context.rapport>=2?'Обращайся. Своих в беде не бросают.':'Да ладно, не за что. Только смотри там осторожнее.';
+  else if(replyIntent==='farewell') answer=context.rapport>=2?'Давай, береги себя. Ещё пересечёмся.':'Бывай. Смотри под ноги и не теряй бдительность.';
+  else if(replyIntent==='activity') answer=`Сейчас ${npc.activity||npc.personalTask||'занимаюсь своими делами'}. ${isGenericNpc?stablePick(['День сегодня обычный, пока без неожиданностей.','Дела идут своим чередом.','Надеюсь, до вечера без лишней суеты.'],`${npc?.id}:activity`):'Стараюсь не отвлекаться от дела.'}`;
+  else if(replyIntent==='quest_status') answer=questStatusReply(game,npc);
+  else if(replyIntent==='inventory') answer=inventoryDetailReply(game);
+  else if(replyIntent==='artifact_info') answer=artifactDetailReply(text,npc)||answer;
+  else if(replyIntent==='repair') answer=npc?.id==='maslov'?'Я Маслов, техник. Приноси экипировку — осмотрю износ и скажу стоимость до ремонта. Если решишься, откроем список доступных работ.':'За ремонтом иди к Маслову: его мастерская находится в подвале старого дома в деревне новичков. Он занимается бронёй, оружием и противогазами.';
+  else if(replyIntent==='local_services') answer=npc?.id==='maslov'?'По ремонту обращайся ко мне. Торговля — к Сидоровичу в бункер или Шнурку на АТП, за советом о деревне — к Волку.':'На Кордоне полезно знать людей по делу: Сидорович торгует в бункере, Маслов ремонтирует снаряжение в подвале старого дома, Шнурок ведёт обмен на АТП, Волк помогает новичкам.';
   if(replyIntent==='thoughts_faction' && !authoredLine) answer=factionOpinionReply(text,npc,isGenericNpc);
   if(replyIntent==='backstory' && npc.biography && !authoredLine) answer=`${npc.biography}${isGenericNpc?` ${answer}`:''}`;
   if(replyIntent==='identity' && !authoredLine) answer=`Я ${npc.name}. ${npc.role||'Местный'} на Кордоне. ${answer}`;
-  if(replyIntent==='sidorovich_info' && npc.id==='sidorovich') answer=stablePick(REPLIES.sidorovich_info.sidorovich,'sidorovich:sidorovich_info');
+  if(replyIntent==='thoughts_person') {
+    const relation=context.rapport>=3?'Ты уже показал, что слов на ветер не бросаешь.':context.rapport<=-2?'Пока не уверен, что тебе можно доверять.': 'Пока присматриваюсь к тебе. Здесь человека узнают по поступкам.';
+    answer=`${relation} ${answer}`;
+  }
+  if(replyIntent==='health' && game.player) {
+    const hp=Math.round(Number(game.player.hp)||100);
+    const hunger=Math.round(Number(game.player.hunger)||0);
+    const thirst=Math.round(Number(game.player.thirst)||0);
+    answer+=` По твоему виду: здоровье ${hp}%, голод ${hunger}%, жажда ${thirst}%.`;
+  }
+  if(replyIntent==='sidorovich_info' && npc.id==='sidorovich') answer=stablePick(REPLIES.sidorovich_info.sidorovich,`sidorovich:sidorovich_info:${context.turns||0}`);
   if(replyIntent==='cordon_info' && npc.location) answer+=` Сейчас я нахожусь в районе «${LOCATIONS.find(entry=>entry.id===npc.location)?.name||'Кордон'}».`;
   if(replyIntent==='direction') answer=buildRouteAdvice(npc,game,rawText);
-  if(isFollowup) answer=`По поводу того, о чём говорили: ${answer}`;
+  if(isFollowup && !recallQuestion) {
+    const previousTopic=context.lastIntent||'разговор';
+    const topicNames={zone_situation:'обстановке в Зоне',cordon_info:'Кордоне',news:'последних слухах',mutants:'мутантах',anomaly:'аномалиях',personal:'личной истории',backstory:'моём прошлом',work:'работе',direction:'дороге',weather:'погоде'};
+    const topicLabel=topicNames[previousTopic]||'нашему разговору';
+    answer=`Возвращаясь к теме ${topicLabel}: ${answer}`;
+  }
   // «Янтарь» remains only a rare conversational rumour, never an item or shop stock.
-  if (isGenericNpc && String(rawText||'').trim().length>2 && Math.random()<0.025 && !answer.includes('Янтарь')) answer += ' Кстати, недавно кто-то рассказывал про плавленый сырок «Янтарь». Редкая штука, в продаже я такого не держу.';
+  if (!weatherQuestion && !statusQuestion && isGenericNpc && String(rawText||'').trim().length>2 && Math.random()<0.012 && !answer.includes('Янтарь')) answer += ' Кстати, недавно кто-то рассказывал про плавленый сырок «Янтарь». Редкая штука, в продаже я такого не держу.';
   context.lastIntent=replyIntent;
+  context.recentTopics.push(replyIntent);context.recentTopics=context.recentTopics.slice(-6);
   context.lastPlayerText=String(rawText||'').slice(0,300);
   context.lastNpcText=answer;
+  context.recentReplies.push(answer);context.recentReplies=context.recentReplies.slice(-4);
   context.turns=(context.turns||0)+1;
   return {intent:replyIntent,answer};
 }

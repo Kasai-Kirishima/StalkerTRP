@@ -1,4 +1,4 @@
-const CACHE_NAME = 'cordon-pda-v3800-map-aligned-terrain';
+const CACHE_NAME = 'cordon-pda-v4120-expanded-npc-dialogue';
 const APP_SHELL = [
   "./",
   "./index.html",

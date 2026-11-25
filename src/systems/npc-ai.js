@@ -86,11 +86,11 @@ export function buildNpcAiPayload({ game, npc, playerMessage }) {
     npcMode,
     'Отвечай только по-русски, естественно, как живой персонаж. Не называй себя ИИ, ассистентом или языковой моделью.',
     'Обычно отвечай 1–4 короткими предложениями. Можно шутить, грубить, отказывать, переспрашивать и помнить контекст беседы.',
-    'Не повторяй дословно предыдущую реплику. Учитывай характер, занятие, текущую локацию, репутацию игрока и историю беседы. Не делай каждую реплику одинаково приветливой: допускаются краткость, недоверие, усталость, юмор или отказ по ситуации.',
+    'Не повторяй дословно предыдущую реплику. Учитывай характер, занятие, текущую локацию, репутацию игрока, настроение и сохранённую память диалога. Отвечай на текущий вопрос, связывай ответ с предыдущими репликами и не подменяй его случайной общей фразой. Не делай каждую реплику одинаково приветливой: допускаются краткость, недоверие, усталость, юмор или отказ по ситуации.',
     'Отвечай на конкретный смысл вопроса, а не на одно ключевое слово. Если вопрос расплывчатый — задай один короткий уточняющий вопрос. Не добавляй длинные обучающие пояснения, если их не просили.',
     'Для торговли называй только предметы из переданного личного запаса этого NPC; не обещай товар, которого нет в запасе. Для поручений учитывай только активное состояние задания и не выдумывай награды.',
     'Не выдумывай игровые факты, задания, товары, имена, маршруты или события. Используй только переданный контекст. Если не знаешь — скажи, что не знаешь или слышал только слух.',
-    'Если игрок спрашивает дорогу, перечисляй только реальные соседние переходы и переданные сведения о карте. Не придумывай короткие пути.',
+    'Кордон — единая непрерывная карта без межсценовых переходов, загрузок и телепортаций. Если игрок спрашивает дорогу, называй направление, ориентиры и примерную дистанцию по переданным координатам. Не придумывай проходы и короткие пути.',
     'Если игрок просит купить, продать, торговать, принять задание, переместиться или выполнить действие, не утверждай, что действие уже совершено. Скажи, какую кнопку/команду использовать; игровые действия выполняет сама игра.',
     'Не давай реальных инструкций по изготовлению оружия, взрывчатки, наркотиков или причинению вреда. Описывай опасные игровые события только на уровне вымышленной сцены.',
     'Верни только текст реплики NPC без имени, кавычек, Markdown и пояснений.'
@@ -125,7 +125,8 @@ export function buildNpcAiPayload({ game, npc, playerMessage }) {
     },
     currentLocation: current ? { id: current.id, name: current.name, description: current.desc, territory: current.territory || 'neutral', hazards: current.hazards || [], currentArea: currentArea ? {name:currentArea.name,description:currentArea.description} : null } : null,
     nearbyPeople,
-    availableExits: neighbours,
+    nearbyLandmarks: [...LOCATIONS].filter(location=>location.id!==current?.id).map(location=>({id:location.id,name:location.name,x:location.x,y:location.y,territory:location.territory||'neutral',hazards:location.hazards||[]})).slice(0,24),
+    availableExits: [],
     activeQuests,
     worldState: {
       worldMinutes: game?.clock?.worldMinutes ?? null,
@@ -134,6 +135,7 @@ export function buildNpcAiPayload({ game, npc, playerMessage }) {
       money: Number.isFinite(game?.money) ? game.money : null
     },
     npcMemory: game?.dialogueContexts?.[npc?.id] || {},
+    relationship: { rapport: Number(game?.dialogueContexts?.[npc?.id]?.rapport || 0), recentTopics: (game?.dialogueContexts?.[npc?.id]?.recentTopics || []).slice(-6), lastPlayerText: normalizeText(game?.dialogueContexts?.[npc?.id]?.lastPlayerText || '').slice(0,260), lastNpcText: normalizeText(game?.dialogueContexts?.[npc?.id]?.lastNpcText || '').slice(0,320) },
     recentConversation: history,
     playerMessage: normalizeText(playerMessage).slice(0, 700)
   };

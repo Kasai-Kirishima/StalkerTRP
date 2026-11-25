@@ -46,6 +46,78 @@ export function recordKnowledge(game, section, id, title, description='') {
   }
 }
 
+const NPC_FIELD_NOTES = {
+  loner: [
+    'Перед выходом проверяет ремни рюкзака и не любит оставлять вещи у костра.',
+    'Чаще выбирает тропы вдоль старых заборов и укрытий.',
+    'Обычно сначала слушает разговоры у костра и лишь потом высказывает своё мнение.',
+    'По слухам, хорошо запоминает короткие тропы между знакомыми местами.',
+    'У костра чаще слушает других, чем начинает разговор первым.',
+    'Собирает мелкие полезные вещи и не любит выбрасывать исправные припасы.',
+    'Старается не задерживаться на открытых участках дороги.'
+  ],
+  bandit: [
+    'Предпочитает держаться ближе к своим и редко задерживается в одиночку.',
+    'Любит торговаться даже из-за мелочей и внимательно считает сдачу.',
+    'Часто присматривается к незнакомцам прежде, чем начать разговор.',
+    'По слухам, знает несколько обходных дорожек вокруг старых построек.',
+    'Проверяет карманы и подсчитывает мелочь после каждой сделки.',
+    'Обычно держится рядом с товарищами, даже когда делает вид, что ему всё равно.',
+    'Неохотно рассказывает, где провёл предыдущую ночь.'
+  ],
+  military: [
+    'Держит снаряжение аккуратно уложенным и проверяет порядок на посту.',
+    'Предпочитает короткие доклады и не любит отвлекаться от дежурства.',
+    'Запоминает лица тех, кто регулярно проходит мимо блокпоста.',
+    'По слухам, хорошо ориентируется по старым дорожным указателям.',
+    'Записывает смены и замечает, если кто-то опаздывает на пост.',
+    'Предпочитает сухие короткие доклады длинным разговорам.',
+    'Старается держать проходы и подходы к посту свободными.'
+  ],
+  scientist: [
+    'Записывает наблюдения в блокнот и сверяет их с показаниями приборов.',
+    'Старается не делать выводов по одному измерению.',
+    'Часто задаёт вопросы о погоде и изменениях местности.',
+    'По слухам, собирает заметки о редких растениях Кордона.',
+    'Сравнивает новые наблюдения с записями прошлых вылазок.',
+    'Не любит делать выводы по одному измерению.',
+    'Часто задаёт вопросы о ветре, осадках и состоянии почвы.'
+  ],
+  default: [
+    'Перед разговором внимательно осматривает окрестности.',
+    'Предпочитает держаться знакомых маршрутов и ориентиров.',
+    'Местные отмечают, что он редко говорит о себе без повода.',
+    'Иногда помогает новичкам советом, если те ведут себя спокойно.',
+    'Старается не оставлять личные вещи без присмотра.',
+    'Любит наблюдать за лагерем со стороны, прежде чем присоединиться к разговору.',
+    'Предпочитает договариваться заранее, а не решать всё в последний момент.'
+  ]
+};
+
+export function recordNpcKnowledge(game,npc) {
+  if(!npc?.id)return null;
+  game.encyclopedia ||= {locations:[],people:[],anomalies:[],mutants:[],artifacts:[],equipment:[]};
+  game.encyclopedia.people ||= [];
+  const existing=game.encyclopedia.people.find(entry=>entry.id===npc.id);
+  const faction=npc.faction||'default';
+  const pool=[...(NPC_FIELD_NOTES[faction]||NPC_FIELD_NOTES.default)];
+  const choose=()=>pool.splice(Math.floor(Math.random()*pool.length),1)[0];
+  const notes=[choose(),choose(),choose()];
+  if(npc.activity||npc.personalTask) notes[2]=`Сейчас занят делом: ${npc.activity||npc.personalTask}.`;
+  else if(npc.role) notes[2]=`По его роли — ${npc.role.toLowerCase()} — чаще всего замечает детали, связанные с лагерной жизнью.`;
+  const location=getLocation(npc.location)?.name||'Кордон';
+  const description=[npc.role||'Сталкер',npc.group||getFaction(npc.faction)?.name||'Путник',location].filter(Boolean).join(' · ');
+  if(existing){
+    existing.description ||= description;
+    if(!Array.isArray(existing.notes)||existing.notes.length===0)existing.notes=notes;
+    else if(existing.notes.length<3){for(const note of notes)if(existing.notes.length<3&&!existing.notes.includes(note))existing.notes.push(note);}
+    return existing;
+  }
+  const entry={id:npc.id,title:npc.name,description,notes,discoveredAt:game.clock?.worldMinutes||0};
+  game.encyclopedia.people.push(entry);
+  return entry;
+}
+
 // Estimated walking time uses the actual Cordon map proportions (768×1536).
 // The map is treated as roughly 2 m per source pixel; average Zone walking
 // speed is reduced to 3 km/h for mud, debris, detours and cautious movement.
@@ -416,7 +488,7 @@ export function createGame(character, starterInventory = [], money = 0) {
     emission:{ nextAt:Math.floor((9+Math.random()*2)*1440), active:false, startedAt:null, endsAt:null, lastWarningAt:0 },
     player: {
       hp:100, maxHp:100, stamina:100, radiation:0, hunger:12, thirst:18, stress:0,
-      reputation:0, rating:0, rank:faction?.rank || 'Новичок', armor:Math.min(30,starterInventory.reduce((sum,stack)=>sum+(getItem(stack.id)?.armor||0)*stack.qty,0)), armorId:starterInventory.find(stack=>(getItem(stack.id)?.armor||0)>0)?.id||null, maskId:null, sheltered:false, shelterSpotId:null,
+      reputation:0, rating:0, droppedItems:[], rank:faction?.rank || 'Новичок', armor:Math.min(30,starterInventory.reduce((sum,stack)=>sum+(getItem(stack.id)?.armor||0)*stack.qty,0)), armorId:starterInventory.find(stack=>(getItem(stack.id)?.armor||0)>0)?.id||null, maskId:null, sheltered:false, shelterSpotId:null,
       faction:character.faction, kills:0, artifacts:0, questsDone:0, callsign:character.faction==='military'?(character.callsign||pick(['Кедр','Сокол','Рубеж','Факел','Гранит','Барс'])):null, militaryRank:character.faction==='military'?'Рядовой':null, locationsVisited:[faction?.spawn || 'rookie-village']
     },
     money,
@@ -1104,7 +1176,7 @@ export function talkToNpc(game, npcId) {
   const storyGreeting=mainStoryTalk(game,npcId);
   game.dialogueHistory=[{role:'npc',text:storyGreeting||npc.greeting||'Чего хотел, сталкер?'}];
   rememberEntity(game, npc, 'npc');
-  recordKnowledge(game,'people',npc.id,npc.name,`${npc.role||'Персонаж'} · ${npc.group||npc.faction||'Путник'}`);
+  recordNpcKnowledge(game,npc);
   const jobs=getSidorovichJobState(game);
   if (npcId==='sidorovich' && jobs.active?.type==='collector' && jobs.active.targetNpcId) { /* player returned to the quest giver */ }
   if (npcId!=='sidorovich' && jobs.active?.type==='collector' && jobs.active.targetNpcId===npcId) {
@@ -1212,7 +1284,7 @@ export function replyNpcFreeText(game,npcId,rawText) {
     return {ok:true,message:answer,action:'trade',traderId:npcId};
   }
   const generated=generateDialogueReply(npc,game,rawText);
-  if (includes('работ','задан','квест','поруч','помощ','дело','подработ')) {
+  if (includes('работ','задан','квест','поруч','помощ','дело','подработ') && generated.intent!=='quest_status') {
     game.dialogueTopic='работа';
     answer=replyNpc(game,npcId,'работа');
   } else if (generated) {

@@ -1,5 +1,5 @@
 import { getItem, countItem, removeItem, addItem, useItem } from './inventory.js';
-import { LOCATIONS, NPC_APPEARANCES, ASSETS } from '../data/catalog.js';
+import { NPC_APPEARANCES, ASSETS } from '../data/catalog.js';
 import { addLog, advanceGame, registerCorpseLoot, advanceAtpRescue } from './world.js';
 import { rememberEntity } from './russian-language.js';
 import { getItemCondition, damageItemCondition } from './equipment-condition.js';
@@ -337,26 +337,17 @@ export function defend(game) {
 }
 
 export function flee(game) {
-  if (!game.activeEncounter) return { ok:false, message:'Убегать не от кого.' };
-  const enemy = game.activeEncounter;
-  const success = Math.random() < .62;
-  advanceGame(game, 8);
-  if (success) {
-    game.activeEncounter = null;
-    const location = game.locationId;
-    const options = (awaitlessNeighbors(location));
-    if (options.length) game.locationId = options[Math.floor(Math.random()*options.length)];
-    const message = 'Тебе удалось оторваться от противника и скрыться за ближайшими укрытиями.';
-    addLog(game, message);
-    return { ok:true, message };
-  }
-  const received = Math.max(2, Math.floor(enemy.damage * .7));
-  game.player.hp = Math.max(1, game.player.hp - received);
-  const message = `Противник не даёт уйти и задевает тебя. Получено ${received} урона.`;
-  addLog(game, message, 'danger');
-  return { ok:false, message };
-}
-
-function awaitlessNeighbors(locationId) {
-  return LOCATIONS.find(location=>location.id===locationId)?.neighbors || [];
+  if (!game.activeEncounter) return { ok:false, message:'Сейчас нет активной угрозы, от которой нужно уходить.' };
+  // Leaving an encounter is always available: it must not require defeating the threat
+  // or teleport the player to a different scene on the continuous Cordon map.
+  advanceGame(game, 2);
+  game.activeEncounter = null;
+  game.combatTargetNpcId = null;
+  game.player.isAiming = false;
+  game.player.aimed = false;
+  game.player.aimedUntil = 0;
+  game.player.last3dShotTargetId = null;
+  const message = 'Ты прервал столкновение и отошёл от угрозы. Положение на карте не изменилось.';
+  addLog(game, message, 'player');
+  return { ok:true, message };
 }

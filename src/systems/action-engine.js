@@ -1,5 +1,5 @@
 import { LOCATIONS, ITEMS, EXPLORE_SPOTS } from '../data/catalog.js';
-import { addLog, describeLocation, searchLocation, talkToNpc, replyNpcFreeText, startArtifactHunt, deactivateAnomaly, getLocation, scoutLocation, getAvailableTraders, getAvailableStalkers, travelTo, startAreaSearch, sitAtCampfire, takeShelter, advanceGame, nameSecretAnomaly, beginAtpRescue, toggleCurrentLocationLight, useVortex, escapeVortex, useCarousel, escapeCarousel, useTrampoline } from './world.js';
+import { addLog, describeLocation, searchLocation, talkToNpc, replyNpcFreeText, startArtifactHunt, deactivateAnomaly, getLocation, scoutLocation, getAvailableTraders, getAvailableStalkers, startAreaSearch, sitAtCampfire, takeShelter, advanceGame, nameSecretAnomaly, beginAtpRescue, toggleCurrentLocationLight, useVortex, escapeVortex, useCarousel, escapeCarousel, useTrampoline } from './world.js';
 import { playerAttack, beginEncounter, combatTextAction, getBestWeapon } from './combat.js';
 import { useItem, countItem, removeItem, addItem, getWeight } from './inventory.js';
 import { getItemCondition } from './equipment-condition.js';
@@ -343,15 +343,11 @@ export function processPlayerAction(game, rawText) {
   }
   const targetLocation=named?.type==='location'?named.entity:reference?.type==='location'?getLocation(reference.id):null;
   if (targetLocation && movementIntent && targetLocation.id!==game.locationId) {
-    const result=travelTo(game,targetLocation.id);
-    return {message:result.message,action:result.encounter?'combat':null};
+    if (game.player?.faction==='bandit' && ['rookie-village','sidorovich-bunker'].includes(targetLocation.id)) return {message:'Деревня новичков закрыта для твоей группировки. На единой карте путь туда физически перекрыт местной охраной.'};
+    return {message:`Отметил «${targetLocation.name}» как цель. Перехода или телепортации нет: иди туда пешком по общей карте с помощью WASD, а метка цели появится на мини-карте.`,action:'navigate',targetLocationId:targetLocation.id};
   }
   if (mapIntent || (!targetLocation && movementIntent && /^(?:иду|пойду|пошел|пошла|двигаюсь|направляюсь|отправляюсь|перехожу)\b/.test(text)) || has(text,/(куда идти|куда направ|к соседн)/)) {
-    if (reference?.type==='location' && reference.id!==game.locationId && movementIntent) {
-      const result=travelTo(game,reference.id);
-      return {message:result.message,action:result.encounter?'combat':null};
-    }
-    return { message:'Открываю карту Кордона. На ней можно выбрать соседнюю локацию.', action:'map' };
+    return { message:'Кордон — единая непрерывная карта. Открой КПК, выбери ориентир и двигайся к нему пешком; экранов перехода между районами нет.', action:'map' };
   }
   if (wordFamily(text,['инвентар','рюкзак','снаряж','вещ']) || has(text,/(что у меня с собой|мои вещи)/)) return { message:'Открываю инвентарь.', action:'inventory' };
   if (wordFamily(text,['задан','квест','поруч','работ']) && !/(работать|поработ)/.test(text)) return { message:'Открываю список заданий.', action:'quests' };

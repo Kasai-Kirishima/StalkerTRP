@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import { ASSETS, IMAGE_FALLBACKS, FACTIONS, ITEMS, LOCATIONS, EXPLORE_SPOTS, NPCS, AVATAR_OPTIONS, NPC_APPEARANCES, START_BUDGET, MAX_CARRY_KG, STARTER_ITEM_IDS, STARTER_LOADOUT_BY_FACTION, ITEM_ACQUISITION } from '../src/data/catalog.js';
 import { createGame, travelTo, talkToNpc, getAvailableStalkers, scoutLocation, searchLocation, startArtifactHunt, chooseArtifactSector, deactivateAnomaly, getAvailableTraders, buyFromTrader, sellToTrader, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, sitAtCampfire, replyNpc, replyNpcFreeText, getTravelMinutes, getExploreSpots, advanceGame, takeShelter, leaveShelter, openStorage, getActiveLootItems, breakContainer, registerCorpseLoot, getFactionRelation, nameSecretAnomaly, turnInSecretAnomalyQuest, turnInPudelQuest, claimAtpRescueReward, beginAtpRescue, useTrampoline, simulateWorld, useVortex, escapeVortex, useCarousel, escapeCarousel, generateStalkerName, acceptPersonalQuest, turnInPersonalQuest, grantReputation, getTradeBuyPrice } from '../src/systems/world.js';
-import { addItem, getWeight, canFitLoadout, countItem, useItem, transferItem } from '../src/systems/inventory.js';
-import { beginEncounter, beginWolfDogPack, playerAttack, getBestWeapon } from '../src/systems/combat.js';
+import { addItem, getWeight, canFitLoadout, countItem, useItem, transferItem, dropItemToWorld, pickupDroppedItem } from '../src/systems/inventory.js';
+import { beginEncounter, beginWolfDogPack, playerAttack, getBestWeapon, flee } from '../src/systems/combat.js';
 import { getItemCondition, damageItemCondition, getRepairCost, repairItemCondition, toggleArtifactBelt, removeArtifactFromBelt } from '../src/systems/equipment-condition.js';
 import { getMainStoryQuest, mainStoryAction, resolveMainStoryEncounter } from '../src/systems/main-story.js';
 import { processPlayerAction } from '../src/systems/action-engine.js';
@@ -65,6 +65,21 @@ assert.equal(shelteredGame.player.sheltered,false);
 assert.equal(LOCATIONS.length,18);
 assert.equal(LOCATIONS.filter(location=>location.mapVisible!==false).length,18,'all 18 locations, including Sidorovich bunker, should appear as icon-only map pins');
 for(const item of ITEMS){const artwork=item.image||ASSETS.itemImages?.[item.id]||ASSETS.armor?.[item.id];assert.ok(artwork,`inventory item ${item.id} must have artwork, not an emoji`);if(!artwork.startsWith('data:')&&!artwork.startsWith('http'))assert.ok(fs.existsSync(new URL(artwork)),`inventory artwork must exist locally for offline use: ${item.id}`);}
+// Inventory drops become physical world props and can be collected again with their ammo reserve.
+const dropGame=createGame({name:'Проверка выброса',faction:'loner'},[],START_BUDGET);
+addItem(dropGame.inventory,'ammo545',2);dropGame.ammoRounds.ammo545=60;dropGame.player.cordonPosition={x:12,z:-7,yaw:Math.PI/2};
+const dropped=dropItemToWorld(dropGame,'ammo545');
+assert.equal(dropped.ok,true,'one ammo pack should be droppable');
+assert.equal(countItem(dropGame.inventory,'ammo545'),1,'dropping should remove one pack from the backpack');
+assert.equal(dropGame.ammoRounds.ammo545,30,'dropping one pack should remove only that pack of rounds');
+assert.equal(dropGame.player.droppedItems.length,1,'dropped item should remain in the world');
+assert.ok(Number.isFinite(dropped.dropped.x)&&Number.isFinite(dropped.dropped.z),'dropped item must use continuous-world coordinates');
+const picked=pickupDroppedItem(dropGame,dropped.dropped.uid);
+assert.equal(picked.ok,true,'dropped item should be collectible');
+assert.equal(countItem(dropGame.inventory,'ammo545'),2,'pickup should restore the item stack');
+assert.equal(dropGame.ammoRounds.ammo545,60,'pickup should restore the exact ammo count');
+assert.equal(dropGame.player.droppedItems.length,0,'picked-up world prop should be removed');
+
 
 // Every map exit must point to a real location, have a return transition,
 // and belong to one connected Cordon travel graph.
@@ -214,7 +229,7 @@ for (const destination of LOCATIONS) {
   }
 }
 const localRouteAdvice=generateDialogueReply(routeGuide,{locationId:'rookie-village',player:{faction:'loner'},dialogueContexts:{}},'Куда мне идти?').answer;
-assert.ok(localRouteAdvice.includes('Отсюда отмечены переходы') && localRouteAdvice.includes('Остановка'),'when no destination is named, NPCs should list real adjacent exits');
+assert.ok(localRouteAdvice.includes('Ближайшие ориентиры') && localRouteAdvice.includes('Остановка') && localRouteAdvice.includes('без загрузок'),'when no destination is named, NPCs should list nearby landmarks on the continuous map');
 assert.deepEqual([LOCATIONS.find(l=>l.id==='rail-tunnel').x,LOCATIONS.find(l=>l.id==='rail-tunnel').y],[93,37],'east railway tunnel should be right and above locomotive');
 assert.deepEqual([LOCATIONS.find(l=>l.id==='underpass').x,LOCATIONS.find(l=>l.id==='underpass').y],[39,59],'underpass should be right and slightly above the wagon');
 assert.deepEqual(LOCATIONS.find(l=>l.id==='anomaly-dump').anomalies,['carousel','vortex'],'the secret camp has a carousel and vortex');
@@ -299,14 +314,14 @@ for (const faction of FACTIONS) {
 
 // Starter economy supports a practical multi-item kit and distinct leather jacket/cosukha art.
 assert.equal(START_BUDGET,5000,'starting budget should allow one practical faction kit without funding an advanced loadout');
-assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=3600"),'service worker registration URL should refresh with the release');
+assert.ok(fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("sw.js?v=4110"),'service worker registration URL should refresh with the release');
 const mainModuleSource=fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
 assert.ok(mainModuleSource.includes("import { mountStalker3D, disposeStalker3D } from './3d/renderer.js';"),'main module must import the 3D renderer functions it calls during the first render');
 const serviceWorkerSource=fs.readFileSync(new URL('../sw.js',import.meta.url),'utf8');
 assert.ok(serviceWorkerSource.includes('./assets/textures/cordon-materials.png'),'offline shell should cache the procedural material atlas');
 assert.ok(serviceWorkerSource.includes('./assets/textures/npc-appearance-atlas.png'),'offline shell should cache the full-body NPC appearance atlas');
 assert.ok(!serviceWorkerSource.includes('bundled-music')&&!serviceWorkerSource.includes('radio-stations')&&!serviceWorkerSource.includes('music-archive'),'music and radio modules must be completely removed from the offline shell');
-assert.ok(serviceWorkerSource.includes('cordon-pda-v3800-map-aligned-terrain'),'service worker cache name should identify the first-person no-music release');
+assert.ok(serviceWorkerSource.includes('cordon-pda-v4120-expanded-npc-dialogue'),'service worker cache name should identify the first-person no-music release');
 const swUrl=new URL('../sw.js',import.meta.url);
 const precachePaths=[...serviceWorkerSource.matchAll(/\"(\.\/[^\"]+)\"/g)].map(match=>match[1]);
 assert.ok(precachePaths.length>=150,'the offline shell should include the expanded artwork bundle');
@@ -699,6 +714,18 @@ assert.ok(processPlayerAction(exploreGame,'поищи припасы').message.l
 
 // Combat still falls back to a melee weapon when a firearm has no rounds.
 // Use an isolated encounter here: earlier travel checks may legitimately start a random fight.
+const fleeGame=createGame({name:'Отступление',faction:'loner'},[],START_BUDGET);
+fleeGame.locationId='rookie-village';fleeGame.player.cordonPosition={x:14,z:22,yaw:.5};
+fleeGame.activeEncounter={type:'bandit',name:'Тестовая угроза',hp:50,maxHp:50,damage:12};
+const fleeLocationBefore=fleeGame.locationId,fleePositionBefore={...fleeGame.player.cordonPosition},fleeHpBefore=fleeGame.player.hp;
+const fleeResult=flee(fleeGame);
+assert.equal(fleeResult.ok,true,'the player must always be able to disengage from an active threat');
+assert.equal(fleeGame.activeEncounter,null,'fleeing must clear the active threat');
+assert.equal(fleeGame.locationId,fleeLocationBefore,'fleeing must not teleport to a different location scene');
+assert.deepEqual(fleeGame.player.cordonPosition,fleePositionBefore,'fleeing must preserve the player world coordinates');
+assert.equal(fleeGame.player.hp,fleeHpBefore,'fleeing must not add unavoidable damage as a penalty');
+assert.equal(fleeGame.combatTargetNpcId,null,'fleeing must clear the tracked combat target');
+
 const combatVisualGame=createGame(character,[],START_BUDGET);
 addItem(combatVisualGame.inventory,'knife',1);
 addItem(combatVisualGame.inventory,'pm',1);
@@ -870,6 +897,9 @@ const plainDialogueHtml=renderGame({screen:'game',characters:[character],activeC
 const plainDialogueBlock=plainDialogueHtml.match(/<main class=\"dialogue-simple\"[\s\S]*?<\/main>/)?.[0]||'';
 assert.ok(plainDialogueBlock.includes('dialogue-line') && plainDialogueBlock.includes('Волк'),'dialogue should use a simple name-and-text transcript');
 assert.ok(plainDialogueBlock.includes('dialogue-profile-portrait') && plainDialogueBlock.includes('faction-insignia') && plainDialogueBlock.includes('rank-insignia') && !plainDialogueBlock.includes('npc-scene-body') && !plainDialogueBlock.includes('enemy-body-art'),'dialogue should show portrait, faction and rank marks without a full body image');
+assert.ok(!plainDialogueBlock.includes('dialogue-prompts') && !plainDialogueBlock.includes('dialogue-prompt'),'dialogue must not offer prewritten quick replies; players write their own messages');
+assert.ok(plainDialogueBlock.includes('id="npc-message"') && plainDialogueBlock.includes('id="npc-dialogue-form"'),'dialogue must retain a free-text input and send form');
+assert.ok(!fs.readFileSync(new URL('../src/main.js',import.meta.url),'utf8').includes("action==='dialogue-prompt'"),'quick-reply autofill handler must be removed');
 assert.ok(!plainDialogueBlock.includes('<label for="npc-message">') && !plainDialogueBlock.includes('Сообщение будет учтено'),'dialogue should avoid redundant explanatory copy');
 const conversationReply=replyNpcFreeText(conversationGame,'wolf','Что случилось возле вагончика и почему собаки нападают на новичков?');
 assert.equal(conversationReply.ok,true);
@@ -884,7 +914,7 @@ assert.equal(fallbackTalkReply.ok,true,'an unknown player phrase should still re
 assert.ok(fallbackTalkGame.dialogueHistory.at(-1).text.length>10,'an unrecognized input must append a generated in-character reply to the transcript');
 assert.equal(conversationGame.dialogueContext.lastIntent,'mutants','the dialogue engine should classify natural player phrases into a remembered topic');
 const followupReply=replyNpcFreeText(conversationGame,'wolf','А что дальше?');
-assert.ok(followupReply.ok && followupReply.message.includes('По поводу того, о чём говорили'),'NPC follow-up replies should use the previous conversation context');
+assert.ok(followupReply.ok && followupReply.message.includes('Возвращаясь к теме'),'NPC follow-up replies should use the previous conversation context');
 const directionReply=replyNpcFreeText(conversationGame,'wolf','Где я сейчас нахожусь?');
 assert.ok(directionReply.message.includes('Деревня новичков') && !directionReply.message.includes('rookie-village'),'direction replies should use human-readable location names');
 const concreteRouteReply=replyNpcFreeText(conversationGame,'wolf','Мне нужно попасть на АТП, подскажи, как лучше добраться?');
@@ -894,6 +924,34 @@ assert.ok(poodleRouteReply.ok && poodleRouteReply.message.includes('Развал
 const personalReply=replyNpcFreeText(conversationGame,'wolf','Расскажи, скучаешь по дому?');
 assert.ok(personalReply.ok && personalReply.message.length>20,'the expanded dialogue engine should answer personal small-talk');
 assert.equal(conversationGame.dialogueContext.lastIntent,'personal');
+// Expanded free-text knowledge: repair, quests, artifacts, rest, radio, inventory, services and encyclopedia.
+const expandedTalkCases=[
+  ['Мне нужно починить снаряжение','repair'],
+  ['Покажи мои задания','quest_status'],
+  ['Что такое артефакт Медуза?','artifact_info'],
+  ['Где можно переночевать?','rest'],
+  ['Что слышно по рации?','radio'],
+  ['Что у меня в рюкзаке?','inventory'],
+  ['К кому обратиться по ремонту?','local_services'],
+  ['Как пополняется энциклопедия КПК?','encyclopedia']
+];
+for (const [message,intent] of expandedTalkCases) {
+  const testGame=createGame({name:'Проверка тем',faction:'loner'},[],START_BUDGET);
+  testGame.locationId='rookie-village'; talkToNpc(testGame,'wolf');
+  const response=replyNpcFreeText(testGame,'wolf',message);
+  assert.equal(response.ok,true,`expanded dialogue topic should answer: ${message}`);
+  assert.equal(testGame.dialogueContext.lastIntent,intent,`expanded dialogue topic should classify: ${message}`);
+  assert.ok(response.message.length>20,`expanded dialogue topic should contain a useful answer: ${message}`);
+}
+const questTalkGame=createGame({name:'Проверка заданий',faction:'loner'},[],START_BUDGET);
+questTalkGame.locationId='rookie-village'; talkToNpc(questTalkGame,'wolf');
+questTalkGame.quests[0].status='active'; questTalkGame.quests[0].title='Проверочное поручение';
+const questStatusTalk=replyNpcFreeText(questTalkGame,'wolf','Какие у меня активные задания?');
+assert.ok(questStatusTalk.message.includes('Проверочное поручение'),'quest-status dialogue should use the live quest list rather than generic work text');
+const inventoryTalkGame=createGame({name:'Проверка рюкзака',faction:'loner'},[{id:'bread',qty:2}],START_BUDGET);
+inventoryTalkGame.locationId='rookie-village'; talkToNpc(inventoryTalkGame,'wolf');
+const inventoryTalk=replyNpcFreeText(inventoryTalkGame,'wolf','Что у меня сейчас в рюкзаке?');
+assert.ok(inventoryTalk.message.includes('Хлеб')||inventoryTalk.message.toLowerCase().includes('bread'),'inventory question should summarize actual carried items');
 // Expanded NPC conversation topics should resolve even with common paraphrases and typos.
 const npcTopicCases=[
   ['Кто ты?','identity'],
@@ -928,6 +986,13 @@ for(const [phrase,expectedIntent] of npcTopicCases){
   assert.equal(generated.intent,expectedIntent,`NPC should understand: ${phrase}`);
   assert.ok(generated.answer.length>35,`NPC should give a substantive answer to: ${phrase}`);
 }
+const rotatingNpc={id:'rotating-wolf',name:'Волк',role:'Старший сталкер',faction:'loner',lines:{}};
+const rotatingContextGame=createGame(character,[],START_BUDGET);
+const rotatingReplies=[generateDialogueReply(rotatingNpc,rotatingContextGame,'Что думаешь о мутантах?').answer,generateDialogueReply(rotatingNpc,rotatingContextGame,'Что думаешь о мутантах?').answer];
+assert.notEqual(rotatingReplies[0],rotatingReplies[1],'named NPCs should rotate through distinct authored responses instead of repeating the same line');
+const rapportContextGame=createGame(character,[],START_BUDGET);
+generateDialogueReply(rotatingNpc,rapportContextGame,'Спасибо, выручил.');
+assert.equal(rapportContextGame.dialogueContext.rapport,1,'NPC rapport should change from polite player behaviour');
 const militaryOpinion=generateDialogueReply({id:'opinion-npc',name:'Серый',role:'Сталкер',faction:'loner'},createGame(character,[],START_BUDGET),'Что думаешь о военных?');
 assert.match(militaryOpinion.answer,/военн|армейц/i,'faction opinions should address the faction named by the player, not default to the NPC own faction');
 for(let i=0;i<30;i++) assert.match(generateStalkerName(),/^[А-ЯЁ][а-яё]+ [А-ЯЁ][а-яё-]+$/u,'random player names should combine a first name and a nickname from the stalker name database');
@@ -1122,7 +1187,7 @@ assert.ok(trampolineHeight>=0&&trampolineHeight<=15,'Trampoline height must stay
 const routeGame=createGame({name:'Маршрут',faction:'loner'},[],START_BUDGET);
 routeGame.locationId='rookie-village'; talkToNpc(routeGame,'wolf');
 const routeReply=replyNpcFreeText(routeGame,'wolf','Как пройти в Тайный лагерь?');
-assert.ok(routeReply.message.includes('Деревня новичков → Лагерь в лесу → Тайный лагерь'));
+assert.ok(routeReply.message.includes('Деревня новичков') && routeReply.message.includes('Лагерь в лесу') && routeReply.message.includes('Тайный лагерь') && routeReply.message.includes('без загрузок'), 'NPC should describe real landmarks on a continuous walkable map, not scene transitions');
 for (const phrase of ['Что тут за достопримечательности?','Какие известные люди есть?','Что ты знаешь про мутантов?','Что ты знаешь об аномалиях?','Что ты знаешь о выбросах?','Где можно найти ценный хабар?']) {
   const reply=replyNpcFreeText(routeGame,'wolf',phrase);
   assert.ok(reply.ok && reply.message.length>30,`NPC should answer the question: ${phrase}`);
@@ -1180,22 +1245,30 @@ bunkerSceneGame.locationId='rookie-village';
 const bunkerSceneHtml=renderGame({game:bunkerSceneGame,characters:[{id:'test',name:'Проверка',faction:'loner'}],activeCharacterId:'test',settings:{},ui:{tab:'location',pdaOpen:false}});
 assert.ok(!bunkerSceneHtml.includes('main-story-quest'),'the main storyline should not clutter the live location screen');
 talkToNpc(bunkerSceneGame,'wolf');
+assert.ok((bunkerSceneGame.encyclopedia.people.find(entry=>entry.id==='wolf')?.notes||[]).length>=3,'NPC encyclopedia entry should include several randomized field notes');
 const bunkerQuestHtml=renderGame({game:bunkerSceneGame,characters:[{id:'test',name:'Проверка',faction:'loner'}],activeCharacterId:'test',settings:{},ui:{tab:'quests',pdaOpen:true}});
-assert.ok(bunkerQuestHtml.includes('Спуститься к Сидоровичу') && bunkerQuestHtml.includes('data-id="sidorovich-bunker"'),'quest journal should expose a clear entrance to Sidorovich bunker after Wolf gives the hint');
+assert.ok(bunkerQuestHtml.includes('люк') && bunkerQuestHtml.includes('спустись по лестнице'),'quest journal should direct the player to the physical bunker entrance in the shared world');
 bunkerSceneGame.locationId='sidorovich-bunker';
 const bunkerExitHtml=renderGame({game:bunkerSceneGame,characters:[{id:'test',name:'Проверка',faction:'loner'}],activeCharacterId:'test',settings:{},ui:{tab:'location',pdaOpen:false}});
-assert.ok(bunkerExitHtml.includes('Выйти в деревню'),'Sidorovich bunker should expose a visible return route');
+assert.ok(!bunkerExitHtml.includes('Выйти в деревню'),'the bunker must not use a scene-exit button; the player walks back through the physical stairs');
 
 // NPC generative AI adapter: safe opt-in endpoint, compact world context and graceful fallback.
 assert.equal(isValidNpcAiEndpoint('https://example.test/npc-chat'),true);
 assert.equal(isValidNpcAiEndpoint('javascript:alert(1)'),false);
 assert.equal(isValidNpcAiEndpoint('https://user:pass@example.test'),false);
+const memoryGame=createGame({name:'Проверка памяти диалога',faction:'loner'},[],START_BUDGET);
+const memoryNpc={id:'memory-guide',name:'Проводник',role:'сталкер',faction:'loner',activity:'чиню старый радиоприёмник'};
+const firstMemoryReply=generateDialogueReply(memoryNpc,memoryGame,'Какая погода?').answer;
+const recalledReply=generateDialogueReply(memoryNpc,memoryGame,'Напомни, что ты говорил?').answer;
+assert.ok(recalledReply.includes(firstMemoryReply),'dialogue recall should use the previous answer');
+assert.ok(memoryGame.dialogueContexts['memory-guide'].recentReplies.length>=2,'dialogue should retain a short recent-reply history');
 const aiGame=createGame({name:'Тестовый сталкер',faction:'loner'},[],START_BUDGET);
 const aiNpc={id:'ai-guide',name:'Проводник',role:'сталкер-картограф',faction:'loner',group:'Одиночки',lines:{rumors:'На остановке сегодня тихо.'}};
 const aiPayload=buildNpcAiPayload({game:aiGame,npc:aiNpc,playerMessage:'Расскажи, что слышно'});
 assert.ok(aiPayload.system.includes('Не выдумывай игровые факты'));
 assert.equal(aiPayload.context.player.currentLocation,'Деревня новичков');
-assert.ok(aiPayload.context.availableExits.some(exit=>exit.name==='Остановка'));
+assert.ok(aiPayload.context.nearbyLandmarks.some(place=>/остановка/i.test(place.name)),'NPC AI should receive nearby map landmarks instead of scene exits');
+assert.deepEqual(aiPayload.context.availableExits,[],'NPC AI must not be given scene-transition exits');
 assert.ok(aiPayload.context.npc.knownDialogue && aiPayload.context.npc.knownDialogue.rumors==='На остановке сегодня тихо.','AI context should include grounded NPC dialogue knowledge');
 assert.ok('worldState' in aiPayload.context,'AI context should include the current game world state');
 assert.ok(aiPayload.context.nearbyPeople.length>0,'NPC AI should know who is actually nearby');
@@ -1256,8 +1329,8 @@ assert.equal(getMainStoryQuest(storyGame).title,'Совет Волка','speakin
 assert.match(getMainStoryQuest(storyGame).objective,/Сидоровича/,'the journal objective should clearly direct the player to Sidorovich');
 const storyViewState={screen:'game',characters:[{id:'story-test',name:'Проверка сюжета',faction:'loner'}],activeCharacterId:'story-test',settings:{},ui:{tab:'quests',pdaOpen:true,modal:null},game:storyGame};
 const wolfAfterTalkHtml=renderGame(storyViewState);
-assert.ok(wolfAfterTalkHtml.includes('Совет Волка')&&wolfAfterTalkHtml.includes('Спуститься к Сидоровичу'),'after Wolf dialogue the active quest and its direct action must be visible in the quest journal');
-assert.equal(travelTo(storyGame,'sidorovich-bunker').ok,true,'the player should be able to follow the new quest from the village to Sidorovich');
+assert.ok(wolfAfterTalkHtml.includes('Совет Волка')&&wolfAfterTalkHtml.includes('люк')&&wolfAfterTalkHtml.includes('лестнице'),'after Wolf dialogue the quest journal should guide the player to the physical bunker stairwell');
+storyGame.locationId='sidorovich-bunker'; // Simulate the player walking down the physical stairs in the unified world.
 assert.match(storyTalk('sidorovich','sidorovich-bunker'),/флешк/);
 assert.equal(storyGame.mainStory.stage,'find-first-flash');
 storyAction('story-flash-search','trailer');

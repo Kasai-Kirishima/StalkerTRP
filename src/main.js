@@ -1,8 +1,8 @@
 import { loadState, saveState, createInitialState, exportSave, importSave } from './core/storage.js';
 import { ASSETS, FACTIONS, START_BUDGET, MAX_CARRY_KG, NPCS, ITEMS, LOCATIONS, AVATAR_OPTIONS, STARTER_LOADOUT_BY_FACTION } from './data/catalog.js';
 import { renderMenu, renderAccount, renderCharacters, renderCreate, renderLoadout, renderGame, renderGameSettings, renderModal, esc } from './ui/views.js';
-import { canFitLoadout, getInventoryCost, getLoadoutWeight, addItem, getItem, getWeight, countItem, removeItem, useItem, transferItem } from './systems/inventory.js';
-import { createGame, addLog, describeLocation, searchLocation, travelTo, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, breakContainer, replyNpcFreeText, takeShelter, leaveShelter, sitAtCampfire, getExploreSpots, getActiveLootItems, openStorage, turnInPudelQuest, turnInSecretAnomalyQuest, claimAtpRescueReward, beginAtpRescue, generateStalkerName, acceptPersonalQuest, turnInPersonalQuest, getAvailableStalkers } from './systems/world.js';
+import { canFitLoadout, getInventoryCost, getLoadoutWeight, addItem, getItem, getWeight, countItem, removeItem, useItem, transferItem, dropItemToWorld, pickupDroppedItem } from './systems/inventory.js';
+import { createGame, addLog, describeLocation, searchLocation, talkToNpc, replyNpc, sleep, deactivateAnomaly, startArtifactHunt, chooseArtifactSector, progressQuest, updateWeather, advanceGame, getLocation, scoutLocation, acceptSidorovichJob, turnInSidorovichJob, acceptWolfDogQuest, turnInWolfDogQuest, acceptWorldQuest, startAreaSearch, claimAreaFind, breakContainer, replyNpcFreeText, takeShelter, leaveShelter, sitAtCampfire, getExploreSpots, getActiveLootItems, openStorage, turnInPudelQuest, turnInSecretAnomalyQuest, claimAtpRescueReward, beginAtpRescue, generateStalkerName, acceptPersonalQuest, turnInPersonalQuest, getAvailableStalkers } from './systems/world.js';
 import { playerAttack, playerPunch, defend, flee, beginEncounter, beginWolfDogPack, reloadWeapon, aimWeapon, dodge, throwGrenade, throwBoltInCombat, useItemInCombat, selectWeapon } from './systems/combat.js';
 import { buyFromTrader, sellToTrader } from './systems/world.js';
 import { processPlayerAction } from './systems/action-engine.js';
@@ -119,7 +119,7 @@ function render() {
   if (state.screen==='game' && !state.ui.pdaOpen) {
     const canvas=root.querySelector('#stalker-3d-world');
     if (canvas && state.game) {
-      const nearby=getAvailableStalkers(state.game,state.game.locationId);
+      const nearby=getAvailableStalkers(state.game,null);
       mountStalker3D(canvas,{
         game:state.game,
         npcs:nearby,
@@ -131,23 +131,18 @@ function render() {
           if(result.ok){state.ui.modal=null;persist();render();}
           else toast(result.message,'warning');
         },
-        onTravel:(destinationId,transition={})=>{
-          const fromId=state.game.locationId;
-          const result=travelTo(state.game,destinationId);
-          if(!result.ok){toast(result.message,'warning');return result;}
-          if(result.ok){
-            state.game.player.worldPositions ||= {};
-            let arrival;
-            if(destinationId==='sidorovich-bunker')arrival={x:0,z:18.5,yaw:0};
-            else if(fromId==='sidorovich-bunker'&&destinationId==='rookie-village')arrival={x:0,z:27.5,yaw:Math.PI};
-            else {
-              const edge=transition.edge||{x:0,z:-34};
-              if(Math.abs(edge.x)>Math.abs(edge.z))arrival=edge.x>0?{x:-29.2,z:0,yaw:Math.PI/2}:{x:29.2,z:0,yaw:-Math.PI/2};
-              else arrival=edge.z<0?{x:0,z:29.2,yaw:0}:{x:0,z:-29.2,yaw:Math.PI};
-            }
-            state.game.player.worldPositions[destinationId]=arrival;
-          }
-          persist();render();toast(result.message,result.encounter?'warning':result.ok?'info':'warning');return result;
+        onLocationChange:(locationId)=>{
+          const previousId=state.game.locationId;
+          if(previousId===locationId)return;
+          state.game.locationId=locationId;
+          state.game.currentAreaId=null;
+          state.game.player.locationsVisited ||= [];
+          if(!state.game.player.locationsVisited.includes(locationId))state.game.player.locationsVisited.push(locationId);
+          state.game.locationVisitTimes ||= {};
+          state.game.locationVisitTimes[locationId]=state.game.clock?.worldMinutes||0;
+          describeLocation(state.game,locationId);
+          progressQuest(state.game,`visit:${locationId}`);
+          persist();
         },
         onFire:(targetNpc,actionInfo={})=>{
           if(state.game.activeEncounter){const result=playerAttack(state.game,{weaponId:actionInfo.weaponId,distance:actionInfo.distance});persist();render();toast(result.message,result.ok?'success':'warning');return;}
@@ -184,9 +179,11 @@ function render() {
         onAimChange:(active)=>{state.game.player.isAiming=active;},
         onFlashlightToggle:(active)=>{state.game.player.flashlightActive=active;state.ui.flashlight=active;persist();},
         onSleep:()=>{if(state.game.activeEncounter){toast('Во время опасности отдыхать нельзя.','warning');return;}state.ui.modal='sleep';render();},
-        onPickup:(itemId)=>{
+        onFlee:()=>{const result=flee(state.game);persist();render();toast(result.message,result.ok?'success':'warning');return result;},
+        onPickup:(itemId,qty=1,droppedUid=null)=>{
+          if(droppedUid){const result=pickupDroppedItem(state.game,droppedUid);if(!result.ok){toast(result.reason||'Не удалось подобрать предмет.','warning');return false;}persist();toast(`Подобрано: ${result.item?.name||itemId}.`,'success');return true;}
           const item=getItem(itemId);
-          const result=addItem(state.game.inventory,itemId,1);
+          const result=addItem(state.game.inventory,itemId,qty);
           if(!result.ok){toast(result.reason||'Не удалось подобрать предмет.','warning');return false;}
           persist();toast(`Подобрано: ${item?.name||itemId}.`,'success');return true;
         },
@@ -403,6 +400,7 @@ function applyActionResult(result) {
   else if (result.action==='trade') { state.ui.tradeNpcId=result.npcId; state.ui.modal='trade-panel'; state.ui.pdaOpen=false; }
   else if (result.action==='explore-find') state.ui.modal='explore-find';
   else if (result.action==='combat') state.ui.tab='location';
+  else if (result.action==='navigate') { state.game.player.navigationTargetId=result.targetLocationId||null; state.ui.pdaOpen=false; state.ui.tab='location'; }
   if (result.message) toast(result.message, result.encounter?'warning':'info');
   persist();
   render();
@@ -580,10 +578,10 @@ root.addEventListener('click', (event) => {
   if (action==='search') { advanceGame(state.game,10); const result=searchLocation(state.game); updateWeather(state.game); persist(); render(); toast(result.message,result.ok?'info':'warning'); return; }
   if (action==='scout') { const result=scoutLocation(state.game,id); toast(result.message,result.ok?'info':'warning'); return; }
   if (action==='travel') {
-    const result=travelTo(state.game,id);
-    state.ui.tab='location';
-    state.ui.pdaOpen=false;
-    persist(); render(); toast(result.message,result.encounter?'warning':result.ok?'info':'warning'); return;
+    const destination=LOCATIONS.find(place=>place.id===id);
+    if(!destination){toast('Выбери точку на карте.','warning');return;}
+    state.game.player.navigationTargetId=destination.id;state.ui.modal=null;state.ui.pdaOpen=false;state.ui.tab='location';
+    persist();render();toast(`Маршрут отмечен: «${destination.name}». Добирайся пешком по общей карте.`,'success');return;
   }
   if (action==='artifact-start') {
     const result=startArtifactHunt(state.game);
@@ -650,15 +648,9 @@ root.addEventListener('click', (event) => {
     persist(); render(); toast(result.message,result.ok?'success':'warning'); return;
   }
   if (action==='drop-item') {
-    if (removeItem(state.game.inventory,id,1)) {
-      if (state.game.artifactBelt) { let keep= countItem(state.game.inventory,id); state.game.artifactBelt=state.game.artifactBelt.map(value=>{ if(value!==id)return value; if(keep>0){keep--;return value;} return null; }); }
-      if (id==='boltpack') state.game.boltsRemaining=Math.max(0,(state.game.boltsRemaining ?? 0)-10);
-      if (['ammo9x18','ammo9x19','ammo545','shells'].includes(id)) {
-        const capacity=id==='shells'?8:id==='ammo545'?30:12;
-        state.game.ammoRounds[id]=Math.max(0,(state.game.ammoRounds?.[id] ?? 0)-capacity);
-      }
-      persist(); render(); toast(`Предмет «${getItem(id)?.name||id}» выброшен.`);
-    }
+    const result=dropItemToWorld(state.game,id);
+    if(!result.ok){toast(result.reason,'warning');return;}
+    persist(); render(); toast(`Предмет «${result.item.name}» выброшен рядом. Его можно подобрать кнопкой действия.`,'success');
     return;
   }
   if (action==='combat-attack' || action==='combat-defend' || action==='combat-flee') {
@@ -707,9 +699,10 @@ root.addEventListener('click', (event) => {
   if (action==='export-save') { persist(); exportSave(state); return; }
   if (action==='location-open') { state.ui.mapLocationId=id; state.ui.modal='map-location'; return render(); }
   if (action==='map-modal-travel') {
-    const result=travelTo(state.game,id);
-    state.ui.modal=null; state.ui.tab='location'; state.ui.pdaOpen=false; persist(); render();
-    toast(result.message,result.encounter?'warning':result.ok?'info':'warning'); return;
+    const destination=LOCATIONS.find(place=>place.id===state.ui.mapLocationId);
+    if(!destination){toast('Не удалось найти отмеченную точку.','warning');return;}
+    state.game.player.navigationTargetId=destination.id;state.ui.modal=null;state.ui.pdaOpen=false;state.ui.tab='location';
+    persist();render();toast(`Пеший маршрут отмечен: «${destination.name}».`,'success');return;
   }
   if (action==='trade-open') { state.ui.tradeNpcId=id; state.ui.pdaOpen=false; state.ui.modal='trade-panel'; persist(); return render(); }
   if (action==='trade-back') { state.ui.tradeNpcId=null; state.ui.modal='trade-panel'; persist(); return render(); }
@@ -942,6 +935,6 @@ setInterval(()=>{
   updateClockDisplays();
 },15000);
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
-  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=3600').catch(()=>{}));
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js?v=4110').catch(()=>{}));
 }
 render();
